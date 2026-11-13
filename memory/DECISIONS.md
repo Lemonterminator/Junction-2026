@@ -30,3 +30,11 @@ Retain both scoring rubrics and attribute them separately. Do not assume the Git
 rubric supersedes the PDF. Ask organizers for the final rubric before score-based
 prioritization. Additional repositories are optional opportunities; Instant Learn
 and performance profiling are recommendations, not adopted contest requirements.
+
+## 2026-11-14 — Python package and workstation runtime
+
+`src/defect_sorter` is a uv project (`pyproject.toml`, `uv.lock`, Python 3.12) with a light default install (NumPy, OpenCV) and opt-in extras `camera` (pyrealsense2, Linux) and `anomaly` (Anomalib 2.7.0 + OpenVINO + CPU torch). Reason: tests run on any laptop while the workstation runs the same code natively with direct D415 and GPU/NPU access. Python 3.12 is what was installed and verified on the workstation (pyrealsense2, Anomalib, OpenVINO); the Docker Anomalib image uses 3.13 and remains an alternative, not yet aligned. Status: adopted on branch `feat/defect-sorter-perception`.
+
+## 2026-11-14 — Perception: depth for objects, colour for bowls
+
+The table background stays cluttered, so objects are found by height above a fitted table plane (D415 depth) rather than by appearance, and shallow bowls by colour. The D415 colour sensor uses a fixed 4600 K white balance because auto white balance shifted every hue under venue lighting. Evidence: live run on 2026-11-13/14 (see handoff). Status: adopted.

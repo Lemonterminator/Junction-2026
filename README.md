@@ -35,6 +35,30 @@ PDF contain different judging rubrics; both are retained pending organizer confi
   - **`silver/`**: Comprehensive historical archive covering 147 challenges across 2017–2025 remapped into track categories (AI Infrastructure, Agentic AI, Data, Hardware, Healthcare, FinTech) in both English and Chinese editions.
   - **`gold/`**: Production-grade benchmark datasets for verified 2024–2025 landmark winners across the 6 tracks with strict 21-column schema (English & Chinese editions).
 
+## Code: `defect_sorter`
+
+Python package for the Intel Physical AI Challenge pipeline (PERCEIVE → DETECT → REASON → ACT → OPTIMIZE). Agent and contributor rules (TDD, uv, tabs, hardware safety) are in [AGENTS.md](AGENTS.md).
+
+| Module | Role |
+| :--- | :--- |
+| `src/defect_sorter/geometry.py` | Camera intrinsics, deprojection, RANSAC table plane, height above table |
+| `src/defect_sorter/scene.py` | Bowls by colour, objects by height, object-in-bowl relation (`detect_scene`) |
+| `src/defect_sorter/realsense.py` | D415 aligned colour + depth with fixed white balance |
+| `src/defect_sorter/live_demo.py` | Live MJPEG debug page for the top camera |
+| `src/defect_sorter/anomaly_smoke.py` | Anomalib → OpenVINO export and CPU/GPU/NPU latency check |
+
+```bash
+uv sync                                   # light install: tests run anywhere
+uv run pytest -q && uv run ruff check . && uv run ruff format --check .
+
+# on the Intel workstation (Ubuntu, Python 3.12)
+uv sync --extra camera --extra anomaly
+uv run sorter-live-demo --host <tailscale-ip> --port 8090
+uv run sorter-anomalib-smoke --workdir data/smoke
+```
+
+Only one process can open the D415: stop the live demo before Physical AI Studio previews, records or runs a policy. Workstation setup is tracked in [docs/infrastructure/SETUP_STATUS.md](docs/infrastructure/SETUP_STATUS.md).
+
 ## Junction 2026 Challenge Briefs
 
 Updated 2026-11-13. The Intel brief has been reviewed against all 15 rendered PDF pages, including image-based requirements and the 100-point judging table. Source facts, analysis recommendations, and unresolved event details are separated in Gold.

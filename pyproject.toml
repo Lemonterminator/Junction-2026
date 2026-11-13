@@ -1,0 +1,69 @@
+[project]
+name = "defect-sorter"
+version = "0.1.0"
+description = "Intel Physical AI challenge: perceive, detect defects, decide and sort with an SO-101 arm"
+readme = "README.md"
+authors = [
+	{ name = "d3iger", email = "55005805+d3iger@users.noreply.github.com" }
+]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+	"numpy>=2.1",
+	"opencv-python-headless>=4.10",
+]
+
+[project.optional-dependencies]
+# Intel RealSense capture; the SDK wheel is only used on the Ubuntu workstation.
+camera = [
+	"pyrealsense2>=2.56; sys_platform == 'linux'",
+]
+# Anomalib training/export and OpenVINO inference.
+anomaly = [
+	"anomalib[openvino]==2.7.0",
+	"openvino>=2026.4",
+	"nncf>=2.19",
+	"torch>=2.9",
+	"torchvision>=0.24",
+]
+
+[project.scripts]
+sorter-live-demo = "defect_sorter.live_demo:main"
+sorter-anomalib-smoke = "defect_sorter.anomaly_smoke:main"
+
+[build-system]
+requires = ["uv_build>=0.12.15,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+	"pytest>=9.1",
+	"ruff>=0.17",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+extend-exclude = ["docs", "images", "external", "scripts"]
+
+[tool.ruff.format]
+indent-style = "tab"
+
+[tool.ruff.lint]
+select = ["B", "C4", "E", "F", "G", "I", "LOG", "N", "PT", "RUF", "S", "SIM", "T20", "UP", "W"]
+ignore = ["W191", "E101", "E111", "E114", "E117", "E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers --strict-config"

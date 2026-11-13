@@ -27,3 +27,10 @@ checkpoints/
 *.local.md
 compose.local.yaml
 
+# Python tooling caches and build outputs
+*.py[oc]
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info

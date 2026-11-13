@@ -53,3 +53,14 @@ No closed-loop controller or shared camera service exists.
 3. Confirm the final judging rubric and kickoff rules with organizers.
 4. Record clean demonstrations, establish the anomaly baseline, and implement a
    single-object automatic sorting loop before adding optional segmentation/fusion.
+
+## Update 2026-11-14 — workstation runtime and perception package
+
+Supersedes the "No Ubuntu deployment, device capture, GPU/NPU inference" lines above for the shared Ubuntu workstation (branch `feat/defect-sorter-perception`). Details: [handoff](handoffs/2026-11-14-workstation-runtime-and-perception.md).
+
+- Workstation runs upstream Studio via its own `application/docker` compose (profile `xpu`, privileged) at port 7860; devices plugged in after container start are invisible until `docker compose restart`.
+- Studio project "Defect Sorting (Intel Challenge)": cameras `wrist` (USB2.0_CAM1), `front` (webcam), `top` (RealSense D415, colour); follower `5AAF262737` and leader `5AE7045026` added and online; environment "Sorting cell" pairs them. Arms are **not calibrated**; no teleoperation or recording yet.
+- Host Intel runtimes installed (OpenCL/Level Zero GPU, NPU user-space driver 1.38.0). OpenVINO lists CPU, GPU and NPU; a Padim (resnet18) OpenVINO export ran on all three: CPU 5.0 ms, GPU 1.5 ms, NPU 8.5 ms per 1×3×256×256 inference. NPU needs a static input shape.
+- `src/defect_sorter`: uv package with TDD tests (20 passing). `detect_scene` finds objects by height above a RANSAC table plane and bowls by colour; live D415 run detected both bowls and two bricks at ~34 fps.
+
+Next: calibrate both arms (needs a person), fix camera mounts, teleop dry run, record demonstrations; collect good-object crops for the Anomalib baseline.
