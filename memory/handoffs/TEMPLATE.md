@@ -1,6 +1,6 @@
 # YYYY-MM-DD — Short task name
 
-- Author / AI:
+- Author:
 - Branch and commit (or explicitly uncommitted):
 - Scope:
 
