@@ -52,3 +52,10 @@ Example scripts and data samples to help teams get started.
 ## About the Partner
 
 The mission for Sensofusion is to secure personnel and infrastructure against drones with our Airfence product. Our systems are ready, tested and shipping. Sensofusion has governmental customers in Europe, North America, Middle East and Asia.
+
+---
+
+## Winning Solutions & Verified Historical Cases
+
+- **Track Winner 🥇**: **Academic Menaces** `[L1]` — Engineered a native asynchronous event-camera machine vision pipeline (`< 1 ms` latency, `> 98%` blade RPM accuracy up to 6,000+ RPM, `120 dB+` dynamic range) using C++17, OpenEB, time-surface feature extraction, and frequency-domain optical tachometry instead of downsampling event streams to 30 fps frames.
+- **Bronze & Gold Reference**: [`2025_Sensofusion_AcademicMenaces.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2025_Sensofusion_AcademicMenaces.md) | [Gold Hardware Track (`hardware.md`)](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/gold/en/hardware.md)

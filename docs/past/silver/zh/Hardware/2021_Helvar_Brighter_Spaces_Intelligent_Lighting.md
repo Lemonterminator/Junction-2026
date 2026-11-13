@@ -39,3 +39,13 @@
 车库：参与者将获得来自室内车库的训练数据集，使用运动和音频传感器收集。
 
 鼓励您使用其他数据源，并随时使用来自其他Junction挑战的数据或将您的想法与其他挑战结合，如果您认为合适。
+
+---
+
+## 历届获奖方案与验证项目
+
+- **赛题获胜者 & 全场 Top-10 总决赛入围（200+ 项目中）**：**Lumen Loop 3.0**（Elizaveta Lebedeva、Denys Kovalenko、Carlos Bentes — 2019 Helvar 雷达冠军原班核心再战）`[L1]`/`[L2]` — 定位 *“智能照明领域的 AirTag”*，主攻子题 1 *“设备都在哪？”*：将稀疏异步 PIR/音频触发事件按 5 秒窗口分桶（`CombinedCorrelator`），基于 `scipy` 皮尔逊共现相关性反推未标定灯具坐标，持久化 5 座建筑模型（`.pickle`），并提供 64 px 建筑平面瓦片图与人工复核推荐工作流（Flask `/tiles` + `/recommendations`）。
+- **赛题获胜记录（Helvar 获奖团队）**：**FloorMagic (Healthy Mind Tech)**（Paula Petcu、Troels Nielsen、Martin Basterrechea、Kim Ng）`[L1]`/`[L2]` — 基于人员移动传感数据预测楼宇未定位传感器物理坐标 *(源码未公开)*。
+- **硬件与工程经验**：面对建筑 PIR/声学等稀疏非均匀触发事件流，利用多尺度粗粒度时间分桶（如 `5s`）结合加权相关性比复杂序列模型更稳健；将预测直接落成“建筑瓦片地图 + Top-K 点位人工确认”的施工端到端闭环是打动工业评委的关键。
+- **Bronze 原始档案**：[`2021_Helvar_BrighterSpaces_LumenLoop3_FloorMagic.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2021_Helvar_BrighterSpaces_LumenLoop3_FloorMagic.md)
+- **原始信源**：[GitHub (`LizaLebedeva/junction-2021`)](https://github.com/LizaLebedeva/junction-2021) | [YouTube 演示](https://www.youtube.com/watch?v=dX27x6s6wl4) | [Healthy Mind Tech 官网](https://healthymindtech.com/) | [Junction Medium 复盘](https://hackjunction.medium.com/junction-2021-intelligent-lighting-as-the-engine-for-brighter-spaces-1926e69eed6b)

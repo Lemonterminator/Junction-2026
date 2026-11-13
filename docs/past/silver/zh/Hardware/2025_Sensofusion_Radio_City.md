@@ -80,3 +80,10 @@ def lat_lon_to_model_space(lat_lon):
 ## 关于合作方 (About Company)
 
 Sensofusion的使命是通过我们的Airfence产品保护人员和基础设施免受无人机威胁。我们的系统已准备就绪、经过测试并正在交付。Sensofusion在欧洲、北美、中东和亚洲拥有政府客户。
+
+---
+
+## 历届获奖方案与验证项目
+
+- **赛题第一名兼 Junction 2025 全场总冠军 🏆**：**WAVELET**（Rudrrayan Manna、Arjun Juneja、Keanu Czirjak、Akshith Alluri）`[L1]` — 使用纯手写 C++20 与 OpenGL 4.6 Compute Shaders 在 GPU 显存内构建 60 FPS 实时 FDTD 麦克斯韦波动方程求解器，基于香港三维城市网格实时演算射频多径反射、建筑物边缘绕射与无线电发射源反向三角定位（单步 `< 16 ms`）。
+- **Bronze & Gold 参考**：[`2025_Sensofusion_WAVELET.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2025_Sensofusion_WAVELET.md) | [Gold 硬件赛道 (`hardware.md`)](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/gold/zh/hardware.md)

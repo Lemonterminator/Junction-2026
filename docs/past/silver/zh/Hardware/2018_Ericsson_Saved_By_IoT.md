@@ -23,3 +23,10 @@
 这个挑战分为两部分：
 - 提供（至少）一个概念性方案，并附上技术可行性证据，说明如何在本地基础设施瘫痪时创建和部署分布式窄带物联网连接。
 - 构建一个应用程序，演示适用的可穿戴设备提供传感器数据并充当通往物联网云端的网关的能力。请注意，同样的解决方案也可用于本地通信基础设施完好的较小规模事件（如车祸）。
+
+---
+
+## 历届获奖方案与实证记录
+
+- **已核验冠军概念 (`[L1]` EU H2020 SOFIE 官方博客)**：欧盟 H2020 SOFIE 项目的 Junction 2018 现场复盘证实，Ericsson Smart Cloud（*Saved by IoT*）冠军团队开发了一套**由无人机空投部署的长续航蓝牙 Mesh（Bluetooth Mesh）灾区应急通信装置** *(该官方报道未披露具体冠军队名及成员；架构有别于 `Help.io` 基于 Movesense 胸带的医疗分诊网)*。
+- **Bronze 原始档案**：[`2018_Ericsson_Saved_By_IoT.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2018_Ericsson_Saved_By_IoT.md)

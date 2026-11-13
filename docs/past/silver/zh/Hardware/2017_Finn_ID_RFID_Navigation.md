@@ -62,3 +62,11 @@ Finn-ID数字化工作流管理和物流。我们通过最先进的移动和工�
 目前我们有50名熟练且热情的专业人员。
 
 我们参加此次活动是为了获得开发软件的全新视角。
+
+---
+
+## 已核验提交代码与历史记载
+
+- **已验证赛题开源提交 (`[L1]` GitHub)**：[`Konkko/junction2017-finnid`](https://github.com/Konkko/junction2017-finnid)（Niko Autio & Kimmo Sairanen）— 轮询接入 Finn-ID 现场 UHF RFID 定位服务流。
+- **高校团队获胜记载 (`[L2]` `news.itmo.ru` / `mbradio.ru`)**：俄罗斯 ITMO 团队 **Itis.Team** 记载其基于智能仓库 RFID 安全系统（`Finn-id-universal security`）参与 2017 RFID 赛道获胜 *(Finn-ID 官方未留存单独排名榜)*。
+- **Bronze 原始档案**：[`2017_FinnID_StoraEnso_IoT.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2017_FinnID_StoraEnso_IoT.md)

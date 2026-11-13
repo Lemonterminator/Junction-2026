@@ -13,9 +13,10 @@
      - **核心方向**: 基于智能穿戴与手机六轴 IMU（加速度计、陀螺仪）多传感器融合，实时识别运动姿态、运动量化分析与健康风险预警。
   2. **2025: Creative 3D UI Apps (创意 3D 用户界面应用)**
      - **核心方向**: 打破平面屏幕 UI 局限，打造基于 WebGL / WebGPU / Spatial 空间计算的原生 3D 应用与交互式桌面。
-- **代表性获胜与入围项目**:
-  - **Motion Potion** (Andras Adam 等人开发的姿态动作感知与游戏化交互引擎，开源仓库: [`andras-adam/motion-potion`](https://github.com/andras-adam/motion-potion))；
-  - **Mankeli Solutions 战队** (Jesse Lappalainen 团队曾斩获华为赛道全球第二名 2nd Place 🥈 赢得 €5,000 奖金)。
+- **2023–2024 历史查证与档案勘误说明**:
+  - **J-mp (Junior Movement Platform)** — **Junction 2023** 华为 `Sense the Motion` 赛道 **2nd Place 🥈**，由 **Mankeli Solutions**（Jesse Lappalainen 等人）开发，开源仓库：[`Mankeli-Software/junction2023`](https://github.com/Mankeli-Software/junction2023)（详见勘误专卷 [2023_Huawei_SenseTheMotion_Jmp_MotionPotion_Vital.md](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2023_Huawei_SenseTheMotion_Jmp_MotionPotion_Vital.md)）；
+  - **Motion Potion** — 由 `andras-adam` 等人于 **Junction 2023** 华为赛道开发的非获奖参赛作品（Expo/React Native Android `DeviceMotion` 应用，未获官方获奖名次；开源仓库：[`andras-adam/motion-potion`](https://github.com/andras-adam/motion-potion)），**此前误将该 2023 参赛项目归为 Mankeli Solutions 2024 年获奖作品，现已澄清修正**；
+  - **2024 华为赛道实际官方获奖者**: `[Not publicly documented]`（2024 年未见公开确证的独立获奖团队记录）。
 
 ---
 
@@ -73,7 +74,9 @@ flowchart TD
 
 ## 5. 关联参考资料 (References)
 
-- **开源代表仓库**: [GitHub - andras-adam/motion-potion](https://github.com/andras-adam/motion-potion)
-- **获胜团队参考**: [jemlap.fi - Jesse Lappalainen / Mankeli Solutions](https://jemlap.fi)
+- **2023 华为赛道 2nd Place 获奖仓库 (J-mp)**: [GitHub - Mankeli-Software/junction2023](https://github.com/Mankeli-Software/junction2023)
+- **2023 华为赛道参赛项目仓库 (Motion Potion，非获奖/2023 参赛)**: [GitHub - andras-adam/motion-potion](https://github.com/andras-adam/motion-potion)
+- **获胜团队参考**: [jemlap.fi - Jesse Lappalainen / Mankeli Solutions](https://www.jemlap.fi/projects)
+- **交叉核查勘误档案**: [2023_Huawei_SenseTheMotion_Jmp_MotionPotion_Vital.md](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2023_Huawei_SenseTheMotion_Jmp_MotionPotion_Vital.md)
 - **对应赛题存档 1**: [2024_Huawei_Sense_The_Motion.md](file:///C:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/silver/zh/Hardware/2024_Huawei_Sense_The_Motion.md)
 - **对应赛题存档 2**: [2025_Huawei_Creative_3D_UI_Apps.md](file:///C:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/silver/en/Entertainment/2025_Huawei_Creative_3D_UI_Apps.md)

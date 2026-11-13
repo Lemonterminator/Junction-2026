@@ -33,3 +33,14 @@ We don't care how you optimize the delivery of customers, it can be a simple if 
 ## Resources
 
 Ericsson will provide: A server with a simple API where you can control your fleet of cars and see the world status. In addition to this, we will also provide amazing mentors.
+
+---
+
+## Winning Solutions & Verified Historical Cases
+
+- **1st Place (Winner)**: **League of Agents** (including Adithya Sireesh) `[L1]`/`[L2]` — Applied reinforcement learning (RL) multi-agent dispatch policies against Ericsson's centralized low-latency fleet control server API, outperforming competing teams in head-to-head multi-round city transport heats.
+- **1st Runner-up (2nd Place)**: **5G** `[L1]`
+- **2nd Runner-up (3rd Place)**: **FastCity** `[L1]`
+- **Disambiguation Note**: Separate from Ericsson's concurrent *Security Awareness for Kids* challenge (won by 2019 Overall Grand Winner `TassuPassu`, software) and unrelated to the `traficom.fi` *5G Cyber Security Hackathon*.
+- **Bronze Case Study**: [`2019_Ericsson_5GTransport_LeagueOfAgents.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2019_Ericsson_5GTransport_LeagueOfAgents.md)
+- **Primary Sources**: [Junction 2019 Winners (Medium)](https://medium.com/hack-junction/the-winners-of-junction-2019-de539036dc3f) | [Adithya Sireesh Resume](https://sireesh.io/AdithyaSireesh_Resume.pdf)

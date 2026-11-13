@@ -51,3 +51,15 @@ https://bitbucket.org/suunto/movesense-mobile-lib （即将公开）
 ## 关于合作方 (About Company)
 
 Suunto 是一家芬兰制造商，生产世界知名的运动手表、潜水电脑和适用于最恶劣条件的精密仪器。我们的新计划 Movesense 是一个开放开发环境和可编程传感器，用于运动追踪及其他传感，服务于运动及更广泛领域。借助 Movesense，您可以快速且经济高效地将自己的传感器创意商业化，而无需担心硬件开发和制造。
+
+---
+
+## 历届获奖方案与验证项目
+
+*(2017 届共有 **24 个 Movesense 项目**提交并角逐三大分类奖 `[L1]` Movesense 2017 回顾)*：
+- **Movesense 健康类冠军 (Health Challenge Winner)**：**ReCover**（**DF LAB**，拉脱维亚大学：Austris Cīrulnieks、Elvijs Viļķels、Dāvis Mednis、Mārcis Nīmants；临床康复构想发起人 Emīls Sjundjukovs 博士）`[L1]`/`[L2]` — 在术后膝关节上下方同步佩戴**两枚 Movesense BLE IMU 传感器**，实时传至 iOS 应用差分计算精确膝关节屈伸角度与动作动画引导（赢得 6 枚传感器 + 4 块 Suunto Spartan 手表；其中 4 名核心成员在 2018 年再携 Movesense 斩获 Intel 冠军与全场亚军 `Help.io`）。
+- **Movesense 运动类奖 & Health 总赛道全场第一**：**Ne'e**（约 40 支健康赛道队伍中总榜第一）`[L1]` — 汇聚全队多名运动员 Movesense 动作与心率遥测，在教练实时看板上提炼出综合疲劳度指数（`"ne'e factor"`）。
+- **Movesense 通用物联网奖 (General IoT Award)**：**Superman Navigation** `[L1]` — 通过 Movesense 磁力计连续读取人体朝向与目的地航向偏差，动态调制手机触觉震动频率与强度实现“零视觉干扰”盲态导航。
+- **值得关注提交 (`[L1]` Devpost)**：**Spin Coach**（Movesense + Futurice + TensorFlow 飞盘投掷动力学分析）。
+- **Bronze 原始档案**：[`2017_Suunto_Movesense_Winners.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2017_Suunto_Movesense_Winners.md)
+- **原始信源**：[Movesense 2017 回顾](https://www.movesense.com/news/2017/11/24-movesense-projects-at-junction-hackathon/) | [拉脱维亚大学 (`DF LAB`)](https://eztf.lu.lv/par-mums/zinas/zina/t/29783/) | [Devpost (`ReCover`)](https://devpost.com/software/recover-pfrq3g) | [Devpost (`Ne'e`)](https://devpost.com/software/ne-e) | [Devpost (`Superman Navigation`)](https://devpost.com/software/superman-navigation)

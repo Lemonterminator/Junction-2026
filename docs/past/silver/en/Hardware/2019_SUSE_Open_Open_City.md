@@ -29,3 +29,15 @@ Participants of the challenge will get access to a dedicated WiFi network and a 
 Suse will provide: We will provide a cluster of edge computing nodes including hardware and software. This cluster will serve as the deployment platform for the containerized applications built by the challenge participants. We will provide open implementation of a subset of certain ETSI MEC APIs. 
 
 More demanding solutions can utilize SUSE CAP which enables easy cloud native application development. These solutions must interact with the devices and APIs on uMEC edge network.
+
+---
+
+## Winning Solutions & Verified Historical Cases
+
+- **1st Place (Winner)**: **Flowify** `[L1]` *(team roster and source repo not publicly archived)*
+- **1st Runner-up (2nd Place)**: **suseXcity** `[L1]`
+- **2nd Runner-up (3rd Place)**: **Ravenholm** `[L1]`
+- **On-Site Edge Hardware Testbed Architecture (`[L2]` LF Edge / Akraino MicroMEC)**: SUSE, Nokia, and Arm deployed physical tabletop clusters of **Raspberry Pi 3B+ / 4B (`<= 4 GB RAM`)** running lightweight **k3s**, **OpenFaaS Cloud**, and an **ETSI MEC API** subset over dedicated local Wi-Fi.
+- **Hardware & Engineering Takeaways**: Multi-team stateful containers on Pi SD cards exposed severe I/O bottlenecks and corruption risks during Junction 2019—directly driving LF Edge Akraino R3 to migrate to **PXE network boot + shared iSCSI storage**; multi-arch `arm64`/`armhf` builds must also be prepared before arriving at an Arm edge table.
+- **Bronze Case Study**: [`2019_SUSE_OpenOpenCity_Flowify.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2019_SUSE_OpenOpenCity_Flowify.md)
+- **Primary Sources**: [Junction 2019 Winners (Medium)](https://medium.com/hack-junction/the-winners-of-junction-2019-de539036dc3f) | [LF Edge Akraino MicroMEC Blog](https://www.lfedge.org/2020/08/13/micromec-now-available-with-the-akraino-r3-release/)

@@ -73,3 +73,10 @@ On-site technical mentors from Harvia and SÄDE Innovations
 ## About the Partner
 
 Harvia is the global leader in sauna & spa solutions with over 75 years of expertise and exports to more than 80 countries – 80% of our revenue comes from international markets. Our mission is “healing with heat” – promoting wellbeing through sauna, for example better sleep and recovery. Now, we are taking the next step: building a digital wellness ecosystem around saunas with AI, IoT and subscription-based services. By joining Junction, we want to meet the brightest minds who can help us redefine what sauna means in the digital age. Let’s sauna.
+
+---
+
+## Winning Solutions & Verified Historical Cases
+
+- **Challenge Winner & Extended Race Finalist 🥇**: **The Listening Sauna / Cooperative Routine Mystery** (Erik Gelcich et al.) `[L1]` — Respecting the screen-free Finnish sauna experience in `80°C–100°C` steam rooms, paired Harvia wireless sensors, mmWave presence detection, and acoustic *löyly* steam sensing over Harvia GraphQL / MQTT / Xenio Gateway with calm post-sauna recovery reflections in the cooling lounge.
+- **Gold Hardware Track Reference**: [Gold Hardware Track (`hardware.md`)](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/gold/en/hardware.md)

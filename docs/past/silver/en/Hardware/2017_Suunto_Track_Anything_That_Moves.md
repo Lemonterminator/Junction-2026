@@ -51,3 +51,15 @@ The main criteria are the level of added value provided to the selected use case
 ## About the Partner
 
 Suunto is a Finnish manufacturer of world renowned sports watches, dive computers and precision instruments for the toughest conditions. Our new initiative, Movesense, is an open development environment and a programmable sensor for motion tracking and other sensoring for and beyond sports. With Movesense, you can commercialize your own sensor ideas quickly and cost effectively without having to worry about hardware development and manufacturing.
+
+---
+
+## Winning Solutions & Verified Historical Cases
+
+*(24 submitted Movesense projects across three prize categories `[L1]` Movesense 2017 Recap)*:
+- **Movesense Health Challenge Winner**: **ReCover** (**DF LAB**, Univ. of Latvia: Austris Cīrulnieks, Elvijs Viļķels, Dāvis Mednis, Mārcis Nīmants; clinical concept initiated by PhD researcher Emīls Sjundjukovs) `[L1]`/`[L2]` — Mounted **dual synchronized Movesense BLE IMU sensors** above and below the knee joint feeding a live iOS physiotherapy app calculating real-time knee flexion angles (won 6 Movesense sensors + 4 Suunto Spartan watches; 4 members later returned in 2018 to win Intel & 2nd Overall as `Help.io`).
+- **Movesense Sports Award & Overall Health Track Winner**: **Ne'e** (top project among ~40 Health track teams) `[L1]` — Aggregated multi-athlete Movesense motion and heart-rate telemetry onto a live coaching dashboard computing a composite athlete fatigue index (`"ne'e factor"`).
+- **Movesense General IoT Award**: **Superman Navigation** `[L1]` — Translated real-time Movesense magnetometer heading deltas relative to a target waypoint into dynamic smartphone haptic vibration cadence/intensity for eyes-free navigation.
+- **Notable Devpost Submission**: **Spin Coach** (Movesense + Futurice + TensorFlow disc-golf kinematics).
+- **Bronze Case Study**: [`2017_Suunto_Movesense_Winners.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2017_Suunto_Movesense_Winners.md)
+- **Primary Sources**: [Movesense 2017 Recap](https://www.movesense.com/news/2017/11/24-movesense-projects-at-junction-hackathon/) | [Univ. of Latvia (`DF LAB`)](https://eztf.lu.lv/par-mums/zinas/zina/t/29783/) | [Devpost (`ReCover`)](https://devpost.com/software/recover-pfrq3g) | [Devpost (`Ne'e`)](https://devpost.com/software/ne-e) | [Devpost (`Superman Navigation`)](https://devpost.com/software/superman-navigation)

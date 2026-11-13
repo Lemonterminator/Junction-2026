@@ -45,3 +45,11 @@
 ## 关于合作方 (About Company)
 
 Planmeca Oy 是全球领先的牙科设备制造商之一。我们的产品涵盖现代牙科诊所所需的一切——从数字牙科单元到 CAD/CAM 解决方案、二维和三维成像设备以及软件。我们对创新的不懈追求、与医疗保健专业人员和大学的合作以及对研发的坚定承诺是我们成功的基石。我们的使命是通过革命性创新实现更好的患者护理。
+
+---
+
+## 历届获奖方案与验证项目
+
+- **赛题第一名 (13 支队伍中夺冠)**：**AR Dentist**（Samuel Laska & Linda Ukkonen，双人跨学科队）`[L1]` — 构建“医生笔记本参数工作站 + 患者移动端实时 AR 人脸三维拟合”双端协同临床沟通工具，直接导入 Planmeca 3D 口腔成像数据并实时将数字化牙科方案叠加渲染至患者面部影像。
+- **Bronze 原始档案**：[`2017_Planmeca_AR_Dentist.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2017_Planmeca_AR_Dentist.md)
+- **原始信源**：[Planmeca 官方新闻室](https://www.planmeca.com/news-and-events/newsroom/2018/planmeca-challenged-hackers-to-reshape-the-future-of-dentistry/)

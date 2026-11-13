@@ -58,3 +58,11 @@ During the event, participating teams will be creating novel sports and health f
 - Free online datasets i.e. from Kaggle\
 \
 We are going to provide some STM sensor tile development kits to participants for development but otherwise, teams should use their own laptops, mobile phones, or smartwatches.\
+
+---
+
+## Winning Solutions & Verified Historical Cases
+
+- **2024 Track Winners**: `[Not publicly documented]` (Verified prior **2023 Junction Huawei — `Sense the Motion` 2nd Place** is **J-mp (Junior Movement Platform)** by Mankeli Solutions / Jesse Lappalainen et al. `[L1]` [`Mankeli-Software/junction2023`](https://github.com/Mankeli-Software/junction2023) & [`jemlap.fi/projects`](https://www.jemlap.fi/projects): Flutter mobile sensor platform combining `sensors_plus` 3-axis accelerometer burst detection `x+y+z > 30.0`, 100 ms `Vibration.vibrate` haptic actuator feedback, `flutter_compass` magnetometer, `geolocator` GPS, and `mobile_scanner` QR multi-player teams).
+- **Documented 2023 Open-Source Peer Submissions (Placement Unverified `[L1]`)**: **Motion Potion** ([`andras-adam/motion-potion`](https://github.com/andras-adam/motion-potion), Expo/React Native `DeviceMotion.setUpdateInterval(1)` 500-frame sliding window + `lpf` + time-domain `circle`/`line_x`/`line_y` classifier) & **Vital** ([`MiroKeimioniemi/vital-app`](https://github.com/MiroKeimioniemi/vital-app), wearable telemetry -> Azure Functions -> Roblox).
+- **Bronze & Gold Reference**: [`2023_Huawei_SenseTheMotion_Jmp_MotionPotion_Vital.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2023_Huawei_SenseTheMotion_Jmp_MotionPotion_Vital.md) | [Gold Hardware Track (`hardware.md`)](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/gold/en/hardware.md)

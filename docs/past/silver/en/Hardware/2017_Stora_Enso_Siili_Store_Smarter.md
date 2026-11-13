@@ -66,3 +66,11 @@ Stora Enso is transforming from a traditional paper and board producer to a rene
 
 Siili Solutions is a creative design and technology powerhouse. We are a community of digital craftsmen and -women, Siilis, combining data, design and technology. Our strengths lie in our ways of working: The Lean philosophy, Design Thinking, Agile methods and co-creation. Together with our customers, we create user-centric solutions, digitalized business and life-changing experiences. Since 2005, we have grown into a company of over 500 experts, and today we serve the biggest Finnish companies and selected global front runners from our offices in Helsinki, Oulu, Wroclaw, Berlin, Los Angeles.
 www.siili.com
+
+---
+
+## Verified Hardware Kit & Evidence Notes
+
+- **Verified On-Site Hardware Kit (`[L1]` GitHub `serge-sedelnikov/junction2017`)**: Confirmed Siili/Stora Enso supplied real **Impinj UHF RFID** tags + reader/antennas (`Socket.IO` + MQTT events) plus a **LoRa** environmental sensor node exposing a GraphQL endpoint (`temperature`, `humidity`, `movement`).
+- **ITMO Team Claim (`[L2]` `news.itmo.ru`)**: **Itis.Team** (`It is alive`) reported a smart-warehouse IoT win across the 2017 RFID tracks *(official Stora Enso winner press release not preserved online)*.
+- **Bronze Case Study**: [`2017_FinnID_StoraEnso_IoT.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2017_FinnID_StoraEnso_IoT.md)

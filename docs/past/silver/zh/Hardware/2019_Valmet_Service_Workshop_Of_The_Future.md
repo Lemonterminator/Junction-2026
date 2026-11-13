@@ -32,3 +32,13 @@ Valmet将提供：
 3D模型和XR平台
 来自真实造纸机的纸幅数据集
 来自造纸机辊子圆度测量的数据集
+
+---
+
+## 历届获奖方案与验证项目
+
+- **赛题第一名 (Winner)**：**PaperCut Inc.**（含成员 Ucha Vekua）`[L1]`/`[L2]` — 基于 ValmetXR / Unity 平台与 Node-RED 工业流对接，开发了一套三维 VR 工业检测工具，将造纸机大型辊筒表面肉眼完全不可见的微米级圆度与几何缺陷放大并映射到 3D 辊筒模型上，直接缩短针对“每分钟损失 €50 停机成本”的故障排查与磨削校准时间。
+- **赛题第二名 (1st Runner-up)**：**Smooth Grindr** `[L1]` *(团队名单与源码未公开归档)*。
+- **硬件与工程经验**：直接复用出题方提供的 ValmetXR 与 Node-RED 底座省去了繁琐的 VR 基础设施编写时间，让团队专注于“如何按物理坐标比例科学放大微米级隐性形变”这一核心工业可视化痛点。
+- **Bronze 原始档案**：[`2019_Valmet_ServiceWorkshop_PaperCut_Inc.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2019_Valmet_ServiceWorkshop_PaperCut_Inc.md)
+- **原始信源**：[Junction 2019 官方获奖公告 (Medium)](https://medium.com/hack-junction/the-winners-of-junction-2019-de539036dc3f) | [阿尔托大学 & Valmet 官方新闻](https://www.aalto.fi/en/news/aalto-university-and-valmet-challenge-junction-participants-to-create-a-service-workshop-of-the)

@@ -39,3 +39,13 @@ BUILDINGS The participants are given datasets from indoor premises. The data wil
 GARAGE The participants are given a training dataset from an indoor garage, collected using motion and audio sensors. 
 
 You are encouraged to use other data sources and feel free to use data from/combine your ideas with other Junction challenges if you see a fit.
+
+---
+
+## Winning Solutions & Verified Historical Cases
+
+- **Challenge Winner & Top-10 Overall Finalist (200+ Projects)**: **Lumen Loop 3.0** (Elizaveta Lebedeva, Denys Kovalenko, Carlos Bentes — returning core duo of the 2019 Helvar Radar winners) `[L1]`/`[L2]` — Built `"AirTag meets intelligent lighting"` solving Challenge 1 (*Where are all the devices?*): discretized sparse PIR/audio timestamps into 5-second buckets (`CombinedCorrelator`), computed weighted pairwise Pearson correlations (`scipy.stats.pearsonr`) against anchored luminaires, serialized per-site models (`site_1..site_5` `.pickle`), and served 64 px floorplan tiles (`/tiles/<z>/<x>/<y>`) in a human-in-the-loop Flask commissioning UI (`/recommendations/<id>`).
+- **Challenge Winner (Helvar Multi-Challenge Winner Record)**: **FloorMagic (Healthy Mind Tech)** (Paula Petcu, Troels Nielsen, Martin Basterrechea, Kim Ng) `[L1]`/`[L2]` — Predicted unlabelled luminaire/sensor floorplan positions from occupant movement telemetry *(source code not publicly archived)*.
+- **Hardware & IoT Takeaways**: Discretizing sparse, asynchronous building sensor triggers into coarse symmetric time buckets (5 s) makes pairwise spatial co-occurrence tractable without sequence overfitting, while turning model output into a visual Top-K installer recommendation UI closes the commissioning loop.
+- **Bronze Case Study**: [`2021_Helvar_BrighterSpaces_LumenLoop3_FloorMagic.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2021_Helvar_BrighterSpaces_LumenLoop3_FloorMagic.md)
+- **Primary Sources**: [GitHub (`LizaLebedeva/junction-2021`)](https://github.com/LizaLebedeva/junction-2021) | [YouTube Demo](https://www.youtube.com/watch?v=dX27x6s6wl4) | [Healthy Mind Tech](https://healthymindtech.com/) | [Junction Medium](https://hackjunction.medium.com/junction-2021-intelligent-lighting-as-the-engine-for-brighter-spaces-1926e69eed6b)

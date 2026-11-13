@@ -66,3 +66,11 @@ Stora Enso正在从传统的纸张和纸板生产商转型为可再生材料增�
 
 Siili Solutions是一个创意设计和技术强国。我们是一个由数字工匠（Siilis）组成的社区，结合数据、设计和技术。我们的优势在于我们的工作方式：精益哲学、设计思维、敏捷方法和共同创造。我们与客户一起，创造以用户为中心的解决方案、数字化业务和改变生活的体验。自2005年以来，我们已经发展成为一家拥有500多名专家的公司，如今我们在赫尔辛基、奥卢、弗罗茨瓦夫、柏林、洛杉矶的办公室为芬兰最大的公司和选定的全球领先企业提供服务。
 www.siili.com
+
+---
+
+## 现场实测硬件套件与历史记载
+
+- **已验证现场硬件栈 (`[L1]` GitHub `serge-sedelnikov/junction2017`)**：证实 Siili / Stora Enso 在现场提供了 **Impinj UHF RFID** 标签、读写器/天线阵列（经 `Socket.IO` + MQTT 广播读数）及开放 GraphQL 接口（`temperature`、`humidity`、`movement`）的 **LoRa** 环境节点。
+- **高校团队获胜记载 (`[L2]` `news.itmo.ru`)**：ITMO **Itis.Team**（`It is alive`）记载了智能仓储 IoT 获胜记录 *(Stora Enso 官方新闻稿已下线)*。
+- **Bronze 原始档案**：[`2017_FinnID_StoraEnso_IoT.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2017_FinnID_StoraEnso_IoT.md)

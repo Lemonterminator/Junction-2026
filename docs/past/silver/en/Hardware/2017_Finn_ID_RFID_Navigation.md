@@ -61,3 +61,11 @@ We are Finland's forerunners in implementing RFID-based solutions. In the future
 Currently we have 50 skilled and enthusiastic professionals.
 
 We are participating in the event to get a completely new perspective on developing software.
+
+---
+
+## Verified Submissions & Evidence Notes
+
+- **Verified Challenge Submission (`[L1]` GitHub)**: [`Konkko/junction2017-finnid`](https://github.com/Konkko/junction2017-finnid) (Niko Autio & Kimmo Sairanen) — polled Finn-ID's live UHF RFID location stream.
+- **ITMO Team Claim (`[L2]` `news.itmo.ru` / `mbradio.ru`)**: **Itis.Team** reported building a warehouse security RFID system (`Finn-id-universal security`) alongside Stora Enso's RFID track *(exact official ranking between Finn-ID vs. Stora Enso challenges is not independently archived by Finn-ID)*.
+- **Bronze Case Study**: [`2017_FinnID_StoraEnso_IoT.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2017_FinnID_StoraEnso_IoT.md)

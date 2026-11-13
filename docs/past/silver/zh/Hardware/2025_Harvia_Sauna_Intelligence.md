@@ -73,3 +73,10 @@ Harvia GraphQL API（预发布访问）
 ## 关于合作方 (About Company)
 
 Harvia 是桑拿和水疗解决方案的全球领导者，拥有超过 75 年的专业经验，出口到 80 多个国家——我们 80% 的收入来自国际市场。我们的使命是“用热量治愈”——通过桑拿促进健康，例如更好的睡眠和恢复。现在，我们正在迈出下一步：围绕桑拿构建一个由 AI、IoT 和订阅服务组成的数字健康生态系统。通过加入 Junction，我们希望遇见最聪明的人才，帮助我们在数字时代重新定义桑拿的意义。让我们一起桑拿。
+
+---
+
+## 历届获奖方案与验证项目
+
+- **赛题总冠军兼 30 天延伸赛入选者 🥇**：**The Listening Sauna / Cooperative Routine Mystery**（Erik Gelcich 等）`[L1]` — 严格捍卫芬兰桑拿 `80°C–100°C` 高温湿热区的“零屏幕数字排毒”体验，后台静默接入 Harvia 无线 IoT 传感器、毫米波存在雷达与耐温声学泼水（*Löyly*）检测，通过 Harvia GraphQL / MQTT / Xenio 网关传输并在用户步出桑拿到达冷水休息区后再呈现实用疗愈报告与家庭协作健康谜题。
+- **Gold 硬件赛道参考**：[Gold 硬件赛道 (`hardware.md`)](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/gold/zh/hardware.md)

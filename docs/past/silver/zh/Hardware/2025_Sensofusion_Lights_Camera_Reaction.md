@@ -52,3 +52,10 @@
 ## 关于合作方 (About Company)
 
 Sensofusion的使命是通过我们的Airfence产品保护人员和基础设施免受无人机威胁。我们的系统已准备就绪、经过测试并正在交付。Sensofusion在欧洲、北美、中东和亚洲拥有政府客户。
+
+---
+
+## 历届获奖方案与验证项目
+
+- **赛题第一名 🥇**：**Academic Menaces** `[L1]` — 原生异步处理神经拟态事件相机微秒级像素极性流（全链路延迟 `< 1 ms`，`6,000+ RPM` 旋转扇叶测速精度 `> 98%`，`120 dB+` 高动态范围抗强光），基于 C++17、OpenEB、Time-Surface 时空特征表征与频域光测速实现零运动模糊无人机与高速物体追踪。
+- **Bronze & Gold 参考**：[`2025_Sensofusion_AcademicMenaces.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2025_Sensofusion_AcademicMenaces.md) | [Gold 硬件赛道 (`hardware.md`)](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/gold/zh/hardware.md)

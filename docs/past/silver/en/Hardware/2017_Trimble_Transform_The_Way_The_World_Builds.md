@@ -49,3 +49,10 @@ We want to see the next step of the world transformation. Show us how digital in
 ## About the Partner
 
 Trimble is transforming the way the world works by delivering products and services that connect the physical and digital worlds. Core technologies in positioning, modeling, connectivity and data analytics enable customers to improve productivity, quality, safety and sustainability. From purpose built products to enterprise lifecycle solutions, Trimble software, hardware and services are transforming a broad range of industries such as agriculture, construction, geospatial and transportation and logistics.
+
+---
+
+## Verified Participation & Evidence Gap
+
+- **Verified On-Site Hardware Participation (`[L1]` Partner Recap)**: Trimble's post-event article confirmed **4 hackathon teams** built **Microsoft HoloLens / AR / VR** solutions utilizing Trimble Connect / SketchUp / Tekla BIM tooling at Junction 2017, though individual winning team names were not indexed publicly.
+- **Investigation Reference**: [`2018_Alepa_Nokia_ABB_Other_Hardware_Search.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2018_Alepa_Nokia_ABB_Other_Hardware_Search.md) | [Trimble Recap Mirror](https://www.middleeast-business.com/Article?id=323)

@@ -48,3 +48,11 @@
 - 免费在线数据集，例如来自Kaggle
 
 我们将向参与者提供一些STM传感器开发套件用于开发，否则团队应使用自己的笔记本电脑、手机或智能手表。
+
+---
+
+## 历届获奖方案与验证项目
+
+- **2024 年获奖名单**：`[Not publicly documented]`（已 L1 实证核验的同系列 **2023 华为 `Sense the Motion` 赛道第二名** 为 Mankeli Solutions / Jesse Lappalainen 团队的 **J-mp (Junior Movement Platform)** `[L1]` [`Mankeli-Software/junction2023`](https://github.com/Mankeli-Software/junction2023) & [`jemlap.fi/projects`](https://www.jemlap.fi/projects)：基于 Flutter 构建的户外多传感体感应用，融合 `sensors_plus` 三轴爆发阈值检测 `x+y+z > 30.0`、`100 ms` 震动马达反馈、`flutter_compass` 电子罗盘、`geolocator` GPS 与 `mobile_scanner` 扫码组队）。
+- **2023 同赛题开源对照参考（名次未公开 `[L1]`）**：**Motion Potion**（[`andras-adam/motion-potion`](https://github.com/andras-adam/motion-potion)，Expo/React Native `DeviceMotion.setUpdateInterval(1)` 500 帧滑动窗口 + `lpf` 低通滤波 + 时域画圆/直线识别）与 **Vital**（[`MiroKeimioniemi/vital-app`](https://github.com/MiroKeimioniemi/vital-app)，穿戴运动数据 -> Azure Functions -> Roblox）。
+- **Bronze & Gold 参考**：[`2023_Huawei_SenseTheMotion_Jmp_MotionPotion_Vital.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2023_Huawei_SenseTheMotion_Jmp_MotionPotion_Vital.md) | [Gold 硬件赛道 (`hardware.md`)](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/gold/zh/hardware.md)

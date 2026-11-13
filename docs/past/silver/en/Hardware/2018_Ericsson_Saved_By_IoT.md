@@ -23,3 +23,10 @@ Smartphones and wearable devices collect lots of data, which can be made availab
 This challenge is twofold:
 - Provide (at least) a conceptual plan with evidence of technical feasibility on how to create and deploy distributed narrow band IoT connectivity when local infra is down.
 - Build an application which demonstrates the capability of applicable wearable device to provide sensor data and acting as a gateway towards IoT cloud. Note that the same solution may be used for smaller scale incidents (like car accidents) when the local communication infrastructure is intact.
+
+---
+
+## Winning Solutions & Verified Evidence Notes
+
+- **Verified Winner Architecture Concept (`[L1]` EU H2020 SOFIE Blog)**: Official EU H2020 SOFIE coverage of Junction 2018 confirmed that the winning Ericsson Smart Cloud (*Saved by IoT*) team built a **drone-deployed long-battery Bluetooth Mesh crisis communication device** *(specific winning team name & roster were omitted from the SOFIE article; distinct from `Help.io`'s wearable Movesense triage mesh)*.
+- **Bronze Case Study**: [`2018_Ericsson_Saved_By_IoT.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2018_Ericsson_Saved_By_IoT.md)

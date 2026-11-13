@@ -990,3 +990,19 @@ Snap工程团队成员，在Spectacles开发者体验和设计方面拥有专业
 🥉 第三名：每位团队成员赢得一个Elexa Power Bank
 
 ---
+
+## 四、已核验历届硬核硬件获奖总表与跨赛道补全索引 (2017–2025)
+
+除在上述对应单题 Silver 文件末尾追加的获奖实证外，Bronze 阶段专项调查（[2017–2018 总账](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2017_2018_Hardware_Investigation_Log.md)、[2019–2020 总账](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2019_2020_Hardware_Investigation_Log.md)、[2021–2023 总账](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2021_2023_Hardware_Investigation_Log.md)）还抢救出了原 `challenges_full.json` 漏录或位于跨赛道中的已验证硬件/边缘计算/CV 冠军：
+
+| 年份 | 合作伙伴 / 赛道 | 项目与团队 | 已证实奖项 | 核心硬件 / 边缘技术栈 | Bronze 与 Gold 索引 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **2017** | **STARA / 全场总赛** | **Signvision** (Team Glados: Andreas Urbanski, Teemu Taskula, Ville Toiviainen) | **全场总冠军 🏆 (€20k)** + STARA 第2名 | 手机摄像头+GPS -> `uWs`/`Koa` -> OpenCV HSV + TF 1.4.0 `32x32` CNN (GTSRB) -> AWS ECS | [`2017_Stara_Signvision_Glados.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2017_Stara_Signvision_Glados.md) |
+| **2018** | **Intel (`Bluetooth Mesh`)** | **Help.io / Team Health.io** (拉脱维亚大学) | **Intel 1st** + **IoT 总冠军** + **全场亚军** | Suunto Movesense BLE -> iOS 12 分诊 -> Intel NUC BlueZ `meshd-ingas` + `nRF51_dongle` -> 4x PHYTEC `reel_board`s (Zephyr) | [`2018_Intel_HelpIO_HealthIO_BluetoothMesh.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2018_Intel_HelpIO_HealthIO_BluetoothMesh.md) / [Gold](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/gold/zh/hardware.md) |
+| **2018** | **Future Cities 赛道** | **GuideMe** (Makers UPV) | **Future Cities 第1 (€1k)** + **全场第4** | Wemos `ESP8266` (`115200` UART) + `BBC micro:bit` (磁力计、5x5 LED、震动) + 3D打印 `.STL` 手杖手柄 + PHP/GMaps | [`2018_FutureCities_GuideMe_MakersUPV.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2018_FutureCities_GuideMe_MakersUPV.md) / [Gold](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/gold/zh/hardware.md) |
+| **2019** | **QOCO (`Smooth Travels`)** | **Luggage Love** (`ryojimatsuzaki` 原型) | **QOCO 第1** (19队中) | 无源 **NFC 芯片**  luggage 标签与手机快速配对 *(修正原 JSON 错标 2020)* | [`2019_QOCO_SmoothTravels_NFC_Baggage.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2019_QOCO_SmoothTravels_NFC_Baggage.md) |
+| **2020** | **OP / 全场总赛** | **Saavi – Healthy Finance** (Alexander Zimin 等) | **全场总冠军 🏆** | 原生 Apple `ARKit` 识别实体银行卡 (`ist_card.arreferenceimage`) + 角速度甩卡切换手势 + `scikit-learn` | [`2020_OverallWinner_Saavi_HealthyFinance_ARKit.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2020_OverallWinner_Saavi_HealthyFinance_ARKit.md) |
+| **2021** | **CGI x KONE (`Sky(scraper)`)** | **ElevAI** (Team Glados) & **S.H.I.E.L.D** | **Model奖 + Top-10** / **Out-of-the-Box奖** | Ray Tune + `XGBoost` F2 (`0.9722`) + SHAP + AR 预检 / 嵌入式照明智能安全帽 + AR 摄像头 + STT + 手势 | [`2021_CGI_KONE_SkyScraper_ElevAI_SHIELD.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2021_CGI_KONE_SkyScraper_ElevAI_SHIELD.md) |
+| **2023** | **Huawei (`Sense the Motion`)** | **J-mp** (Mankeli Solutions) *(+ 对照 `Motion Potion`, `Vital`)* | **Huawei 第2名** | Flutter `sensors_plus` (`x+y+z > 30.0`)、`Vibration.vibrate`、`flutter_compass`、`geolocator`、QR、Firebase、Next.js | [`2023_Huawei_SenseTheMotion_Jmp_MotionPotion_Vital.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2023_Huawei_SenseTheMotion_Jmp_MotionPotion_Vital.md) / [Gold](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/gold/zh/hardware.md) |
+
+---

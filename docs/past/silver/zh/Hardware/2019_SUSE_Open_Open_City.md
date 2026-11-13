@@ -29,3 +29,15 @@
 SUSE 将提供：我们将提供一个边缘计算节点集群，包括硬件和软件。该集群将作为挑战参与者构建的容器化应用程序的部署平台。我们将提供某些 ETSI MEC API 子集的开放实现。
 
 更复杂的解决方案可以利用 SUSE CAP，它能够轻松实现云原生应用程序开发。这些解决方案必须与 uMEC 边缘网络上的设备和 API 进行交互。
+
+---
+
+## 历届获奖方案与验证项目
+
+- **赛题第一名 (Winner)**：**Flowify** `[L1]` *(团队成员与代码仓库未公开归档)*
+- **赛题第二名 (1st Runner-up)**：**suseXcity** `[L1]`
+- **赛题第三名 (2nd Runner-up)**：**Ravenholm** `[L1]`
+- **现场边缘集群硬件实况 (`[L2]` LF Edge / Akraino MicroMEC 复盘)**：SUSE 联合 Nokia 与 Arm 在比赛现场部署了物理微边缘集群——由多块 **Raspberry Pi 3B+ / 4B (`<= 4 GB RAM`)** 搭建轻量 **k3s**、**OpenFaaS Cloud** 以及 **ETSI MEC API** 子集，并通过独立局域 Wi-Fi 供团队现场本地部署测试。
+- **硬件与工程经验**：多团队在 Junction 2019 树莓派节点上高频部署容器暴露出 SD 卡严重的 I/O 瓶颈与损坏隐患，直接促使 SUSE/Nokia/Arm 在随后的 Akraino R3 版本中转向 **PXE 网络启动 + 共享 iSCSI 存储**；赛前务必预备好 `arm64`/`armhf` 多架构容器构建。
+- **Bronze 原始档案**：[`2019_SUSE_OpenOpenCity_Flowify.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2019_SUSE_OpenOpenCity_Flowify.md)
+- **原始信源**：[Junction 2019 官方获奖公告 (Medium)](https://medium.com/hack-junction/the-winners-of-junction-2019-de539036dc3f) | [LF Edge Akraino MicroMEC 技术复盘](https://www.lfedge.org/2020/08/13/micromec-now-available-with-the-akraino-r3-release/)

@@ -33,3 +33,14 @@
 ## 可用资源 (Resources)
 
 Ericsson 将提供：一台带有简单 API 的服务器，你可以通过它控制你的车队并查看世界状态。此外，我们还将提供出色的导师。
+
+---
+
+## 历届获奖方案与验证项目
+
+- **赛题第一名 (Winner)**：**League of Agents**（含成员 Adithya Sireesh）`[L1]`/`[L2]` — 针对 Ericsson 提供的低时延集中式城市车队控制仿真 API，开发多智能体强化学习（RL）协同调度策略，在多轮并发对抗仿真中以高运力与低空驶胜出。
+- **赛题第二名 (1st Runner-up)**：**5G** `[L1]`
+- **赛题第三名 (2nd Runner-up)**：**FastCity** `[L1]`
+- **赛题消歧说明**：本赛题有别于 Ericsson 同年在 Junction 举办的另一纯软件赛题 *Security Awareness for Kids*（由 2019 全场总冠军 `TassuPassu` 获胜），亦与芬兰 `traficom.fi` *5G Cyber Security Hackathon* 无关。
+- **Bronze 原始档案**：[`2019_Ericsson_5GTransport_LeagueOfAgents.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2019_Ericsson_5GTransport_LeagueOfAgents.md)
+- **原始信源**：[Junction 2019 官方获奖公告 (Medium)](https://medium.com/hack-junction/the-winners-of-junction-2019-de539036dc3f) | [Adithya Sireesh 个人简历](https://sireesh.io/AdithyaSireesh_Resume.pdf)

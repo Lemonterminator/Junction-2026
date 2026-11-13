@@ -45,3 +45,11 @@ Ultimately our mission is to make patient care better and safer by helping the h
 ## About the Partner
 
 Planmeca Oy is one of the world's leading dental equipment manufacturers. Our products cover everything needed at a modern dental clinic – from digital dental units to CAD/CAM solutions, 2D and 3D imaging devices, and software. Our uncompromising dedication to innovation, collaboration with health care professionals and universities, and strong commitment to R&D are the cornerstones of our success. Our mission is to enable better patient care through revolutionary innovations.
+
+---
+
+## Winning Solutions & Verified Historical Cases
+
+- **1st Place (Winner among 13 Teams)**: **AR Dentist** (Samuel Laska & Linda Ukkonen) `[L1]` — Built a two-device interactive clinical workflow coupling a laptop practitioner workstation with a real-time mobile AR visualization app that ingested Planmeca 3D imaging data and fit live 3D dental models directly onto a patient's face via camera feed.
+- **Bronze Case Study**: [`2017_Planmeca_AR_Dentist.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2017_Planmeca_AR_Dentist.md)
+- **Primary Source**: [Planmeca Official Newsroom](https://www.planmeca.com/news-and-events/newsroom/2018/planmeca-challenged-hackers-to-reshape-the-future-of-dentistry/)

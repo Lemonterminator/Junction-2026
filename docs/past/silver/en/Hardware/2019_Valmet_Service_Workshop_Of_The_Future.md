@@ -32,3 +32,13 @@ Valmet will provide:
 3D Models and XR platform 
 Datasets of the paper web from real paper machines
 Datasets from paper machine roll roundness measurements
+
+---
+
+## Winning Solutions & Verified Historical Cases
+
+- **1st Place (Winner)**: **PaperCut Inc.** (including Ucha Vekua) `[L1]`/`[L2]` — Built a VR-based 3D inspection tool on top of the ValmetXR / Unity platform and Node-RED industrial data flows to map micrometer-scale paper-machine roll roundness anomalies onto 3D cylinder meshes, making otherwise invisible defects actionable to service technicians facing €50/minute downtime costs.
+- **1st Runner-up (2nd Place)**: **Smooth Grindr** `[L1]` *(team roster and source repo not publicly archived)*.
+- **Hardware & Integration Takeaways**: Adopting Valmet's provided XR + Node-RED stack let the team focus on spatial exaggeration of sub-millimeter sensor deviations (amplifying micron geometry deltas while keeping exact axial/circumferential coordinates) rather than wasting hackathon hours on VR boilerplate.
+- **Bronze Case Study**: [`2019_Valmet_ServiceWorkshop_PaperCut_Inc.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2019_Valmet_ServiceWorkshop_PaperCut_Inc.md)
+- **Primary Sources**: [Junction 2019 Winners (Medium)](https://medium.com/hack-junction/the-winners-of-junction-2019-de539036dc3f) | [Aalto University & Valmet News](https://www.aalto.fi/en/news/aalto-university-and-valmet-challenge-junction-participants-to-create-a-service-workshop-of-the)

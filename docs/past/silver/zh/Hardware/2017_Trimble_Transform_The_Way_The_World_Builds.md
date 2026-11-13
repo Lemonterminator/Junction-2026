@@ -49,3 +49,10 @@ https://connect.trimble.com/developer.html
 ## 关于合作方 (About Company)
 
 Trimble通过提供连接物理世界和数字世界的产品和服务，正在改变世界的运作方式。定位、建模、连接和数据分析领域的核心技术使客户能够提高生产力、质量、安全性和可持续性。从专用产品到企业生命周期解决方案，Trimble的软件、硬件和服务正在改变农业、建筑、地理空间以及运输和物流等广泛行业。
+
+---
+
+## 已核验现场硬件参与实况与缺口
+
+- **已核验现场硬件生态 (`[L1]` 合作方赛后报道)**：Trimble 赛后报道证实 2017 届共有 **4 支参赛队伍**围绕现场提供的 **Microsoft HoloLens 与 AR/VR 装备** 结合 Trimble Connect / Tekla 工具链完成了原型交付，具体第一名队名未见公开网页留存。
+- **调研档案**：[`2018_Alepa_Nokia_ABB_Other_Hardware_Search.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2018_Alepa_Nokia_ABB_Other_Hardware_Search.md) | [Trimble 赛后报道存档](https://www.middleeast-business.com/Article?id=323)

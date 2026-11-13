@@ -80,3 +80,10 @@ Area bounds WGS84: {'north_lat': 22.59372606392931, 'south_lat': 21.943045533438
 ## About the Partner
 
 The mission for Sensofusion is to secure personnel and infrastructure against drones with our Airfence product. Our systems are ready, tested and shipping. Sensofusion has governmental customers in Europe, North America, Middle East and Asia.
+
+---
+
+## Winning Solutions & Verified Historical Cases
+
+- **Challenge Winner & Junction 2025 Overall Grand Winner 🏆**: **WAVELET** (Rudrrayan Manna, Arjun Juneja, Keanu Czirjak, Akshith Alluri) `[L1]` — Built a real-time 60 FPS GPU FDTD Maxwell equation solver in C++20 and OpenGL 4.6 Compute Shaders simulating multipath RF reflection, corner diffraction, and threat triangulation across the JAXA/OSM Hong Kong 3D mesh (`< 16 ms` per step).
+- **Bronze & Gold Reference**: [`2025_Sensofusion_WAVELET.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2025_Sensofusion_WAVELET.md) | [Gold Hardware Track (`hardware.md`)](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/gold/en/hardware.md)

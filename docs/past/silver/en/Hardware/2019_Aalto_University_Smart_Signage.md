@@ -25,3 +25,12 @@ AYY would like to see different kinds of ideas and concepts about what kinds of 
 ## Resources
 
 AYY will provide: AYY’s IT-team will be on promises during the weekend to help you out with the challenge. We will bring an anonymized package of network usage data and HVAC-data from one of our buildings for you to use.
+
+---
+
+## Winning Solutions & Verified Historical Cases
+
+- **1st Place (Winner)**: **AyyHello!** (Jesse Tolvanen, Satria Sutisna, Harri Rahikainen, Mari Porko, `smirq`) `[L1]` — Transformed passive stairwell signage into a touchless Raspberry Pi interactive kiosk: a hardware PIR sensor (`GPIO.BOARD Pin 11` rising-edge ISR + `Pin 3` status LED) wakes the display, a USB webcam running modified `MobilePose-PyTorch` (`ResNet-18 @ 224x224`) translates debounced 10-frame upper-body gestures (`L`/`R`/`U`) via local `POST /dir` to Flask (`:5000`), and a React `16.12.0` (`nuka-carousel` + `victory`) UI displays real AYY building CSV utility analytics (`/el`, `/heat`, `/water`), transit/weather cards, and a touchless minigame.
+- **Hardware & Integration Takeaways**: Decoupling Raspberry Pi GPIO (`pir.py`), PyTorch pose inference (`run_webcam.py`), Flask telemetry parsing (`analysis.py`), and React kiosk (`junction-ayy`) over local HTTP allowed parallel team velocity, while 10-frame majority-vote debouncing prevented raw keypoint jitter without heavy temporal neural networks.
+- **Bronze Case Study**: [`2019_Aalto_AYY_SmartSignage_AyyHello.md`](file:///c:/Users/Jiang/.gemini/antigravity/scratch/hackjunction/docs/past/bronze/winner_mateirals/2019_Aalto_AYY_SmartSignage_AyyHello.md)
+- **Primary Sources**: [Junction 2019 Winners (Medium)](https://medium.com/hack-junction/the-winners-of-junction-2019-de539036dc3f) | [AyyHello! GitHub Repo (`mariporko/junction2019`)](https://github.com/mariporko/junction2019) | [Aalto News](https://www.aalto.fi/en/news/student-union-looks-for-creative-ideas-for-their-information-channels-from-junction)
