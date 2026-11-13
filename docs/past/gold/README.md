@@ -1,7 +1,9 @@
+> **2026-11-13 更新 / Audit update:** AI Infrastructure 与 Agentic AI 已按 2021–2025 年重新核验，采用 21 列且明确标注未知、奖项级别及证据来源。原两赛道版本已移至 [Bronze 存档](../bronze/winner_mateirals/legacy_gold_unaudited_2026-11-13/)，其中含错误及未证实内容。以下旧版 31 项总数、两个赛道的项目数及“全面验证”表述不再适用于这两个更新后的文件；其他赛道尚未在本次工作中核查。
+
 # Hack Junction Historical Challenges (2024–2025) — Gold Layer
 # 历史赛题与获奖案例金层总览（2024–2025 双语基准数据集）
 
-本目录包含 Hack Junction 2024–2025 经过全面验证的 31 项顶级获奖项目的生产级金层（Gold）基准数据集。
+本目录包含历届项目的金层基准资料。AI Infrastructure 与 Agentic AI 已按证据重新核验；其他赛道仍保留旧版内容，尚未在本次工作中复核。
 
 ---
 
@@ -10,19 +12,19 @@
 ```
 docs/past/gold/
 ├── en/                          # 全英文版 (Full English Edition)
-│   ├── agentic_ai.md            # 5 Verified Winner Landmark Projects
-│   ├── ai_infrastructure.md     # 3 Verified Winner Landmark Projects
+│   ├── agentic_ai.md            # 6 audited cases, including a runner-up and adjacent challenges
+│   ├── ai_infrastructure.md     # 3 audited related cases
 │   ├── data.md                  # 8 Verified Winner Landmark Projects
 │   ├── fintech.md               # 4 Verified Winner Landmark Projects
-│   ├── hardware.md              # 5 Verified Winner Landmark Projects
+│   ├── hardware.md              # 6 audited cases, including a runner-up and adjacent challenges
 │   └── healthcare.md            # 6 Verified Winner Landmark Projects
 │
 └── zh/                          # 全中文版 (Full Chinese Edition)
-    ├── agentic_ai.md            # 5 个已验证的里程碑式获奖项目
-    ├── ai_infrastructure.md     # 3 个已验证的里程碑式获奖项目
+    ├── agentic_ai.md            # 6 个已核查案例（含亚军和相邻赛题）
+    ├── ai_infrastructure.md     # 3 个已核查相关案例
     ├── data.md                  # 8 个已验证的里程碑式获奖项目
     ├── fintech.md               # 4 个已验证的里程碑式获奖项目
-    ├── hardware.md              # 5 个已验证的里程碑式获奖项目
+    ├── hardware.md              # 6 个已核查案例（含亚军和相邻赛题）
     └── healthcare.md            # 6 个已验证的里程碑式获奖项目
 ```
 
@@ -34,7 +36,7 @@ docs/past/gold/
 
 1. `event_id`: 赛事唯一标识（如 `junction-2024`, `junction-2025`）
 2. `event_name`: 赛事标准名称
-3. `year`: 举办年份（2024, 2025）
+3. `year`: 举办年份（视赛道范围而定）
 4. `organizer`: 主办方与出题企业
 5. `challenge`: 赛题原名
 6. `category`: 归一化派别（`Agentic AI` / `AI Infrastructure` / `Data` / `FinTech` / `Hardware` / `Healthcare`）

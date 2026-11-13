@@ -97,3 +97,7 @@ Withsecure将提供：
 在WithSecure™，我们相信网络安全应该赋能，而不是压倒。这就是为什么我们的Elements Cloud融合了AI、专业知识和共同安全，以交付重要的成果。我们支持你——并且我们会让它变得简单。
 
 在Junction 2025上，我们将前沿的网络专业知识直接带给塑造未来的构建者。
+
+---
+
+**已核验获奖补充：** Aegis 为 WithSecure 挑战第一名，团队称其研究智能体检索通用来源及恶意软件数据库。赛题名称 Reputation Recon 不等于获奖项目名称。[获奖者原帖](https://lnkd.in/p/dDKVFCKi)。

@@ -10,6 +10,20 @@
 
 **Agentic AI Track** focuses on AI systems with autonomous perception, reasoning and planning, tool invocation, multi-agent collaboration, and closed-loop action capabilities.
 
+## Award evidence (separate from challenge archive)
+
+The entries below record only publicly attributable placements. A challenge prompt is not a project report, and a track/challenge prize is not the same as the Junction grand prize. See the [bronze award audit](../../../bronze/agentic_ai_award_audit.md) for evidence links, limits, and unresolved years.
+
+| Event | Challenge | Publicly reported result | What is documented about the winning project |
+| --- | --- | --- | --- |
+| Junction 2024 | Sitra — digital democracy | First place among 27 Sitra challenge teams (participant report) | A browser extension detects civic topics and presents possible participation actions. The team reports using Chrome APIs to run Gemini Nano on-device and moving most processing to the frontend. No project name is given in the source. |
+| Junction 2025 | n8n — Agentic AI | First prize (team-member report) | **Swipe Wise** used n8n's AI capabilities with real-time data streams for adaptive digital decision-making. No model, detailed architecture, or measured performance is documented in the source. |
+| Junction 2025 | WithSecure — Reputation Recon | Albin Jaldevik says his team won first place; teammates named as Alex Choi and Felix Kaubek | **Aegis** is described as a security research agent retrieving general sources and malware databases. No detailed stack or performance metrics are verified. |
+| Supercell AI Hackathon, May 2025 (separate event) | Supercell AI Hackathon | **Prompt Me Maybe** won the event's grand prize, per Hive Helsinki | Prompt-based weapon creation for a Wolfenstein-style shooter; Hive reports C and raycasting. This is not a Junction November 2025 challenge result. |
+| Junction 2024 | KONE and KONE x Granlund | KONE challenge: **BIM & Tonic**; KONE x Granlund: **WHEREHOUSE** (KONE report) | The results post establishes placements, but does not describe the winning implementations. |
+
+No winner is yet verified here for the 2021 or 2023 Agentic AI-relevant challenges. Treat those years as research gaps, not as evidence that no winners existed. Do not promote any of the 31 reclassified challenge prompts to winner status without project-specific award evidence.
+
 ### Reorganization Criteria
 This catalog comprehensively reviews all 147 historical challenge statements from Hack Junction 2017–2025, systematically identifying **31 agentic and generative automation challenges** across the `AI & Data` track as well as cross-track categories including `Urban & Mobility`, `Sustainability`, `Security`, `Education`, `Entertainment`, `Finance`, and `Other`. These are organized into five core directions:
 

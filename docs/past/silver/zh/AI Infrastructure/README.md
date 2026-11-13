@@ -522,3 +522,7 @@ Ericsson 挑战你扮演网络侦探，目标是识别攻击移动网络端点�
 您刚刚创建了一个出色的应用程序，并将其部署在组织的网络中。幸运的是，在当今的网络中，我们可以获取大量关于应用程序在网络中性能的信息。使用 DNA Center 控制器的 REST API，为网络中应用程序的健康状况创建精美的可视化。为什么不甚至添加一些故障排除工具，以找出可能性能不佳的原因呢？
 
 ---
+
+## 2021–2025 获奖核查补充
+
+2022 年 Bitter Sweet 团队的 Haru 日记应用获得 Junction 全场冠军，团队同时自述获得 Google Cloud side challenge；GPT-3 和 Stable Diffusion 用于从日记生成图像，GCP 用于服务部署。[团队介绍](https://www.linkedin.com/posts/kshgroup_we-won-at-junction-2022-activity-6995318216663216128-AoGW)；[项目演示](https://speakerdeck.com/codertimo/haru-diary-app-with-stable-diffusion-junction-2022)。详见 [获奖核查台账](../../../bronze/winner_mateirals/2021_2025_AI_Infrastructure_Winner_Audit.md)。

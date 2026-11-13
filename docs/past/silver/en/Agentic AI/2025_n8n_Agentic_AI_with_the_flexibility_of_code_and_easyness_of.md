@@ -43,3 +43,7 @@ Free n8n APIs and credits
 ## About the Partner
 
 n8n is an open-source workflow automation platform enabling teams to orchestrate complex data flows, integrations, and AI-powered processes with full transparency and extensibility. The company focuses on empowering developers and technical teams to automate without limits, emphasizing privacy, self-hosting, and long-term scalability. With a global open-source community and an enterprise-grade platform, n8n brings technical depth, connectors, and real-world automation expertise to Junction. We are participating to co-create advanced automation, AI-agent, and data-integration solutions with top technical talent.
+
+---
+
+**Verified award update:** Swipe Wise won first place in the n8n tech challenge, according to its team, using n8n AI and real-time streams for adaptive decisions. Specific models and performance remain unverified. [Team post](https://www.linkedin.com/posts/ykalashn_our-team-won-the-1st-prize-of-n8n-challenge-activity-7396556132623990785-xYEN).

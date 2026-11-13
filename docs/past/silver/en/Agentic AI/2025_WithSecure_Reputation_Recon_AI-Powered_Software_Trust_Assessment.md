@@ -97,3 +97,7 @@ Required: lightweight local cache (JSON/SQLite), snapshot mode, deterministic pa
 At WithSecure™, we believe cyber security should empower, not overwhelm. That’s why our Elements Cloud blends AI, expertise, and co-security to deliver results that matter. We’ve got your back — and we’ll make it easy.
 
 At Junction 2025, we bring cutting-edge cyber expertise straight to the builders shaping tomorrow.
+
+---
+
+**Verified award update:** Aegis won first place in the WithSecure challenge, according to its team; its research agent searches general sources and malware databases. Reputation Recon is the challenge title, not the winning project name. [Winner’s post](https://lnkd.in/p/dDKVFCKi).

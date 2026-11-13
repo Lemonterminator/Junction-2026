@@ -26,6 +26,13 @@ ElevenLabs 邀请 Junction 参与者利用全球最先进的语音 AI 释放创�
 
 最具创意且令人印象深刻的项目获胜
 
+## 赛后公开报道的获奖作品
+
+- **奖项类别**：ElevenLabs 技术挑战赛“使用 ElevenLabs 构建的最佳项目”，不是 Junction 全场总冠军。
+- **作品**：**Junction Simulator**。开发者 Ilmari Vahteristo 表示团队赢得 ElevenLabs 技术挑战赛，并说明他们选择制作一款简单游戏来展示逼真、有鲜明个性的 AI 角色。[开发者动态](https://www.linkedin.com/posts/ilmariv_junction2025-elevenlabs-supercell-activity-7396284082827018240-vIKn)
+- **团队与大致实现**：Niclas Joswig 列出队员 Lorenso D’Agostino、Ilmari Vahteristo、Dion O’Leary、Vili K.，并描述项目包含 AI 生成语音的 NPC 与实时对话。[队员动态](https://www.linkedin.com/posts/niclas-joswig-19868a172_junction2025-elevenlabs-ai-activity-7396544109454274561-cy5J)
+- **证据边界**：上述参赛者动态支持获奖及作品的概略描述；不能据此确认端到端延迟、帧率或具体模型/运行时技术栈。
+
 ## 奖项设置 (Prizes)
 
 1. Junction 总冠军团队每位成员获得 110 万+字符（3 个月 Pro 套餐）

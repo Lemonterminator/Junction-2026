@@ -4,6 +4,20 @@
 > **收录挑战总数**：**31 个**
 > **2026 归属赛道**：`Agentic AI Track`
 
+## 可核实的获奖信息（与挑战题库分开）
+
+以下只记录公开来源能够确认的获奖归属。挑战赛题目不等于获奖作品；挑战赛奖项也不等于 Junction 全场总冠军。证据链接、范围限制与待查年份见 [bronze 获奖核查记录](../../../bronze/agentic_ai_award_audit.md)。
+
+| 活动 | 挑战 | 公开报道的结果 | 来源实际说明的获奖作品 |
+| --- | --- | --- | --- |
+| Junction 2024 | Sitra — 数字民主 | 参赛队员称在 Sitra 挑战 27 支队伍中获第一名 | 浏览器扩展识别网页中的公民议题并提示参与渠道；团队称使用 Chrome API 在设备本地运行 Gemini Nano，并将大部分处理放在前端。来源未提供项目名称。 |
+| Junction 2025 | n8n — Agentic AI | 队员称获 n8n 挑战赛一等奖 | **Swipe Wise** 将 n8n 的 AI 能力与实时数据流结合，用于自适应数字决策。来源没有披露具体模型、详细架构或性能指标。 |
+| Junction 2025 | WithSecure — Reputation Recon | Albin Jaldevik 自述团队获第一名，队友为 Alex Choi、Felix Kaubek | **Aegis** 是检索通用来源与恶意软件数据库的安全调研 agent；目前没有经来源证实的详细技术栈或性能指标。 |
+| Supercell AI Hackathon，2025 年 5 月（独立活动） | Supercell AI Hackathon | Hive Helsinki 报道 **Prompt Me Maybe** 获该活动总冠军 | 玩家输入提示词生成 Wolfenstein 风格射击游戏武器；Hive 报道项目使用 C 和 raycasting。不能据此认定其赢得 2025 年 11 月 Junction 主赛事挑战。 |
+| Junction 2024 | KONE 与 KONE x Granlund | KONE 挑战：**BIM & Tonic**；KONE x Granlund 挑战：**WHEREHOUSE**（KONE 报道） | 结果报道确认了获奖队伍，但没有描述作品实现。 |
+
+2021 与 2023 年 Agentic AI 相关挑战的冠军目前尚未核实。应视为研究缺口，而不是没有获奖者的证据。31 个重新归类的挑战题不能在缺少作品和获奖来源时被表述为往届获奖项目。
+
 ---
 
 ## 一、赛道定义与重组标准 (Track Definition & Reorganization Criteria)

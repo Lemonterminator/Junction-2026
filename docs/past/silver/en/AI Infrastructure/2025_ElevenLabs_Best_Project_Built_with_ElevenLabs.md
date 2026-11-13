@@ -26,6 +26,13 @@ Projects built using ElevenLabs can compete for the Best Project Built with Elev
 
 Most creative and impressive project wins
 
+## Publicly reported winner (post-event)
+
+- **Award category**: ElevenLabs tech challenge, “Best Project Built with ElevenLabs” (not the Junction overall prize).
+- **Project**: **Junction Simulator**. Developer Ilmari Vahteristo says the team won the ElevenLabs tech challenge and explains that it chose a simple game to demonstrate realistic, opinionated AI characters. [His post](https://www.linkedin.com/posts/ilmariv_junction2025-elevenlabs-supercell-activity-7396284082827018240-vIKn)
+- **Team / broad implementation**: Niclas Joswig identifies the team as Lorenso D’Agostino, Ilmari Vahteristo, Dion O’Leary and Vili K., and describes NPCs with AI-generated voices and real-time conversations. [His post](https://www.linkedin.com/posts/niclas-joswig-19868a172_junction2025-elevenlabs-ai-activity-7396544109454274561-cy5J)
+- **Evidence boundary**: These participant posts substantiate the award and broad project description. They do not establish performance figures such as end-to-end latency or frame rate, nor a specific model/runtime stack.
+
 ## Prizes
 
 1.1+ million characters for each member of the overall Junction winning team (3 months of the Pro tier)

@@ -526,3 +526,7 @@ Ericsson challenges you to step into the shoes of a Cyber Detective with the aim
 You have just created a fancy application and implemented it in your organisation’s network. Luckily in today’s network we can get a lot of information of the application performance in the network. Using the REST APIs of DNA Center controller, create a nice visualization of the health of the applications in your network. Why not even add some troubleshooting tools to find the reason for possible weak performance?
 
 ---
+
+## 2021–2025 award audit update
+
+In 2022, Team Bitter Sweet's Haru diary app won Junction overall; the team also reports winning a Google Cloud side challenge. The project used GPT-3 and Stable Diffusion for diary-based imagery and GCP for serving models and services. [Team account](https://www.linkedin.com/posts/kshgroup_we-won-at-junction-2022-activity-6995318216663216128-AoGW); [project presentation](https://speakerdeck.com/codertimo/haru-diary-app-with-stable-diffusion-junction-2022). See the [award audit](../../../bronze/winner_mateirals/2021_2025_AI_Infrastructure_Winner_Audit.md).
