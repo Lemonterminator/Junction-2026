@@ -1,0 +1,2 @@
+# Match the challenge PDF. Transitive dependencies are not fully locked yet.
+anomalib[openvino]==2.7.0

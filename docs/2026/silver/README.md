@@ -17,3 +17,13 @@
 Intel 文件于 2026-11-13 归档，共 15 页。Markdown 保留原文页序及完整评分表，图片内正文经渲染核对后转录；图片以文字说明表达，视觉细节以 PDF 为准。不可见的幻灯片模板提示与重复装饰页脚省略。二维码未解码，其目标地址不作推断。
 
 本次已用该 PDF 更新中英文合作方表中的 Intel 与 Ignite Next 赛题描述。其他合作方仍沿用原有来源，未在本次任务中重新核实。
+
+## Physical AI Studio 与组织仓库 / Upstream and ecosystem
+
+| 资料 / Material | 中文 | English | 来源 / Source |
+| --- | --- | --- | --- |
+| Junction 2026 操作指南 | [整理](zh/intel_physical_ai_studio_guide.md) | [Guide](en/intel_physical_ai_studio_guide.md) | [原文快照](../bronze/intel_open_edge_platform/JUNCTION2026.md) |
+| Open Edge Platform 仓库筛选 | [清单](zh/open_edge_platform_repositories.md) | [Review](en/open_edge_platform_repositories.md) | [70 个公开仓库快照](../bronze/intel_open_edge_platform/repositories.json) / [来源清单](../bronze/intel_open_edge_platform/manifest.json) |
+
+GitHub 指南和 PDF 的评分不同，保留两版并待组织者确认。仓库推荐是分析；未声明算法或硬件已验证。
+The rubrics conflict and remain unresolved. Repository recommendations are analysis, not runtime validation.

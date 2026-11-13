@@ -7,3 +7,10 @@ Each developer configures their own `git config --global user.name 'Name'` and `
 Fetch with `git fetch origin`, create a feature branch from the agreed up-to-date base with `git switch -c feature/my-task origin/main` (substitute the actual default branch), commit with `git add ...` and `git commit`, and push your own branch with `git push -u origin feature/my-task` after confirming the remote. Open a GitHub pull request; review, resolve conflicts in the feature branch, run tests, and merge under the team's agreed policy. Git worktrees can isolate parallel branches for one user, but separate accounts and clones remain the team boundary.
 
 A separate integration checkout and its owner have not been established. Agree on an owner and deployment procedure; never edit or restart the live demo without coordination.
+
+The project now includes a pinned Studio submodule. Clone with `--recurse-submodules`,
+or run `git submodule update --init --recursive` after cloning or pulling a changed
+gitlink. Normal setup uses the parent repository's pin; `git submodule update --remote`
+is an intentional upstream upgrade, not a routine synchronization command.
+Project context and handoffs live in `memory/`; read `AGENTS.md` or `CLAUDE.md` at the
+Git root. Container instructions: [DOCKER.md](DOCKER.md).

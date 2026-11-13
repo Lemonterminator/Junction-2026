@@ -1,0 +1,71 @@
+name: ${COMPOSE_PROJECT_NAME:-junction-dev}
+
+services:
+  studio:
+    image: junction-physical-ai-studio-cpu:${STUDIO_GIT_SHA:-17714488fa9c7d098a056da83f7c220cf983957d}
+    build:
+      context: ./external/physical-ai-studio
+      dockerfile: application/docker/Dockerfile
+      target: physical-ai-studio-cpu
+      additional_contexts:
+        libs: ./external/physical-ai-studio/library
+      args:
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
+        GIT_SHA: ${STUDIO_GIT_SHA:-17714488fa9c7d098a056da83f7c220cf983957d}
+        GIT_COMMIT_DATE: ${STUDIO_GIT_COMMIT_DATE:-}
+    ports:
+      - "127.0.0.1:${STUDIO_PORT:-7860}:7860"
+    environment:
+      HOST: 0.0.0.0
+      PORT: "7860"
+      STORAGE_DIR: /app/storage
+      SETTINGS_FILE: /app/storage/settings.json
+      HF_HOME: /home/appuser/.cache/huggingface
+    env_file:
+      - path: ./docker/secrets.env
+        required: false
+    volumes:
+      - studio-storage:/app/storage
+      - studio-cache:/home/appuser/.cache
+    shm_size: 4gb
+    init: true
+    # The upstream run.sh forwards to this CLI. Calling it directly also avoids
+    # shell line-ending problems in Windows-created source checkouts.
+    command: [physicalai-studio, serve]
+    stop_grace_period: 60s
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7860/api/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+
+  anomalib:
+    profiles: [tools]
+    image: junction-anomalib:2.7.0-cpu
+    build:
+      context: ./docker/anomalib
+    working_dir: /workspace
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    environment:
+      HOME: /tmp
+      HF_HOME: /cache/huggingface
+      TORCH_HOME: /cache/torch
+      XDG_CACHE_HOME: /cache
+      UV_CACHE_DIR: /cache/uv
+      PYTHONDONTWRITEBYTECODE: "1"
+    env_file:
+      - path: ./docker/secrets.env
+        required: false
+    volumes:
+      - .:/workspace
+      - anomalib-cache:/cache
+    shm_size: 4gb
+    init: true
+    command: [sleep, infinity]
+
+volumes:
+  studio-storage:
+  studio-cache:
+  anomalib-cache:

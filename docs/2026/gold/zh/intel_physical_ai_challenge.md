@@ -1,6 +1,6 @@
 # Intel Physical AI Challenge：赛题分析与执行建议
 
-> 更新：2026-11-13。来源：[Silver 逐页转录](../../silver/intel_physical_ai_hackathon.md)、[原始 PDF](../../silver/Intel_Physical%20AI%20Hackathon.pdf)，共 15 页。本文事实均来自该文件；“建议”是基于评分表的项目分析。尚未独立验证现场设备、软件版本或兼容性。
+> 更新：2026-11-13。来源：[Silver 逐页转录](../../silver/intel_physical_ai_hackathon.md)、[原始 PDF](../../silver/Intel_Physical%20AI%20Hackathon.pdf)，共 15 页；补充 [GitHub 比赛指南](../../silver/zh/intel_physical_ai_studio_guide.md)。第 1–7 节保留 PDF 来源，第 8 节记录 GitHub 补充和冲突。“建议”是项目分析。尚未独立验证现场设备、模型兼容性或真机运行。
 
 ## 1. 已确认的赛题
 
@@ -30,7 +30,7 @@ PDF p.2 列出 Intel x Ignite Next 支持团队。原有 Silver 中笼统的 Har
 
 PDF 同时使用 SO-101 和 SO-ARM101，本文保留这两种写法。ACT、SmolVLA 在 p.9 的示意图中出现；p.11-12 还展示其他策略与机器人作为平台能力，不能据此认为比赛要求实现全部策略或适配全部硬件。
 
-## 3. 评分表：100 分
+## 3. PDF 评分表：100 分（最终采用版本待确认）
 
 | 评分项 | 分值 | 核心证据 | 页码 |
 | :--- | ---: | :--- | :--- |
@@ -42,7 +42,7 @@ PDF 同时使用 SO-101 和 SO-ARM101，本文保留这两种写法。ACT、Smol
 | Innovation & Technical Demonstration | 5 | 原创性、Intel 技术使用、完整性及现场架构/优化讲解 | 7 |
 | **总计** | **100** | | |
 
-**分析判断：前四项合计 85 分，完整集成、检测、VLA 和端侧优化应优先完成。** 不能只展示离线检测准确率或机械臂预录动作；评分表明确关注同一闭环系统的工作表现。（p.7）
+**仅按 PDF 分析：前四项合计 85 分，完整集成、检测、VLA 和端侧优化应优先完成。** GitHub 指南采用另一套评分，不能将此分值结构当成最终规则。PDF 关注同一闭环系统的工作表现。（p.7；差异见第 8 节）
 
 ## 4. 执行建议（分析，非官方附加要求）
 
@@ -68,7 +68,7 @@ PDF p.9 明确列出：
 - kickoff / Challenge-Day 的具体物体、缺陷定义、分拣规则及其他操作规则。（p.3、p.9 明确留待现场任务）
 - 实际分配的电脑、摄像头位置、机械臂校准状态及设备使用安排。
 - Physical AI Studio / OpenVINO 的具体版本、目标策略导出与算子支持、驱动可用性。
-- 训练数据、Modal 实例访问方式、额度、网络和训练时长限制；PDF 仅说明提供 GPU 云实例。
+- 训练数据、Modal 实际兑换与实例访问、网络；PDF 仅说明提供 GPU 云实例，GitHub 的额度和时长声明见第 8 节，实际领取未核实。
 - 奖项、提交格式、截止时间及详细安全流程；本文件未给出完整规定，不沿用 Bronze 的推测。
 
 ## 7. 文件中的参考入口
@@ -76,4 +76,29 @@ PDF p.9 明确列出：
 - Intel Robotics：<https://developer.robotics.intel.com>（p.10）。
 - Physical AI Studio：<https://github.com/open-edge-platform/physical-ai-studio/>（p.12）。
 
-以上是 PDF 中的入口，未在本次归档中进行在线验证。
+以上是 PDF 中的入口；Physical AI Studio 已在后续接入中在线读取并固定为子模块。
+
+## 8. GitHub 操作指南补充与来源冲突
+
+来源：[固定原文](../../bronze/intel_open_edge_platform/JUNCTION2026.md)，
+Studio `junction2026` 提交 `17714488fa9c7d098a056da83f7c220cf983957d`。
+
+| GitHub 评分项 | 分值 |
+| --- | ---: |
+| Task Success Rate | 25 |
+| Intel Tech Integration | 25 |
+| Dataset & Pipeline Quality | 20 |
+| System Efficiency | 20 |
+| Creativity | 10 |
+| **合计** | **100** |
+
+与 PDF 的六项评分相比，GitHub 将重点组织为成功率、Intel 技术、数据流水线、效率和创意；
+创意项为 10 分，PDF 的 Innovation & Technical Demonstration 为 5 分，两者名称和范围也不同。
+不能逐项视为直接替换或认定后发布者自动优先；需要组织者确认最终规则。
+
+GitHub 指南还写明每位参与者 $100 Modal 额度、按说明兑换，单作业最长 24 小时；
+Anomalib 采用独立环境并建议本地 XPU 训练，Studio 支持 ACT/SmolVLA/Pi0.5 示教训练，
+检测到动作的自动连接由队伍实现。这些是指南声明，不代表我们已领取额度或完成部署。
+
+工程上已引入完整上游源码与 Docker 配置，见 [Docker 说明](../../../infrastructure/DOCKER.md)。
+可选扩展和实施顺序见 [创意分析](intel_physical_ai_creativity_options.md)；均未真机验证。

@@ -1,0 +1,423 @@
+# Edge AI Sizing Tool
+
+The Edge AI Sizing Tool showcases the scalability and performance of AI use cases on Intel-based edge devices. With zero-code configuration, users can effortlessly set up AI applications by selecting inputs, accelerators, performance modes, and AI models. The tool provides real-time monitoring of system performance metrics, such as CPU and GPU usage, memory consumption, and inference speed, enabling users to optimize AI workflows and make informed decisions.
+
+![demo](./docs/demo.gif)
+
+> **Usage guidance:** This software is provided for evaluation and demonstration on a single, trusted machine. It has not been validated for production deployments—if you intend to use it in other environments, perform appropriate testing and security reviews for your target deployment.
+
+## Table of Contents
+
+- [Requirements](#requirements)
+  - [Hardware Prerequisites](#hardware-prerequisites)
+  - [Software Prerequisites](#software-prerequisites)
+  - [Application Ports](#application-ports)
+- [Supported AI Models](#supported-ai-models)
+  - [1. Predefined Models](#1-predefined-models)
+  - [2. Hugging Face Model ID](#2-hugging-face-model-id)
+  - [3. ModelScope Model ID](#3-modelscope-model-id)
+  - [4. Upload Model ZIP](#4-upload-model-zip)
+  - [5. Custom Model Directory](#5-custom-model-directory)
+- [Quick Start](#quick-start)
+  - [For Linux](#for-linux)
+  - [For Windows](#for-windows)
+- [Deployment](#deployment)
+- [Development](#development)
+- [Custom Application Profiling](#custom-application-profiling)
+- [Troubleshooting](#troubleshooting)
+  - [1. GPU Utilization Not Showing Up](#1-gpu-utilization-not-showing-up)
+  - [2. Tool Crashes or Stops Unexpectedly](#2-tool-crashes-or-stops-unexpectedly)
+  - [3. Installation Script Dependency Issues](#3-installation-script-dependency-issues)
+- [Limitations](#limitations)
+- [Licensing](#licensing)
+- [Contributing](#contributing)
+
+## Requirements
+
+### Hardware Prerequisites
+
+- CPU: Intel® Core™ Ultra Processor (Products formerly Meteor Lake-UH) and above
+- GPU:
+  - Intel® Arc™ Graphics (iGPU)
+  - Intel® Arc™ A770 Graphics (dGPU)
+- RAM: 64GB
+- DISK: 256GB+
+
+### Software Prerequisites
+
+- Operating system:
+  - Linux: Ubuntu\* 24.04 LTS Desktop
+  - Windows: Windows\* 11
+- Python version: 3.10+
+- Node.js version: 22+
+- Intel GPU drivers version: 25.09.32961.5
+- Intel NPU drivers version: v1.13.0
+- Ubuntu intel-gpu-tools package version: 1.28-1ubuntu2
+
+
+### Application Ports
+
+Please ensure that these ports are available before running the application.
+
+| Services        | Port      |
+| --------------- | --------- |
+| Frontend        | 8080      |
+| Worker services | 5000-6000 |
+
+### Supported AI Models
+
+The Edge AI Sizing Tool supports the following types of AI models:
+
+#### 1. Predefined Models
+
+A curated set of popular models for common AI tasks:
+
+| Model Name                                   | Task Type                    | Source / License Information                                                     |
+|----------------------------------------------|------------------------------|----------------------------------------------------------------------------------|
+| YOLOv8                                       | Object Detection             | [Ultralytics Docs](https://docs.ultralytics.com/)                                |
+| YOLOv11                                      | Object Detection             | [Ultralytics Docs](https://docs.ultralytics.com/)                                |
+| YOLOv8-seg                                   | Instance Segmentation        | [Ultralytics Docs](https://docs.ultralytics.com/)                                |
+| YOLOv11-seg                                  | Instance Segmentation        | [Ultralytics Docs](https://docs.ultralytics.com/)                                | 
+| mask_rcnn_resnet50_atrous_coco               | Instance Segmentation        | [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/mask_rcnn_resnet50_atrous_coco)
+| mask_rcnn_inception_resnet_v2_atrous_coco    | Instance Segmentation        | [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo/tree/master/models/public/faster_rcnn_inception_resnet_v2_atrous_coco)
+| dreamlike-art/dreamlike-anime-1.0            | Text-To-Image                | [Hugging Face](https://huggingface.co/dreamlike-art/dreamlike-anime-1.0)         |
+| TinyLlama/TinyLlama-1.1B-Chat-v1.0           | Text Generation              | [Hugging Face](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0)        |
+| Qwen/Qwen1.5-7B-Chat                         | Text Generation              | [Hugging Face](https://huggingface.co/Qwen/Qwen1.5-7B-Chat)                      |
+| OpenVINO/Mistral-7B-Instruct-v0.2-int4-ov    | Text Generation              | [Hugging Face](https://huggingface.co/OpenVINO/Mistral-7B-Instruct-v0.2-int4-ov) |
+| OpenVINO/Phi-3-mini-4k-instruct-int4-ov      | Text Generation              | [Hugging Face](https://huggingface.co/OpenVINO/Phi-3-mini-4k-instruct-int4-ov)   |
+| openai/whisper-tiny                          | Automatic Speech Recognition | [Hugging Face](https://huggingface.co/openai/whisper-tiny)                       |
+| openai/whisper-base                          | Automatic Speech Recognition | [Hugging Face](https://huggingface.co/openai/whisper-base)                       |
+| microsoft/speecht5_tts                       | Text-To-Speech               | [Hugging Face](https://huggingface.co/microsoft/speecht5_tts)                    |
+
+
+> **Licensing:** Before setting up and starting the application, review the license terms for each model above and ensure your intended use complies with those licenses.
+
+> **Note:** Models will be downloaded from their respective sources (Hugging Face, Ultralytics, etc.). You can update the `HF_ENDPOINT` variable in the `.env` file to use a different Hugging Face endpoint if needed.
+
+---
+
+#### 2. Hugging Face Model ID
+
+Specify a Hugging Face model repository ID to download and use models directly from Hugging Face.
+
+- For models requiring authentication, set your Hugging Face access token using one of the following methods:
+
+  **Method 1 (Recommended): Update the frontend/.env file**
+    
+    Add or update the `HF_TOKEN` variable in the `frontend/.env` file:
+    
+    ```
+    HF_TOKEN=your_huggingface_token
+    ```
+
+    **Method 2: Export as environment variable**
+    
+    Set the token as an environment variable before starting the application:
+
+    **For Linux:**
+    ```bash
+    export HF_TOKEN='your_huggingface_token'
+    ```
+
+    **For Windows:**
+    ```cmd
+    set HF_TOKEN=your_huggingface_token
+    ```
+
+    Replace `your_huggingface_token` with your actual token from Hugging Face account settings.
+
+- By default, `HF_ENDPOINT` is set to `https://huggingface.co`. You can configure a custom endpoint by updating the environment variable:
+
+  **Method 1 (Recommended): Update the frontend/.env file**
+
+    Add or update the `HF_ENDPOINT` variable in the `frontend/.env` file:
+
+    ```
+    HF_ENDPOINT=https://your-custom-endpoint.com
+    ```
+
+  **Method 2: Export as environment variable**
+
+    Set the endpoint as an environment variable before starting the application:
+
+    **For Linux:**
+    ```bash
+    export HF_ENDPOINT='https://your-custom-endpoint.com'
+    ```
+
+    **For Windows:**
+    ```cmd
+    set HF_ENDPOINT=https://your-custom-endpoint.com
+    ```
+
+> **Note:** Some models may not be supported by the libraries or accelerators used in this application.
+
+---
+
+#### 3. ModelScope Model ID
+
+Specify a ModelScope model repository ID to download and use models directly from ModelScope.
+
+- By default, `MODELSCOPE_DOMAIN` is set to `https://modelscope.cn`. You can configure a custom endpoint by updating the environment variable:
+
+  **Method 1 (Recommended): Update the frontend/.env file**
+
+    Add or update the `MODELSCOPE_DOMAIN` variable in the `frontend/.env` file:
+
+    ```
+    MODELSCOPE_DOMAIN=https://your-custom-endpoint.com
+    ```
+
+  **Method 2: Export as environment variable**
+
+    Set the endpoint as an environment variable before starting the application:
+
+    **For Linux:**
+    ```bash
+    export MODELSCOPE_DOMAIN='https://your-custom-endpoint.com'
+    ```
+
+    **For Windows:**
+    ```cmd
+    set MODELSCOPE_DOMAIN=https://your-custom-endpoint.com
+    ```
+
+> **Note:** Some models may not be supported by the libraries or accelerators used in this application.
+
+---
+
+#### 4. Upload Model ZIP
+
+Upload your own custom model as a ZIP file.
+
+- The ZIP must contain all necessary model files in OpenVINO IR format (e.g., `.xml`, `.bin`, and optionally `labels.txt` for object detection).
+- If your model requires custom processing (e.g., instance segmentation), you may optionally include a `model_proc.json` file with the appropriate configuration.
+
+  ```
+  my-model.zip
+  ├── model.xml
+  ├── model.bin
+  └── labels.txt   # (optional)
+  ```
+
+- Only OpenVINO models are supported. Ensure your model is exported to OpenVINO IR format before uploading.
+
+> **Note:** Some workloads may fail if the model is not compatible with the application's supported libraries or accelerators.
+
+---
+
+#### 5. Custom Model Directory
+
+Place your custom model files in the `./custom_models/` directory as described in [custom_models/README.md](./custom_models/README.md):
+
+- Each model should be placed in its own subdirectory under custom_models, containing all required files in OpenVINO IR format (e.g., `.xml`, `.bin`). Optionally, include `labels.txt` for object detection and `model_proc.json` for instance segmentation that require custom processing.
+- The application will automatically detect and list models found in this directory.
+- For details, refer to [custom_models/README.md](./custom_models/README.md).
+
+> **Note:** Only OpenVINO IR models are supported in the custom model directory. Ensure your model files are correctly structured and compatible.
+
+
+
+## Quick Start
+
+This section provides a streamlined process for setting up and running the Edge AI Sizing Tool on your local or isolated system. Follow these steps to quickly configure the environment and launch the application, allowing you to explore its features and capabilities with minimal setup.
+
+### For Linux:
+
+#### 1. Setup Platform
+
+Follow the [Edge Developer Kit Reference Scripts](https://github.com/intel/edge-developer-kit-reference-scripts) to install drivers and configure your system.
+
+#### 2. Install Dependencies
+
+```bash
+sudo ./install.sh
+```
+
+This installs all required packages, sets up Python and Node.js environments.
+
+> **Note:** The first time you run the installation script, the process may take several minutes to complete. Installation time depends on your system configuration and internet speed.
+
+#### 3. Run the Application
+
+- Run `./start.sh` to start services either from a fresh state or restart them if already running.
+
+
+> **Configuration:** When you execute `start.sh`, if `.env` does not contain a `PAYLOAD_SECRET`, the setup will generate a random `PAYLOAD_SECRET` and write it to `.env`. To supply your own secret instead, copy `.env.example` to `.env` and set the `PAYLOAD_SECRET` value before running the script.
+
+> You can also update the `HF_TOKEN`, `HF_ENDPOINT`, and `MODELSCOPE_DOMAIN` variables in the `.env` file as needed for your environment.
+
+```bash
+./start.sh
+```
+
+Once started, open http://localhost:8080 in your browser.
+
+#### 4. Stop the Application
+
+To stop the application gracefully:
+
+```bash
+./stop.sh
+```
+
+This script ensures that all services are properly shut down, including background workers.
+
+### For Windows:
+
+#### 1. Setup Platform
+
+If your system has a GPU, install the [GPU driver](https://www.intel.com/content/www/us/en/download/785597/intel-arc-iris-xe-graphics-windows.html).
+If your system has an NPU, install the [NPU driver](https://www.intel.com/content/www/us/en/download/794734/intel-npu-driver-windows.html).
+
+#### 2. Install Dependencies
+
+Right-click the `install.bat` file and click "Run as administrator".
+
+This installs all required packages, sets up Python and Node.js environments.
+
+> **Note:** The first time you run the installation script, the process may take several minutes to complete. Installation time depends on your system configuration and internet speed.
+
+#### 3. Run the Application
+
+- Double-click the `start.bat` shortcut on your Desktop to start services either from a fresh state or restore their previous states.
+
+
+> **Configuration:** When you execute `start.bat`, if `.env` does not contain a `PAYLOAD_SECRET`, the setup will generate a random `PAYLOAD_SECRET` and write it to `.env`. To supply your own secret instead, copy `.env.example` to `.env` and set the `PAYLOAD_SECRET` value before running the script.
+
+> You can also update the `HF_TOKEN`, `HF_ENDPOINT`, and `MODELSCOPE_DOMAIN` variables in the `.env` file as needed for your environment.
+
+Once started, open http://localhost:8080 in your browser.
+
+#### 4. Stop the Application
+
+To stop the application gracefully:
+
+Double-click the `stop.bat` shortcut on your Desktop.
+
+This script ensures that all services are properly shut down, including background workers.
+
+## Deployment
+
+Please refer to [DEPLOYMENT.md](DEPLOYMENT.md) for detailed steps on preparing and deploying the application.
+
+## Development
+
+Please refer to [DEVELOPMENT.md](DEVELOPMENT.md) for detailed steps on setting up a development environment.
+
+## Custom Application Profiling
+
+The Edge AI Sizing Tool includes a Custom Application Profiling feature that allows you to monitor and analyze the performance of your own applications. This tool provides comprehensive resource utilization metrics across CPU, GPU, NPU, memory, and disk I/O, along with automatic bottleneck detection and optimization recommendations.
+
+Please refer to [CUSTOM_APPLICATION_PROFILING.md](docs/CUSTOM_APPLICATION_PROFILING.md) for:
+- Step-by-step profiling guide
+- Understanding performance metrics
+- Bottleneck analysis and optimization tips
+
+## Troubleshooting
+
+### 1. GPU Utilization Not Showing Up
+
+Follow the steps below to enable the functionality of perf_events for non-root users.
+
+> **Note:** Only relevant for Linux systems.
+
+> **Security guidance:** Changing `kernel.perf_event_paranoid=0` expands access to performance monitoring features and can expose system information. Assess the security implications and apply appropriate access controls before making this change.
+
+#### Temporary Enablement
+
+To temporarily enable the available functionality of perf_events for non-root users, execute the following command:
+
+```bash
+sudo sysctl kernel.perf_event_paranoid=0
+```
+
+This command will adjust the kernel parameter for the current session. Note that this change will be reverted upon system reboot.
+
+#### Permanent Enablement
+
+To permanently enable perf_events for non-root users, you need to modify the system configuration file. Follow these steps:
+
+#### 1. **Open the /etc/sysctl.conf file in a text editor with root privileges. You can use nano, vim, or any other editor of your choice:**
+
+```bash
+sudo nano /etc/sysctl.conf
+```
+
+#### 2. **Add the following line to the file:**
+
+`kernel.perf_event_paranoid=0`
+
+#### 3. **Save the changes and exit the editor.**
+
+Apply the changes by running:
+
+```bash
+sudo sysctl -p
+```
+
+This will ensure that the perf_events functionality remains enabled across system reboots.
+
+### 2. Tool Crashes or Stops Unexpectedly
+
+If you experience frequent crashes or the tool stops working unexpectedly, try enabling Resizable BAR first under BIOS setting. 
+
+#### Enable Resizable BAR
+
+#### 1. **Enter BIOS/UEFI Setup**:
+Restart your computer. Press the appropriate key during startup to enter BIOS menu (usually F2, DEL, F10, or F12, depending on your motherboard)
+
+#### 2. **Enable Resizable BAR Setting**:
+Look for settings related to "Resizable BAR" or "Re-Size BAR Support". These settings are typically found under sections like "Advanced","PCI Subsystem Settings" or "PCI Configuration". Set the option to "Enabled" for Resizable Bar.
+
+#### 3. **Save and Exit**:
+Save your changes and exit BIOS. Your system will restart with Resizable BAR enabled.
+
+### 3. Installation Script Dependency Issues
+
+If the installation script encounters dependency conflicts during Intel® XPU Manager installation and returns an `apt --fix-broken install` error, follow the steps below:
+
+> **Note:** Only relevant for Linux systems.
+
+#### 1. **Resolve Package Dependencies**
+   
+Execute the following command to address broken package dependencies:
+
+```bash
+sudo apt --fix-broken install
+```
+
+#### 2. **Retry Installation Process**
+   
+After successfully resolving the dependency issues, re-execute the installation script:
+
+```bash
+./install.sh
+```
+
+This procedure addresses common package dependency conflicts encountered on Ubuntu systems, particularly during Intel® XPU Manager installation.
+
+## Limitations
+
+1. iGPU utilization and device name may not be displayed on Intel® Core™ Ultra 9 288V processors.
+
+2. On Ubuntu, the Object Detection inferencing stream window may stop displaying results after running for extended periods.
+
+3. System Overview and System Monitor may only show the PCI ID (e.g., e20b) for certain GPU models instead of the actual descriptive name.
+
+4. Text generation may produce gibberish and illogical output for some LLM models when using Intel® Arc™ Ultra 7 Processor 155H iGPUs.
+
+5. DLStreamer is not supported on Windows. Hence, the Object Detection and Instance Segmentation use cases for Computer Vision task are currently unavailable on Windows.
+
+## Licensing
+The Edge AI Sizing Tool and its components is licensed under the [APACHE 2.0](./LICENSE.txt) license, except for the following components:
+
+| Component | License |
+|:----------|:--------|
+| GStreamer | [LGPL](https://gstreamer.freedesktop.org/documentation/frequently-asked-questions/licensing.html) |
+
+## Contributing
+
+Contributions are welcome and appreciated! Whether it's a bug report, a feature suggestion, documentation improvement, or a code change, your input helps make this project better. Check our [Contributing Guide](./CONTRIBUTING.md) to get started.
+
+For bugs or suggestions, please open an issue and include relevant details such as your hardware, operating system, reproduction steps, and any error output. This application has been validated on the hardware listed in the documentation; behavior on other configurations may vary.

@@ -1,0 +1,7 @@
+# Optional Linux NPU passthrough; this does not establish model/runtime support.
+services:
+  studio:
+    devices:
+      - "${NPU_DEVICE:?Set NPU_DEVICE from the Linux host inventory}:${NPU_DEVICE:?Set NPU_DEVICE}"
+    group_add:
+      - "${NPU_GID:?Set the numeric NPU device GID}"

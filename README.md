@@ -1,6 +1,26 @@
 # Junction 2026
 
-Hack Junction 2026 challenges intelligence, partner analysis, and historical challenge archive (2017–2025).
+Hack Junction 2026 challenge research, Intel Physical AI development environment, shared AI memory, and historical challenge archive (2017–2025).
+
+## Intel Physical AI development
+
+- [Full Physical AI Studio source](external/physical-ai-studio/) — Git submodule,
+  `junction2026`, pinned at `17714488fa9c7d098a056da83f7c220cf983957d`.
+- [Docker setup](docs/infrastructure/DOCKER.md) — CPU Studio, isolated Anomalib,
+  and explicit Linux Intel/robot device overlays. Runtime validation is pending.
+- [Shared AI memory](memory/README.md) — start with [project context](memory/PROJECT.md),
+  [status](memory/STATUS.md), and [decisions](memory/DECISIONS.md). AI entry points:
+  [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md).
+- [Upstream guide / 中文](docs/2026/silver/zh/intel_physical_ai_studio_guide.md) /
+  [English](docs/2026/silver/en/intel_physical_ai_studio_guide.md).
+- [Repository review / 中文](docs/2026/silver/zh/open_edge_platform_repositories.md) /
+  [English](docs/2026/silver/en/open_edge_platform_repositories.md).
+- [Creative options / 中文](docs/2026/gold/zh/intel_physical_ai_creativity_options.md) /
+  [English](docs/2026/gold/en/intel_physical_ai_creativity_options.md).
+
+Initialize the upstream checkout with `git submodule update --init --recursive`
+(or clone this repository with `--recurse-submodules`). The GitHub event guide and
+PDF contain different judging rubrics; both are retained pending organizer confirmation.
 
 ---
 

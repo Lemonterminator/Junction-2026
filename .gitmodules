@@ -1,0 +1,4 @@
+[submodule "external/physical-ai-studio"]
+	path = external/physical-ai-studio
+	url = https://github.com/open-edge-platform/physical-ai-studio.git
+	branch = junction2026

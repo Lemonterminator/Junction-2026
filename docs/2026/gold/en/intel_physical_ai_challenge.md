@@ -1,6 +1,6 @@
 # Intel Physical AI Challenge: analysis and execution guidance
 
-> Updated: 2026-11-13. Sources: [Silver page-by-page transcript](../../silver/intel_physical_ai_hackathon.md) and [original PDF](../../silver/Intel_Physical%20AI%20Hackathon.pdf), 15 pages. All source facts below come from this file. Recommendations are project analysis based on its rubric. On-site equipment, software versions, and compatibility have not been independently verified.
+> Updated: 2026-11-13. Sources: [Silver page-by-page transcript](../../silver/intel_physical_ai_hackathon.md), [original PDF](../../silver/Intel_Physical%20AI%20Hackathon.pdf), 15 pages, and the supplementary [GitHub event guide](../../silver/en/intel_physical_ai_studio_guide.md). Sections 1–7 retain PDF attribution; section 8 records GitHub additions and conflicts. Recommendations are analysis. On-site equipment, model compatibility, and robot execution have not been independently validated.
 
 ## 1. Confirmed challenge
 
@@ -30,7 +30,7 @@ The following are configuration claims recorded on p.8:
 
 The source uses both SO-101 and SO-ARM101; both spellings are retained. ACT and SmolVLA appear in the p.9 illustration. Other policies and robots on pp.11-12 describe platform capabilities, not a requirement to implement every policy or support every robot.
 
-## 3. Judging rubric: 100 points
+## 3. PDF judging rubric: 100 points (final authority unconfirmed)
 
 | Criterion | Points | Evidence emphasized | Page |
 | :--- | ---: | :--- | :--- |
@@ -42,7 +42,7 @@ The source uses both SO-101 and SO-ARM101; both spellings are retained. ACT and 
 | Innovation & Technical Demonstration | 5 | Originality, Intel technology use, completeness, and clear live architecture/optimization explanation | 7 |
 | **Total** | **100** | | |
 
-**Analysis: the first four criteria total 85 points, making integration, detection, VLA, and deployment optimization the initial priorities.** Isolated offline detection results or prerecorded robot motion cannot establish the integrated system performance emphasized by the rubric. (p.7)
+**PDF-only analysis: the first four criteria total 85 points, emphasizing integration, detection, VLA, and deployment optimization.** The GitHub guide has a different rubric; this point distribution is not established as final. The PDF emphasizes integrated system performance. (p.7; see section 8.)
 
 ## 4. Execution recommendations (analysis, not extra official requirements)
 
@@ -68,7 +68,7 @@ Page 9 explicitly lists:
 - Actual objects, defect definitions, sorting rules, and other kickoff / Challenge-Day task rules. (pp.3, 9 explicitly defer to the event task.)
 - Assigned computer, camera placement, calibration status, and equipment access arrangements.
 - Physical AI Studio / OpenVINO versions, policy export and operator support, and working drivers.
-- Training data, Modal instance access, credits, network access, and training time limits; the PDF only states that a GPU cloud instance is provided.
+- Training data, actual Modal credit redemption and instance access, and network access. The PDF only states that a GPU cloud instance is provided; GitHub credit/time statements appear in section 8 and redemption is unverified.
 - Prizes, submission format, deadlines, and detailed safety procedures; the brief does not fully specify these, and Bronze predictions do not fill the gap.
 
 ## 7. Reference entry points in the source
@@ -76,4 +76,33 @@ Page 9 explicitly lists:
 - Intel Robotics: <https://developer.robotics.intel.com> (p.10).
 - Physical AI Studio: <https://github.com/open-edge-platform/physical-ai-studio/> (p.12).
 
-These are references reproduced from the PDF, not links verified online during this archival task.
+These references are reproduced from the PDF; Physical AI Studio was subsequently read online and integrated as a pinned submodule.
+
+## 8. GitHub guide additions and source conflict
+
+Source: [pinned original](../../bronze/intel_open_edge_platform/JUNCTION2026.md),
+Studio `junction2026` commit `17714488fa9c7d098a056da83f7c220cf983957d`.
+
+| GitHub criterion | Points |
+| --- | ---: |
+| Task Success Rate | 25 |
+| Intel Tech Integration | 25 |
+| Dataset & Pipeline Quality | 20 |
+| System Efficiency | 20 |
+| Creativity | 10 |
+| **Total** | **100** |
+
+GitHub groups judging into success, Intel integration, dataset/pipeline, efficiency,
+and creativity. Creativity is 10 points, while the PDF's differently scoped
+Innovation & Technical Demonstration category is 5. These are not direct one-to-one
+replacements. File recency alone does not establish precedence; organizers must
+confirm the final rubric.
+
+The guide states $100 Modal credit per participant, redeemed as instructed, with a
+24-hour maximum per job. It recommends isolated Anomalib/local XPU training, lists
+ACT/SmolVLA/Pi0.5 demonstration training, and leaves detection-to-action integration
+to teams. These are source statements, not proof of redeemed credit or a running system.
+
+The full upstream source and Docker configuration are now integrated; see the
+[Docker guide](../../../infrastructure/DOCKER.md). See [creative options](intel_physical_ai_creativity_options.md)
+for proposals and sequencing; no robot validation has been completed.

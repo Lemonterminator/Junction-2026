@@ -1,0 +1,73 @@
+{
+  "retrieved_at": "2026-11-13T21:42:39.210Z",
+  "sources": [
+    {
+      "repository": "open-edge-platform/physical-ai-studio",
+      "branch": "junction2026",
+      "commit": "17714488fa9c7d098a056da83f7c220cf983957d",
+      "file": "JUNCTION2026.md",
+      "source_url": "https://github.com/open-edge-platform/physical-ai-studio/blob/17714488fa9c7d098a056da83f7c220cf983957d/JUNCTION2026.md",
+      "retrieved_at": "2026-11-13T21:42:39.210Z",
+      "sha256": "566a5cd716fa8d633dfe2da0197638b4a3c34ee2df7ac0631ab856ae5f2c4141"
+    },
+    {
+      "repository": "open-edge-platform/geti-instant-learn",
+      "branch": "main",
+      "commit": "c529db144067752a7e870bc1261840454f9dc611",
+      "file": "repositories/geti-instant-learn/README.md",
+      "source_url": "https://raw.githubusercontent.com/open-edge-platform/geti-instant-learn/c529db144067752a7e870bc1261840454f9dc611/README.md",
+      "retrieved_at": "2026-11-13T21:42:39.210Z",
+      "sha256": "6c9088bcba4f784e107ec8a31af19e7245e17080d064d7224236be543ead85a5"
+    },
+    {
+      "repository": "open-edge-platform/manufacturing-ai-suite",
+      "branch": "main",
+      "commit": "c4f45f0674217a6dfd006598dd6ebb9da9a1e6b7",
+      "file": "repositories/manufacturing-ai-suite/README.md",
+      "source_url": "https://raw.githubusercontent.com/open-edge-platform/manufacturing-ai-suite/c4f45f0674217a6dfd006598dd6ebb9da9a1e6b7/README.md",
+      "retrieved_at": "2026-11-13T21:42:39.210Z",
+      "sha256": "acf76a1c5a66e46e52d55b17d8bb35b77d4c343f3e49ad5883f9b10bbee0d94a"
+    },
+    {
+      "repository": "open-edge-platform/edge-ai-sizing-tool",
+      "branch": "main",
+      "commit": "591e42805581abe1e596cea33349e48ba88aabb8",
+      "file": "repositories/edge-ai-sizing-tool/README.md",
+      "source_url": "https://raw.githubusercontent.com/open-edge-platform/edge-ai-sizing-tool/591e42805581abe1e596cea33349e48ba88aabb8/README.md",
+      "retrieved_at": "2026-11-13T21:42:39.210Z",
+      "sha256": "d53fddee3775742a5ee0e04a4b0f2a6c96c4d944946f0e6fc828d81bb0def9c4"
+    },
+    {
+      "repository": "open-edge-platform/dlstreamer",
+      "branch": "main",
+      "commit": "5596cca892262dbc2907b47182a6a818e6e64904",
+      "file": "repositories/dlstreamer/README.md",
+      "source_url": "https://raw.githubusercontent.com/open-edge-platform/dlstreamer/5596cca892262dbc2907b47182a6a818e6e64904/README.md",
+      "retrieved_at": "2026-11-13T21:42:39.210Z",
+      "sha256": "bc7c5b473dbb794233baffb5a3bd9af1aa9c9e96903181204323d952059932b2"
+    },
+    {
+      "repository": "open-edge-platform/scenescape",
+      "branch": "main",
+      "commit": "0e2f5c36eb15b05aa6718030ec02b525000e719a",
+      "file": "repositories/scenescape/README.md",
+      "source_url": "https://raw.githubusercontent.com/open-edge-platform/scenescape/0e2f5c36eb15b05aa6718030ec02b525000e719a/README.md",
+      "retrieved_at": "2026-11-13T21:42:39.210Z",
+      "sha256": "23783206efd3599305ebbe05127f390a4cba0ecfeb86737a08747e8227898ee2"
+    },
+    {
+      "repository": "open-edge-platform/robotics-ai-suite",
+      "branch": "main",
+      "commit": "4544ddb214c25443924a8d908492c60d05e1f667",
+      "file": "repositories/robotics-ai-suite/README.md",
+      "source_url": "https://raw.githubusercontent.com/open-edge-platform/robotics-ai-suite/4544ddb214c25443924a8d908492c60d05e1f667/README.md",
+      "retrieved_at": "2026-11-13T21:42:39.210Z",
+      "sha256": "dda978d8e6ac6e49169d5ca5b99d71ca57de4f67a54275916de3c03ffc1a25cd"
+    }
+  ],
+  "organizer_message": {
+    "text": "Check out the interesting repos here; Feel free to use any of them for an extra bit of creativity",
+    "attribution": "Organizer message supplied by the user in this chat; independently unverified.",
+    "supplied_date": "2026-11-13"
+  }
+}

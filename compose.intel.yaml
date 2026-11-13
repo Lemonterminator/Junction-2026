@@ -1,0 +1,14 @@
+# Native Linux host only. Supply the inventoried render node and its numeric GID.
+services:
+  studio:
+    image: junction-physical-ai-studio-xpu:${STUDIO_GIT_SHA:-17714488fa9c7d098a056da83f7c220cf983957d}
+    build:
+      target: physical-ai-studio-xpu
+    devices:
+      - "${GPU_RENDER_DEVICE:?Set GPU_RENDER_DEVICE from the Linux host inventory}:${GPU_RENDER_DEVICE:?Set GPU_RENDER_DEVICE}"
+    group_add:
+      - "${RENDER_GID:?Set the numeric render-node GID}"
+    environment:
+      SYCL_CACHE_PERSISTENT: "1"
+      SYCL_CACHE_DIR: /app/storage/.sycl-cache
+      SYCL_UR_USE_LEVEL_ZERO_V2: "0"

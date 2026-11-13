@@ -1,0 +1,193 @@
+<!-- markdownlint-disable MD013 MD033 MD041 MD042 -->
+<div align="center">
+
+<img src="assets/instant-learn-header.png" alt="Geti Instant Learn Logo - A framework for developing, benchmarking, and deploying zero-shot visual prompting algorithms on the edge">
+
+**A framework for developing, benchmarking, and deploying zero-shot visual prompting algorithms on the edge.**
+
+[![python](https://img.shields.io/badge/python-3.13-green)]()
+[![license](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+</div>
+
+# Introduction
+
+Visual prompting offers a powerful alternative to traditional training. Instead of curating thousands of labeled images, you simply show the model one or a few examples of what you are looking for. The model effectively "learns" instantly, detecting and segmenting similar objects in new images or live video streams without retraining.
+
+<p align="center">
+ <image src="https://github.com/user-attachments/assets/2447ac7c-cfac-41b0-89b6-381325465f2c"/>
+</p>
+
+## Key Features
+
+- **Library & Application**: A unified framework providing a **modular Python library** for research and development, and a **Full-Stack Application** for deploying those algorithms on live video streams.
+- **Simple & Modular API**: A composable design where developers can mix and match components (backbones, matchers) to create custom pipelines.
+- **Algorithms & Models**: A wide collection of ready-to-use zero-shot and few-shot algorithms (e.g., **SAM 2**, **Matcher**, **GroundedSAM**) and foundation models.
+- **Hardware Acceleration**: Built-in support for model optimization and export to [**OpenVINO™**](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html) for fast inference on Intel hardware (CPU, GPU, NPU).
+- **Multiple Backends**: Seamless switching between **PyTorch** for flexibility/research and **OpenVINO** for optimized deployment.
+
+## Getting Started
+
+Geti Instant Learn consists of two core components:
+
+- **Python Library**: The foundation for research and zero/few shots algorithm development.
+- **Full Stack Application**: Leverages the library to enable real-time inference on live streams, video files, and images.
+
+<details>
+<summary> Prerequisites </summary>
+
+- **Python 3.13**
+- **[uv](https://github.com/astral-sh/uv)** (Python package manager)
+- **[Just](https://github.com/casey/just)** (Command runner)
+- **Node.js (v24.2.0)** (Required only for the UI Application)
+- **Docker** (Optional, for containerized deployment)
+
+</details>
+
+### Geti Instant Learn Library
+
+Install the library:
+
+```bash
+cd library
+uv sync --extra xpu    # Intel XPU (recommended)
+uv sync --extra cpu    # CPU only
+uv sync --extra cuda    # CUDA support
+```
+
+Or with pip:
+
+```bash
+pip install ./library[xpu]  # or [cpu], [cuda]
+```
+
+#### SAM3: Zero-Shot Text Prompting
+
+SAM3 performs zero-shot segmentation using text prompts (category names) or bounding boxes — no reference mask needed.
+You provide a list of categories you want to segment in any image.
+
+<p align="center">
+  <img src="assets/readme-sam3-example.png" alt="SAM3 Example: Text-prompted segmentation on multiple elephant images">
+</p>
+
+```python
+from instantlearn.models import SAM3
+from instantlearn.data import Category, Sample
+
+# Initialize SAM3 with automatic device selection
+model = SAM3()
+
+# SAM3 is zero-shot — no fit() required. Just provide categories per sample.
+predictions = model.predict([
+    Sample(image_path="library/examples/assets/coco/000000286874.jpg", categories=[Category(0, "elephant")]),
+    Sample(image_path="library/examples/assets/coco/000000173279.jpg", categories=[Category(0, "elephant")]),
+])
+```
+
+> **Tip:** Calling `model.fit(sample)` is optional for SAM3. If called, the fitted
+> categories are reused for all subsequent `predict()` calls so you don't need to
+> specify categories on every target sample. If not called, categories are taken from
+> each target sample directly.
+
+For more examples of SAM3 capabilities, see the [SAM3 aerial & maritime notebook](library/examples/sam3_aerial_maritime_example.ipynb).
+
+Since SAM3 requires a text prompt for every sample (unless `fit()` is used), this is where **Matcher** comes in —
+you fit once with a reference mask (one-shot) and predict on any number of new images without providing prompts again.
+
+#### Matcher: One-Shot Visual Prompting
+
+<p align="center">
+  <img src="assets/readme-matcher-example.png" alt="Matcher Example: Reference Image → Reference Mask → 3 Predictions">
+</p>
+
+```python
+from instantlearn.models import Matcher
+from instantlearn.data import Sample
+
+# Initialize Matcher with automatic device selection
+model = Matcher()
+
+# Create reference sample (auto-loads image and mask from paths)
+ref_sample = Sample(
+    image_path="library/examples/assets/coco/000000286874.jpg",
+    mask_paths="library/examples/assets/coco/000000286874_mask.png",
+)
+
+# Fit once on reference
+model.fit(ref_sample)
+
+# Predict on multiple target images — no prompts needed
+predictions = model.predict([
+    "library/examples/assets/coco/000000390341.jpg",
+    "library/examples/assets/coco/000000173279.jpg",
+    "library/examples/assets/coco/000000267704.jpg",
+])
+
+# Access results for each image
+for pred in predictions:
+    masks = pred.masks  # Predicted segmentation masks
+```
+
+Models select a compatible device automatically. See
+[Manual Device Selection](library/docs/02-quick-start.md#manual-device-selection)
+to select a specific physical device.
+
+> For interactive mask generation with SAM, CLI usage, and benchmarking, see the [Library README](library/README.md).
+
+### Geti Instant Learn Application
+
+**Full-stack web interface for real-time inference.**
+
+Configure Hugging Face access as described in the [Application Documentation](application/README.md)
+
+Deploy models on live video streams, cameras, and video files.
+
+```bash
+just device=xpu application/dev   # (device can be "xpu", "cuda", or "cpu")
+```
+
+Access at: http://localhost:3000
+
+[View Application Documentation →](application/README.md)
+
+## Supported Models and Algorithms
+
+Geti Instant Learn supports a variety of foundation models and visual prompting algorithms, optimized for different performance needs.
+
+### Visual Prompting Algorithms
+
+| Algorithm | Description | Paper | Repository |
+| --------- | ----------- | ----- | ---------- |
+| **Matcher** | Standard feature matching pipeline using SAM. | [Matcher](https://arxiv.org/abs/2305.13310) | [Matcher](https://github.com/aim-uofa/Matcher) |
+| **SoftMatcher** | Enhanced matching pipeline with soft feature comparison, inspired by Optimal Transport. | [IJCAI 2024](https://www.ijcai.org/proceedings/2024/1000.pdf) | N/A |
+| **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) |
+| **GroundedSAM** | Combines Grounding DINO and SAM for text-based visual prompting and segmentation. | [Grounding DINO](https://arxiv.org/abs/2303.05499), [SAM](https://arxiv.org/abs/2304.02643) | [GroundedSAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) |
+| **SAM 3** | Open-vocabulary segmentation using concept-based prompts. | [SAM 3](https://arxiv.org/abs/2511.16719) | [SAM 3](https://github.com/facebookresearch/sam3) |
+
+### Foundation Models (Backbones)
+
+| Family | Models | Description | Paper | Repository |
+| ------ | ------ | ----------- | ----- | ---------- |
+| **SAM** | SAM-HQ-tiny, SAM-HQ-base, SAM-HQ-large, SAM-HQ | High-quality variants of the original Segment Anything Model (ViT-Tiny ~5M, ViT-B ~86M, ViT-L ~307M, ViT-H ~632M). SAM-HQ-tiny is the fastest but does not support OpenVINO export. | [Segment Anything](https://arxiv.org/abs/2304.02643), [SAM-HQ](https://arxiv.org/abs/2306.01567) | [SAM](https://github.com/facebookresearch/segment-anything), [SAM-HQ](https://github.com/SysCV/sam-hq) |
+| **SAM 2** | SAM2-tiny, SAM2-small, SAM2-base, SAM2-large | The next generation of Segment Anything, offering improved performance and speed. | [SAM 2](https://arxiv.org/abs/2408.00714) | [sam2](https://github.com/facebookresearch/sam2) |
+| **SAM 3** | SAM 3 | Segment Anything with Concepts, supporting open-vocabulary prompts. | [SAM 3](https://arxiv.org/abs/2511.16719) | [SAM 3](https://github.com/facebookresearch/sam3) |
+| **DINOv2** | Small, Base, Large, Giant | Self-supervised vision transformers with registers, used for feature extraction. | [DINOv2](https://arxiv.org/abs/2304.07193), [Registers](https://arxiv.org/abs/2309.16588) | [dinov2](https://github.com/facebookresearch/dinov2) |
+| **DINOv3** | Small, Small+, Base, Large, Huge | The latest iteration of DINO models. | [DINOv3](https://arxiv.org/abs/2508.10104) | [dinov3](https://github.com/facebookresearch/dinov3) |
+| **Grounding DINO** | (Integrated in GroundedSAM) | Open-set object detection model. | [Grounding DINO](https://arxiv.org/abs/2303.05499) | [GroundingDINO](https://github.com/IDEA-Research/GroundingDINO) |
+
+## Documentation
+
+| Component | README | Documentation |
+|-----------|--------|---------------|
+| **Library** | [library/README.md](library/README.md) | [library/docs](library/docs/) |
+| **Application** | [application/README.md](application/README.md) | [application/docs](application/docs/) |
+
+## Community
+
+- To report a bug or submit a feature request, please open a [GitHub issue](https://github.com/open-edge-platform/geti-instant-learn/issues).
+- Ask questions via [GitHub Discussions](https://github.com/open-edge-platform/geti-instant-learn/discussions).
+
+## License
+
+Geti Instant Learn is licensed under the [Apache License 2.0](LICENSE).
+
+FFmpeg is an open source project licensed under LGPL and GPL. See <https://www.ffmpeg.org/legal.html>. You are solely responsible for determining if your use of FFmpeg requires any additional licenses. Intel is not responsible for obtaining any such licenses, nor liable for any licensing fees due, in connection with your use of FFmpeg.

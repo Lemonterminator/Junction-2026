@@ -1,0 +1,11 @@
+# Exclusive device ownership must be coordinated before starting this overlay.
+# Add additional cameras explicitly in an ignored compose.local.yaml if required.
+services:
+  studio:
+    devices:
+      - "${CAMERA_DEVICE:?Select an available camera}:${CAMERA_DEVICE:?Set CAMERA_DEVICE}"
+      - "${LEADER_DEVICE:?Select the leader serial port}:${LEADER_DEVICE:?Set LEADER_DEVICE}"
+      - "${FOLLOWER_DEVICE:?Select the follower serial port}:${FOLLOWER_DEVICE:?Set FOLLOWER_DEVICE}"
+    group_add:
+      - "${VIDEO_GID:?Set the numeric camera GID}"
+      - "${DIALOUT_GID:?Set the numeric serial-device GID}"

@@ -1,0 +1,9 @@
+* text=auto
+*.sh text eol=lf
+*.py text eol=lf
+*.mjs text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+Dockerfile text eol=lf
+# Preserve archived source bytes so manifest hashes survive Git checkout.
+docs/2026/bronze/intel_open_edge_platform/** -text
