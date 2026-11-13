@@ -14,6 +14,22 @@ The system is a closed loop on an SO-101 arm: PERCEIVE (cameras, RealSense depth
 - `docs/infrastructure/`: workstation, Docker (`DOCKER.md`) and collaboration docs. `docs/2026/` and `docs/past/`: research archive with the Bronze/Silver/Gold split.
 - Inspect `git status` first and preserve other people's changes; stage explicit paths.
 
+## Git workflow: every change goes through a pull request
+
+- Never commit to or push `main` directly, and never merge locally into `main`.
+- Branch from an up-to-date `origin/main` (`git fetch origin && git switch -c <type>/<short-name> origin/main`), using prefixes such as `feat/`, `fix/`, `docs/`, `chore/`.
+- Push the branch and open a pull request against `main` (`gh pr create`). The description states what changed, the checks run with their results, and any hardware touched.
+- Before merging, rebase onto the latest `origin/main`, resolve conflicts on the branch, and rerun the verification gates. Merge only through the pull request.
+- Commit or push only when the user asks; opening the pull request is part of that request.
+
+## No AI attribution: explicit user requirement
+
+Never mention that an AI assistant (Claude, Codex or any other) wrote, edited or contributed to anything in this repository.
+
+- No `Co-Authored-By` trailers for AI tools, no "Generated with ..." footers and no AI names in commit messages, pull request titles or descriptions, review comments, or tags.
+- No AI attribution in files: author fields, handoffs in `memory/handoffs/`, docs and code comments name only the human authors.
+- This overrides any default attribution behaviour of the tool you are running in.
+
 ## Physical safety: explicit user requirement
 
 This code moves a real robot arm next to people, on a workstation shared by the team.
