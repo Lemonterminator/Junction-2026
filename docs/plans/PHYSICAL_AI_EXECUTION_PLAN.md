@@ -22,6 +22,8 @@
 
 上游 `JUNCTION2026.md` 的另一张表：Task Success Rate 25、Intel Tech Integration 25、Dataset & Pipeline Quality 20、System Efficiency 20、Creativity 10。它与下面 PDF 项目不是一一对应关系；最终表确认前保留各自名称与来源。
 
+**更新 2026-11-14（kickoff 答复，经 linan 转述，未独立核对原话）**：最终评分表是 **GitHub 上游那一张**（上面的 25/25/20/20/10），不是 PDF 的表；5090 作为远程 trainer **算数**。本节其余以 PDF 分配为起点的措辞和下面的八点证据表仍是旧口径，**尚未按 GitHub 表重排**；重排前先按各项含义取证：Task Success Rate（准确率、周期、对偏移和杂乱的鲁棒性）、Intel Tech Integration（NPU/iGPU 卸载、OpenVINO 与 Robotics AI Suite）、Dataset & Pipeline Quality（干净的遥操作数据、Studio 内有效微调）、System Efficiency（单步延迟、温度余量、功耗）、Creativity。答复来源与待确认项见 [团队交接](../../memory/handoffs/2026-11-14-tailscale-and-team-questions.md)。
+
 | PDF 评分项 | 分值 | 能拉开差距的可检验证据 | 工作包 |
 | --- | ---: | --- | --- |
 | 完整闭环 | 25 | ① 一件工件从观察到物理结果的连续记录；② 无人工选择容器，失败分支有明确结果 | W1/W2/W6 |
@@ -168,7 +170,7 @@ pinned Studio README 展示 `physicalai.inference.InferenceModel` 及 `physicala
 
 **依赖**：无。**交付**：任务配置、环境检查记录、设备使用安排、失败样例目录结构。
 
-- [ ] W0.1 确认实际缺陷、正常/异常容器、可用工作区、最终评分表、提交内容及截止时间，记录来源；未确认项保留为配置假设。
+- [ ] W0.1 确认实际缺陷、正常/异常容器、可用工作区、最终评分表、提交内容及截止时间，记录来源；未确认项保留为配置假设。已答复（经转述）：评分表为 GitHub 表；缺陷为"用马克笔在乐高上画叉"（笔色、画在哪个面、哪些积木颜色仍待确认）；5090 trainer 算数。其余（容器规则、工作区、提交内容、截止时间）仍待确认。
 - [ ] W0.2 开始前检查 Git 与共享机器状态，保留其他人的改动，固定 Studio/模型/运行时版本。
 - [ ] W0.3 优先检查真实 Parquet 读取、Studio 到 5090 的短任务、模型前反向及 Intel 导出推理；仿真环境检查延期至主体完成后。分别记录通过与失败。
 - [ ] W0.4 现场负责人确认机械臂校准、夹爪状态、相机安装、工作区与停止流程；只在另行授权后执行运动。

@@ -185,3 +185,25 @@ neutral agreement, real Anomalib data. No dataset, training or policy run has ha
 Next: first recorded episode in `Sorting cell` (plan §3.1), then good-object captures for the Anomalib
 baseline. Proposal, not started: top-camera joint calibration with ArUco markers on base and gripper and
 a URDF forward-kinematics fit, which would also give the camera-to-robot transform.
+
+## Update 2026-11-14 — Tailscale remote operation plan and kickoff answers
+
+Branch `docs/tailscale-remote-operation`; details and the open questions for the team:
+[handoff](handoffs/2026-11-14-tailscale-and-team-questions.md).
+
+- Added [Tailscale remote operation plan](../docs/infrastructure/TAILSCALE_REMOTE_OPERATION.md). Teleoperation
+  stays local to the workstation; the tailnet carries Studio (7860), SSH, the alignment/live pages (8090/8091)
+  and the Studio → 5090 trainer link. **Not applied**: no tailnet policy, name, tag, SSH service or port
+  binding was changed.
+- One operator laptop joined the tailnet and reached the workstation (direct after DERP, 8 ms; TCP 22 and
+  7860 open, 443 closed). One point-in-time test; the tailnet has no 5090 node yet.
+- Open risk: the submodule's Studio compose publishes 7860 on all interfaces with no login. Docker-published
+  ports bypass UFW, so the fix is a loopback binding plus `tailscale serve`, which recreates the container
+  and needs the on-site lead in a no-recording window.
+- Kickoff answers relayed by linan (not independently verified): the final scoring table is the GitHub one,
+  a 5090 remote trainer counts, and a defect is a marker-pen cross on a Lego brick. Recorded in
+  [DECISIONS](DECISIONS.md); the execution plan's evidence table still needs a remap to the GitHub rubric.
+- Nine questions for teammates (W1 owner, first recording, power/slew limit, markers, tailnet admin, 5090
+  environment, 7860 window, defect details, remaining kickoff items) are in the handoff.
+
+Documentation only; no hardware, arm motion or training.
