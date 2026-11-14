@@ -82,6 +82,7 @@ Test ownership:
 - `tests/test_twin.py` owns `defect_sorter.twin` (kinematic twin: TCP, IK, rate limits, grasp/release, cameras, scripted expert).
 - `tests/test_offline_pipeline.py` owns `defect_sorter.offline_pipeline` and the pure part of `defect_sorter.lerobot_export` (demo recording, anomaly crops, twin evaluation, LeRobot features).
 - `tests/test_tracking.py` owns `defect_sorter.tracking` (reading run and evaluation directories into MLflow records).
+- `tests/test_model_release.py` owns `defect_sorter.model_release` (release manifest and download verification).
 
 Extend the owning module by default. Add a new test file only for a new stable module boundary, and update this map in the same change.
 
@@ -104,6 +105,7 @@ Extend the owning module by default. Add a new test file only for a new stable m
 - `twin.py`: kinematic digital twin of the cell (no physics engine) implementing `Cell`, plus a privileged scripted expert. Twin results are tagged `mode = twin` and never pooled with real ones.
 - `offline_pipeline.py`: hardware-free CLI (record demos, write anomaly crops, evaluate the loop); `lerobot_export.py`: demos → LeRobot v3, run in the Studio backend environment.
 - `tracking.py`: logs finished training runs and twin evaluations to MLflow (`tracking` extra), tagged by data source.
+- `model_release.py`: manifest (file hashes, training run, status) for private GitHub model releases and verification of a download against it.
 
 Keep modules deep: callers use `detect_scene(...)` and `D415Camera`, not the internals. Do not fabricate detections, scores or latencies; when data is missing, return an empty or explicit failure result rather than a guess. A dependency that "supports OpenVINO" is not proof of GPU/NPU deployment; report configuration, build, runtime and hardware checks separately.
 

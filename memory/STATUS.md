@@ -267,3 +267,10 @@ fit-only launcher and PyAV video decoding. A usable policy still needs ~30–50 
 MLflow: a local tracking server runs on the training PC (loopback :5000, store under `artifacts/mlflow/`).
 `defect_sorter.tracking` logged today's two training runs (with checkpoints) and two twin evaluations, each tagged
 `source` twin/real. Guide: [TRAINING.md](../docs/infrastructure/TRAINING.md#experiment-tracking-with-mlflow).
+
+Model sharing: the studio-smoke-1 SmolVLA checkpoint was exported to OpenVINO (runs on CPU, ~295 ms per 50×6
+chunk with synthetic input) and published as the private pre-release `model-smolvla-studio-smoke-1` with a
+`release.json` manifest (`defect_sorter.model_release`); a fresh `gh release download` plus `verify` reported ok.
+Status `smoke-test`: not for the arm. Guide: [MODEL_RELEASES](../docs/infrastructure/MODEL_RELEASES.md).
+MLflow is still loopback-only: `tailscale serve` needs Serve enabled for the tailnet in the admin console, and
+direct binding to the tailnet IP is blocked by the PC's inbound firewall (left unchanged).

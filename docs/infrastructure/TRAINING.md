@@ -205,7 +205,7 @@ uv run --extra tracking python -m defect_sorter.tracking evaluation artifacts/tw
 
 On Windows set `PYTHONUTF8=1`; MLflow prints an emoji when a run finishes and a
 cp1252 console crashes on it. The server listens on loopback only. Teammates can
-reach it with `ssh -L 5000:127.0.0.1:5000` or a future `tailscale serve`; no
-tailnet exposure has been configured. Store and artifacts live in the Git-ignored
+reach it with `ssh -L 5000:127.0.0.1:5000`, or over `tailscale serve` once Serve
+is enabled for the tailnet (see [MODEL_RELEASES.md](MODEL_RELEASES.md#training-curves-mlflow)). Store and artifacts live in the Git-ignored
 `artifacts/mlflow/`. Each checkpoint is about 1.7 GB, so use `--no-artifacts` for
 runs whose weights are not worth keeping.

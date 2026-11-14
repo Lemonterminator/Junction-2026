@@ -105,7 +105,7 @@ Problems found on the way, with the workaround used:
 
 - **`physicalai` console script fails on Windows**: it imports the robot CLI, whose
   transport lock imports POSIX-only `fcntl`. `scripts/offline_pipeline/physicalai_without_robot_cli.py`
-  builds only the `fit` parser; `training.py` now uses it on Windows (see the real-data
+  builds only the `fit` or `export` parser; `training.py` now uses it on Windows (see the real-data
   section). On Linux the normal path is unchanged.
 - **Windows Application Control blocks freshly installed DLLs once**: the first
   import of `scipy.optimize._highspy._core` and `scipy.io._mio5_utils` in a new

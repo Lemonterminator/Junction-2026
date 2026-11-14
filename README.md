@@ -55,6 +55,8 @@ Python package for the Intel Physical AI Challenge pipeline (PERCEIVE → DETECT
 | `src/defect_sorter/closed_loop.py` | One sorting attempt (observe → inspect → plan → execute → verify) over replaceable cell, inspector and policy |
 | `src/defect_sorter/twin.py` | Kinematic digital twin of the cell (SO-101 FK/IK, grasp, rendered cameras) and a scripted expert |
 | `src/defect_sorter/offline_pipeline.py`, `lerobot_export.py` | Hardware-free pipeline: twin demos → LeRobot v3, anomaly crops, twin evaluation ([guide](docs/infrastructure/OFFLINE_PIPELINE.md)) |
+| `src/defect_sorter/tracking.py` | Logs finished training runs and twin evaluations to MLflow, tagged by data source |
+| `src/defect_sorter/model_release.py` | Release manifest (hashes, training run, status) and download check for private model releases ([guide](docs/infrastructure/MODEL_RELEASES.md)) |
 
 ```bash
 uv sync                                   # light install: tests run anywhere
