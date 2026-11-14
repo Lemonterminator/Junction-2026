@@ -1,0 +1,21 @@
+[project]
+name = "armkit"
+version = "0.1.0"
+description = "Kinematics, collision checking and automatic, guarded calibration for hobby robot arms built on serial bus servos"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+	"numpy>=2.1",
+	"scipy>=1.18.1",
+]
+
+[project.optional-dependencies]
+# Feetech STS/SCS serial bus access (the only module that imports the SDK is armkit.feetech).
+feetech = ["feetech-servo-sdk>=1.0"]
+
+[project.scripts]
+armkit-calibrate = "armkit.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.15,<0.14.0"]
+build-backend = "uv_build"
