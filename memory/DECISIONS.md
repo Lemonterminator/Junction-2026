@@ -75,3 +75,11 @@ Status: adopted; evidence in the 2026-11-14 hardware handoff.
 Two uncompressed 640×480 UVC streams plus the D415 do not fit through one USB 2 hub. Keep the wrist and
 front cameras on different laptop ports (separate hubs), and prefer the D415 on a USB 3 link.
 Status: adopted; the D415 still enumerates as USB 2.1 and works at 640×480 colour.
+
+## 2026-11-14 — Automatic calibration lives in a project-agnostic library
+
+Calibration by hand in Studio is slow and error-prone, so end stops are found by driving into them. The code is the
+`armkit` workspace package so other projects can reuse it, with no dependency on this repo. Safety rules: bounded push
+(goal leash plus low torque limit), step back on a rapid load rise and retry slower rather than fail, park the other
+joints by the 3D model's collision shapes before each sweep, never run a plan with issues, previous calibration is backed
+up and restored on failure, servo faults stop everything and are never retried. Status: adopted; simulation-tested only.

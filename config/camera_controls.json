@@ -1,0 +1,27 @@
+{
+ "front": {
+  "device_name": "Webcam Audio: Webcam",
+  "controls": {
+   "auto_exposure": 1,
+   "exposure_time_absolute": 300,
+   "gain": 0,
+   "white_balance_automatic": 0,
+   "white_balance_temperature": 4600,
+   "power_line_frequency": 1,
+   "focus_automatic_continuous": 0,
+   "focus_absolute": 270
+  }
+ },
+ "wrist": {
+  "device_name": "USB2.0_CAM1: USB2.0_CAM1",
+  "controls": {
+   "auto_exposure": 1,
+   "exposure_dynamic_framerate": 0,
+   "exposure_time_absolute": 300,
+   "gain": 0,
+   "white_balance_automatic": 0,
+   "white_balance_temperature": 3500,
+   "power_line_frequency": 1
+  }
+ }
+}

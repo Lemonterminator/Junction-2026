@@ -43,13 +43,17 @@ Python package for the Intel Physical AI Challenge pipeline (PERCEIVE → DETECT
 | :--- | :--- |
 | `src/defect_sorter/geometry.py` | Camera intrinsics, deprojection, RANSAC table plane, height above table |
 | `src/defect_sorter/scene.py` | Bowls by colour, objects by height, object-in-bowl relation (`detect_scene`) |
-| `src/defect_sorter/realsense.py` | D415 aligned colour + depth with fixed white balance |
+| `src/defect_sorter/realsense.py` | D415 aligned colour + depth with fixed white balance and a static or motion depth-filter profile |
+| `src/defect_sorter/uvc_controls.py` | Locks USB camera exposure, white balance, focus and mains frequency (`sorter-camera-lock`, profile `config/camera_controls.json`) |
+| `src/defect_sorter/depth_bridge.py` | Colour + layered height-above-table depth as MJPEG streams for Studio (`sorter-depth-bridge`) |
 | `src/defect_sorter/live_demo.py` | Live MJPEG debug page for the top camera |
 | `src/defect_sorter/markers.py` | Printed ArUco marker set, print sheet (`sorter-marker-sheet`), marker pose detection |
 | `src/defect_sorter/alignment.py` | Depth-refined marker poses, a level table frame (camera tilt corrected), drift against a saved reference |
 | `src/defect_sorter/alignment_page.py` | Live alignment page: markers in the table frame, drift (`sorter-alignment`) |
 | `src/defect_sorter/kinematics.py` | SO-101 forward kinematics (joint table from the `so101_new_calib` URDF) |
 | `src/defect_sorter/joint_calibration.py`, `calibration_capture.py` | Camera-based joint calibration, measure only (`sorter-joint-calibration capture/solve`) |
+| `src/defect_sorter/motion.py` | Slow, checked jaws-down moves of the follower, dry run unless `--go` (`sorter-move --to / --above-marker / --above-brick`) |
+| `src/defect_sorter/targeting.py` | Brick pose on the table from the top camera, hover target and grasp wrist roll |
 | `src/defect_sorter/anomaly_smoke.py` | Anomalib → OpenVINO export and CPU/GPU/NPU latency check |
 | `src/defect_sorter/inspection.py` | Anomaly score → normal / defective / uncertain; OpenVINO scorer; Padim training on crops |
 | `src/defect_sorter/closed_loop.py` | One sorting attempt (observe → inspect → plan → execute → verify) over replaceable cell, inspector and policy |
@@ -73,6 +77,13 @@ How the printed markers and the self-levelling table frame work: [docs/infrastru
 First-round CPU/GPU/NPU profiling of SmolVLA and Anomalib, with the scripts used: [docs/infrastructure/HARDWARE_PROFILING.md](docs/infrastructure/HARDWARE_PROFILING.md).
 
 Only one process can open the D415: stop the live demo before Physical AI Studio previews, records or runs a policy. Workstation setup is tracked in [docs/infrastructure/SETUP_STATUS.md](docs/infrastructure/SETUP_STATUS.md). The proposed (not yet applied) Tailscale layout for remote Studio and SSH access is in [docs/infrastructure/TAILSCALE_REMOTE_OPERATION.md](docs/infrastructure/TAILSCALE_REMOTE_OPERATION.md).
+
+## Library: `armkit`
+
+`packages/armkit/` is a standalone, project-agnostic library (kinematics, collision model, guarded automatic joint
+calibration for Feetech servo arms, SO-101 profile). `uv run armkit-calibrate plan` prints the collision-aware
+calibration plan without touching hardware; see `packages/armkit/README.md`. It has only been run against a simulated
+bus so far.
 
 ## Local policy training and digital twin
 

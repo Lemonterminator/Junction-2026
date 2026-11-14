@@ -39,6 +39,7 @@ This code moves a real robot arm next to people, on a workstation shared by the 
 - On an arm error (overload protection, unresponsive servo) stop and report; do not retry motion automatically.
 - Do not take over a camera, replace drivers or reboot the workstation as an incidental step; only one process can open each camera.
 - Tests never touch real hardware. Hardware checks are explicit, manual and outside the default test suite.
+- Joint calibration measures every end; it never falls back to the stored (Studio) limits. A stored limit is not a measurement: an end that was only reached at its stored limit, or not reached at all, stays an open issue until it is measured. When the usual way would drop a loaded joint (limits that change only with torque off), find another safe way to measure it (limits widened with torque on, a supporting pose, the operator supporting the link) instead of accepting the stored value.
 
 ## Secrets and machine access
 
@@ -48,11 +49,13 @@ This code moves a real robot arm next to people, on a workstation shared by the 
 
 ## Tooling and style
 
-- Use `uv` exclusively (`uv sync`, `uv run`, `uv add`). Keep `.python-version` (3.12) and `uv.lock` committed. Heavy dependencies sit behind extras: `camera` (pyrealsense2, Linux only) and `anomaly` (Anomalib, OpenVINO, CPU torch). The default install stays light so tests run on any laptop.
+- Run `ruff --fix` only on paths you own, and never with `--select` on project code: a restricted rule set makes ruff delete legitimate `# noqa` comments.
+
+- Use `uv` exclusively (`uv sync`, `uv run`, `uv add`). Keep `.python-version` (3.12) and `uv.lock` committed. Heavy dependencies sit behind extras: `camera` (pyrealsense2, Linux only), `anomaly` (Anomalib, OpenVINO, CPU torch) and `dataset` (pyarrow, for reading recorded datasets). The default install stays light so tests run on any laptop.
 - Use tabs for indentation in Python, enforced by `ruff format`. Never align code or comments with padding spaces.
 - Add precise type annotations and NumPy-style docstrings to public functions and classes.
 - Use `logging.getLogger(__name__)` with lazy `%` arguments. No `print` in library code; CLI output uses `sys.stdout.write` or logging.
-- Hardware SDKs are imported in exactly one adapter module each (`realsense.py` for pyrealsense2, `so101_reader.py` for scservo_sdk). Perception logic works on plain NumPy arrays so it can be tested without hardware.
+- Hardware SDKs are imported in exactly one adapter module each (`realsense.py` for pyrealsense2, `uvc_controls.py` for V4L2 ioctls, `so101_reader.py` for scservo_sdk in `defect_sorter`; `armkit/feetech.py` for scservo_sdk in the library, until `so101_reader.py` is migrated onto it). Perception logic works on plain NumPy arrays so it can be tested without hardware.
 
 ## TDD is required
 
@@ -72,10 +75,17 @@ Test ownership:
 - `tests/test_scene.py` owns `defect_sorter.scene` (bowl detection by colour, object detection by height, object-in-bowl relation).
 - `tests/test_markers.py` owns `defect_sorter.markers` (printed marker set, print sheet, marker detection and pose).
 - `tests/test_alignment.py` owns `defect_sorter.alignment` (depth-refined marker poses, table frame and camera-pose invariance, drift against a saved reference).
-- `tests/test_kinematics.py` owns `defect_sorter.kinematics` (SO-101 forward kinematics).
+- `tests/test_kinematics.py` owns `defect_sorter.kinematics` (SO-101 forward kinematics, tool frame, inverse kinematics).
 - `tests/test_joint_calibration.py` owns `defect_sorter.joint_calibration` (tick conversion, offset and base-pose fit, observability).
-- `tests/test_calibration_capture.py` owns `defect_sorter.calibration_capture` (stillness gate, session files).
+- `tests/test_calibration_capture.py` owns `defect_sorter.calibration_capture` (stillness gate, session files, solve CLI).
+- `tests/test_motion.py` owns `defect_sorter.motion` (motion limits and hard caps, joint interpolation, tick conversion, planned-move checks, execution with a fake servo bus).
+- `tests/test_targeting.py` owns `defect_sorter.targeting` (brick top-face pose in the table frame from a tilted top camera, brick selection, multi-frame combination, hover target, grasp wrist roll).
+- `tests/test_depth_bridge.py` owns `defect_sorter.depth_bridge` (fixed-scale depth images incl. the layered height image, held table plane and its file check, crop, JPEG encoding, MJPEG/JPEG stream endpoints, publish loop).
+- `tests/test_uvc_controls.py` owns `defect_sorter.uvc_controls` (V4L2 ioctl numbers and control ids, safe setting order, apply with read-back, device lookup by name, profile file).
+- `tests/test_episodes.py` owns `defect_sorter.episodes` (episode review against the sort-v1 protocol, hover pause, grasp events, grasp clips, LeRobot v3 loading).
+- `tests/test_robot_pose.py` owns `defect_sorter.robot_pose` (table/base frames, base-marker link and relocation, readings vs model angles, calibration files).
 - `tests/test_webview.py` owns `defect_sorter.webview` (frame buffer, page, frame polling and action endpoints).
+- `packages/armkit/tests/` owns the standalone `armkit` library (one test module per library module: `test_model.py`, `test_collision.py`, `test_poses.py`, `test_guard.py`, `test_endstop.py`, `test_guarded_motion.py`, `test_procedure.py`, `test_check.py`, `test_park.py`, `test_measure.py`, `test_feetech.py`, `test_simulation.py`, `test_calibration.py`, `test_so101_profile.py`, `test_cli.py`, `test_independence.py`). The library must not name or import this project.
 - `tests/test_training.py` owns `defect_sorter.training` and `defect_sorter.training_preflight` (local policy recipes, dataset contracts, plans, task validation and training launch preflight).
 - `tests/test_inspection.py` owns `defect_sorter.inspection` (score to normal/defective/uncertain decision, crops).
 - `tests/test_closed_loop.py` owns `defect_sorter.closed_loop` (label-to-task mapping, attempt state machine, records).
@@ -96,9 +106,16 @@ Extend the owning module by default. Add a new test file only for a new stable m
 - `markers.py`: the printed ArUco set (ids, sizes, uses) as the single source for the print sheet and detection.
 - `alignment.py`: marker poses refined with depth (with a fit-quality guard), the table frame (level, anchored on markers 16 and 17) that removes the camera's own tilt and position, reference save/load and drift comparison in that frame.
 - `alignment_page.py`: live alignment page (camera tilt, markers, drift). Presentation only.
-- `kinematics.py`: SO-101 forward kinematics from the URDF joint table.
+- `kinematics.py`: thin functions over `armkit` (SO-101 forward kinematics from the URDF joint table, the tool point between the jaws, inverse kinematics with position + approach direction, wrist roll given, within the URDF joint limits).
+- `packages/armkit/` (uv workspace member, project-agnostic): kinematics, sphere collision model, guarded automatic joint calibration (`armkit-calibrate`: `check` one joint, `move` to a pose, `measure` the whole arm into a proposed calibration, `run` the full from-scratch procedure, `restore` a file; everything is a dry run unless `--go`), Feetech bus adapter and simulated bus. Run its calibration on hardware only when the user asks for that motion in the current conversation, first with `--only <one joint>`.
 - `joint_calibration.py`: measure-only fit of joint zero offsets and the robot base pose from marker observations.
-- `calibration_capture.py`: capture/solve CLI (`sorter-joint-calibration`); `so101_reader.py`: read-only servo access, never enables torque.
+- `robot_pose.py`: the saved robot calibration (joint offsets, base pose in the table frame, base-plate marker link); converts table points to robot targets and model angles to joint readings.
+- `calibration_capture.py`: capture/solve/link-base/locate CLI (`sorter-joint-calibration`); `so101_reader.py`: servo access. `SO101Reader` is read-only and never enables torque; `SO101Driver` adds hold-then-enable-torque and goal writes and is used only by `motion.execute`.
+- `depth_bridge.py`: owns the D415 and serves colour and fixed-scale depth as MJPEG streams (`sorter-depth-bridge`), which Studio records as two IP cameras; the table plane is held for a run and checked against a saved file, so a dataset keeps one encoding.
+- `uvc_controls.py`: the only module issuing V4L2 ioctls; locks USB camera exposure, white balance, focus and mains frequency from `config/camera_controls.json` (`sorter-camera-lock`, show unless `--apply`). Cameras forget these on replug or reboot, so apply before each session.
+- `episodes.py`: review of recorded LeRobot v3 episodes (`sorter-episodes`, needs the `dataset` extra): task text, camera streams, grasp and release, hover pause, grasp-clip frame ranges. Protocol in `docs/datasets/SORT_V1.md`.
+- `motion.py`: slow, checked jaws-down moves (`sorter-move`, dry run unless `--go`): IK goal, rise first when low, speed-limited joint steps, floor/reach/servo-range checks on every waypoint, stop-and-hold on tracking lag. Limits have hard caps.
+- `targeting.py`: brick targets for scripted hovers: top-face pose (centre, long-axis yaw, size) in the table frame from one detected object, brick selection, the hover point above it and the wrist roll that closes the jaws across its short side (`sorter-move --above-brick`).
 - `webview.py`: shared HTTP plumbing for the live pages; the browser pulls one complete JPEG at a time, so a slow link cannot freeze the view.
 - `anomaly_smoke.py`: Anomalib → OpenVINO toolchain check and per-device latency benchmark.
 - `inspection.py`: anomaly score → normal/defective/uncertain with an explicit threshold; OpenVINO scorer for Anomalib exports; Padim training on a crop folder.
@@ -122,8 +139,8 @@ Before declaring work done, run from the repository root:
 
 ```bash
 uv run pytest -q
-uv run ruff check src tests
-uv run ruff format --check src tests
+uv run ruff check src tests packages
+uv run ruff format --check src tests packages
 ```
 
 Do not claim a check passed unless you ran it and saw it pass. Report pre-existing failures exactly.

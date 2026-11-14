@@ -12,6 +12,7 @@ dependencies = [
 	"opencv-python-headless>=4.10",
 	"pillow>=13.0.0",
 	"scipy>=1.18.1",
+	"armkit",
 ]
 
 [project.optional-dependencies]
@@ -32,6 +33,10 @@ anomaly = [
 tracking = [
 	"mlflow>=3",
 ]
+# Reading recorded LeRobot v3 datasets (Parquet) for episode review and clip cutting.
+dataset = [
+	"pyarrow>=26.0.1",
+]
 
 [project.scripts]
 sorter-live-demo = "defect_sorter.live_demo:main"
@@ -39,6 +44,10 @@ sorter-anomalib-smoke = "defect_sorter.anomaly_smoke:main"
 sorter-marker-sheet = "defect_sorter.markers:main"
 sorter-alignment = "defect_sorter.alignment_page:main"
 sorter-joint-calibration = "defect_sorter.calibration_capture:main"
+sorter-move = "defect_sorter.motion:main"
+sorter-episodes = "defect_sorter.episodes:main"
+sorter-depth-bridge = "defect_sorter.depth_bridge:main"
+sorter-camera-lock = "defect_sorter.uvc_controls:main"
 
 [build-system]
 requires = ["uv_build>=0.12.15,<0.14.0"]
@@ -55,7 +64,11 @@ name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
+[tool.uv.workspace]
+members = ["packages/armkit"]
+
 [tool.uv.sources]
+armkit = { workspace = true }
 torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
 torchvision = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
 
@@ -73,7 +86,9 @@ ignore = ["W191", "E101", "E111", "E114", "E117", "E501"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S310"]  # asserts; urllib only opens local test-server URLs
+"packages/*/tests/**" = ["S101"]  # asserts
+"packages/armkit/tests/test_feetech.py" = ["N802"]  # the fake SDK mirrors scservo_sdk's camelCase API
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "packages/armkit/tests"]
 addopts = "--strict-markers --strict-config"

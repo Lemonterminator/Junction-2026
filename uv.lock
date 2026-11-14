@@ -1,11 +1,17 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = "==3.12.*"
 resolution-markers = [
     "sys_platform == 'linux'",
     "sys_platform == 'win32'",
     "sys_platform == 'emscripten'",
     "sys_platform != 'emscripten' and sys_platform != 'linux' and sys_platform != 'win32'",
+]
+
+[manifest]
+members = [
+    "armkit",
+    "defect-sorter",
 ]
 
 [[package]]
@@ -151,6 +157,28 @@ sdist = { url = "https://files.pythonhosted.org/packages/a1/98/7e457a3b014976887
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a9/16/7757fb84c819accc7d7e9af5291b261e4abb8627ee040f99e7d35ef2457a/anyio-4.16.0-py3-none-any.whl", hash = "sha256:c66ae634e0b8228396b801741beb3294326d4b6102f7bba4041c0dfb58c29026", size = 134521, upload-time = "2026-11-01T11:20:05.59Z" },
 ]
+
+[[package]]
+name = "armkit"
+version = "0.1.0"
+source = { editable = "packages/armkit" }
+dependencies = [
+    { name = "numpy" },
+    { name = "scipy" },
+]
+
+[package.optional-dependencies]
+feetech = [
+    { name = "feetech-servo-sdk" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "feetech-servo-sdk", marker = "extra == 'feetech'", specifier = ">=1.0" },
+    { name = "numpy", specifier = ">=2.1" },
+    { name = "scipy", specifier = ">=1.18.1" },
+]
+provides-extras = ["feetech"]
 
 [[package]]
 name = "attrs"
@@ -381,6 +409,7 @@ name = "defect-sorter"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "armkit" },
     { name = "numpy" },
     { name = "opencv-python-headless" },
     { name = "pillow" },
@@ -401,6 +430,9 @@ camera = [
     { name = "feetech-servo-sdk", marker = "sys_platform == 'linux'" },
     { name = "pyrealsense2", marker = "sys_platform == 'linux'" },
 ]
+dataset = [
+    { name = "pyarrow" },
+]
 tracking = [
     { name = "mlflow" },
 ]
@@ -414,6 +446,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anomalib", extras = ["openvino"], marker = "extra == 'anomaly'", specifier = "==2.7.0" },
+    { name = "armkit", editable = "packages/armkit" },
     { name = "feetech-servo-sdk", marker = "sys_platform == 'linux' and extra == 'camera'", specifier = ">=1.0" },
     { name = "mlflow", marker = "extra == 'tracking'", specifier = ">=3" },
     { name = "nncf", marker = "extra == 'anomaly'", specifier = ">=2.19" },
@@ -421,6 +454,7 @@ requires-dist = [
     { name = "opencv-python-headless", specifier = ">=4.10" },
     { name = "openvino", marker = "extra == 'anomaly'", specifier = ">=2026.4" },
     { name = "pillow", specifier = ">=13.0.0" },
+    { name = "pyarrow", marker = "extra == 'dataset'", specifier = ">=26.0.1" },
     { name = "pyrealsense2", marker = "sys_platform == 'linux' and extra == 'camera'", specifier = ">=2.56" },
     { name = "scipy", specifier = ">=1.18.1" },
     { name = "torch", marker = "sys_platform == 'linux' and extra == 'anomaly'", specifier = ">=2.9", index = "https://download.pytorch.org/whl/cpu" },
@@ -428,7 +462,7 @@ requires-dist = [
     { name = "torchvision", marker = "sys_platform == 'linux' and extra == 'anomaly'", specifier = ">=0.24", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torchvision", marker = "sys_platform != 'linux' and extra == 'anomaly'", specifier = ">=0.24" },
 ]
-provides-extras = ["camera", "anomaly", "tracking"]
+provides-extras = ["camera", "anomaly", "tracking", "dataset"]
 
 [package.metadata.requires-dev]
 dev = [
