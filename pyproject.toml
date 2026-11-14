@@ -28,6 +28,10 @@ anomaly = [
 	"torch>=2.9",
 	"torchvision>=0.24",
 ]
+# MLflow experiment tracking and model artifacts (local server on the training PC).
+tracking = [
+	"mlflow>=3",
+]
 
 [project.scripts]
 sorter-live-demo = "defect_sorter.live_demo:main"

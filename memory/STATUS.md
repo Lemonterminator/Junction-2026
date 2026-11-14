@@ -263,3 +263,7 @@ Later the same day: the first real Studio recording (2 episodes, green-bowl task
 normalised −100…100 / 0…100) was copied read-only from the workstation and trained for 50 SmolVLA steps on the
 5090 through `training.py run` (train loss 0.94 → 0.16, held-out `val/loss` 0.81). On Windows the plan now uses a
 fit-only launcher and PyAV video decoding. A usable policy still needs ~30–50 episodes covering both tasks.
+
+MLflow: a local tracking server runs on the training PC (loopback :5000, store under `artifacts/mlflow/`).
+`defect_sorter.tracking` logged today's two training runs (with checkpoints) and two twin evaluations, each tagged
+`source` twin/real. Guide: [TRAINING.md](../docs/infrastructure/TRAINING.md#experiment-tracking-with-mlflow).
