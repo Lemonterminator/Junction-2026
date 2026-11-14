@@ -61,3 +61,19 @@ For the GPU path, use `MUJOCO_GL=egl MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA`; wi
 - Positions measured on real frames are only as good as the camera. Rendering through the same camera puts them back at the right pixels, but reachability depends on the absolute accuracy.
 - `tests/test_uvc_controls.py::test_find_device_picks_the_capture_node_of_the_named_camera` fails on Windows. It already failed before this change; it is Linux-only behaviour.
 - The scripts under `scripts/sim/calibration/` are research scripts with hard-coded WSL paths. Run them from WSL.
+
+## New requirement (Linan, 2026-11-14): present the brick to the inspection camera
+
+The arm should deliberately rotate the brick so the main inspection camera sees its faces. All cameras sit above the table.
+
+- Put the defect on a random face, not only the top.
+- After the lift, move to a show point on the main camera's optical axis, 0.3 to 0.5 m from it. It must lie inside the D415 depth range and inside reach.
+- Search a wrist_roll × wrist_flex grid. Score each pose by the defect pixels left unoccluded in a segmentation render, times the cosine between face normal and view direction. Hold each pose 0.3 to 0.5 s in score order, then sort.
+- Log the visible defect pixels per frame as a privileged label.
+- Camera sampling:
+  - The main camera must be fixed before simulating, either re-simulated per pose or only perturbed slightly and the show frames re-checked.
+  - Other cameras stay fully random.
+  - All cameras above the table and looking down.
+  - Keep at least 5 cm clearance from the arm's swept volume.
+  - The brick must be unoccluded and in range in the show frames.
+  - Reject a camera with no reachable show point.
