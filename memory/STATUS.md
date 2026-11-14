@@ -258,3 +258,8 @@ no arm, camera or workstation was touched.
 
 Next: real-cell `Cell` adapter and SmolVLA runtime policy adapter (both need hardware/real recordings); replace twin
 demos with Studio recordings and twin crops with real good-brick crops; the rest of the chain stays.
+
+Later the same day: the first real Studio recording (2 episodes, green-bowl task only, three cameras, units
+normalised −100…100 / 0…100) was copied read-only from the workstation and trained for 50 SmolVLA steps on the
+5090 through `training.py run` (train loss 0.94 → 0.16, held-out `val/loss` 0.81). On Windows the plan now uses a
+fit-only launcher and PyAV video decoding. A usable policy still needs ~30–50 episodes covering both tasks.

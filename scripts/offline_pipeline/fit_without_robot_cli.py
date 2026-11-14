@@ -6,7 +6,7 @@ transport lock uses ``fcntl`` and fails on Windows. This launcher builds only th
 backend environment with the ``config.json`` written by ``defect_sorter.training run``::
 
 	uv run --project external/physical-ai-studio/application/backend --extra cuda --frozen \
-		python scripts/offline_pipeline/fit_without_robot_cli.py --config artifacts/training/<run>/config.json
+		python scripts/offline_pipeline/fit_without_robot_cli.py fit --config artifacts/training/<run>/config.json
 """
 
 import sys
@@ -15,9 +15,12 @@ from physicalai.cli.fit import build_parser, run
 
 
 def main(argv: list[str] | None = None) -> int:
-	"""Parse ``fit`` arguments and dispatch to ``Trainer.fit``."""
+	"""Parse ``fit`` arguments (an optional leading ``fit`` mirrors the console script) and run ``Trainer.fit``."""
+	args = sys.argv[1:] if argv is None else argv
+	if args[:1] == ["fit"]:
+		args = args[1:]
 	parser = build_parser()
-	return run(parser, parser.parse_args(sys.argv[1:] if argv is None else argv))
+	return run(parser, parser.parse_args(args))
 
 
 if __name__ == "__main__":

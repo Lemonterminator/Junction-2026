@@ -1,0 +1,12 @@
+# First real Studio recording, copied read-only from the workstation's Studio volume
+# (datasets/50815c02-...) into the Git-ignored data/ folder. Two episodes, green-bowl task only:
+# enough to check the real-data training path, not to train a usable policy.
+# Root is relative to THIS file, not the working directory.
+root = "../../data/studio/50815c02-5ce6-40c8-aa2b-28e495758c81"
+repo_id = "local/studio-sorting"
+fps = 30
+# Studio recorded three cameras; overview first and wrist second for pretrained SmolVLA.
+camera_keys = ["observation.images.top", "observation.images.wrist", "observation.images.front"]
+joint_names = ["shoulder_pan.pos", "shoulder_lift.pos", "elbow_flex.pos", "wrist_flex.pos", "wrist_roll.pos", "gripper.pos"]
+# Studio's SO-101 driver default unit is "normalized": body joints in [-100, 100], gripper in [0, 100].
+joint_units = ["normalized_-100_100", "normalized_-100_100", "normalized_-100_100", "normalized_-100_100", "normalized_-100_100", "normalized_0_100"]
