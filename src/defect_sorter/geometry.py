@@ -135,6 +135,46 @@ def fit_table_plane(
 	return Plane(normal=normal, offset=offset, inlier_fraction=fraction)
 
 
+@dataclass(frozen=True)
+class CameraTilt:
+	"""How far the optical axis is from the table normal.
+
+	Parameters
+	----------
+	total_deg : float
+		Angle between the optical axis and the table normal; 0 means looking straight down.
+	pitch_deg : float
+		Tilt component along the image's vertical axis; positive when the bottom of the image is farther away.
+	roll_deg : float
+		Tilt component along the image's horizontal axis; positive when the right of the image is farther away.
+	far_edge : str
+		Image edge that is farther from the camera: ``"top"``, ``"bottom"``, ``"left"``, ``"right"`` or ``"none"``.
+	"""
+
+	total_deg: float
+	pitch_deg: float
+	roll_deg: float
+	far_edge: str
+
+
+def camera_tilt(plane: Plane) -> CameraTilt:
+	"""Describe the camera's tilt relative to a table plane fitted by :func:`fit_table_plane`.
+
+	The plane normal points towards the camera, so a camera looking straight down sees ``(0, 0, -1)``.
+	"""
+	nx, ny, nz = (float(c) for c in plane.normal)
+	total = float(np.degrees(np.arccos(np.clip(-nz, -1.0, 1.0))))
+	pitch = float(np.degrees(np.arctan2(ny, -nz)))
+	roll = float(np.degrees(np.arctan2(nx, -nz)))
+	if max(abs(nx), abs(ny)) < 1e-9:
+		edge = "none"
+	elif abs(ny) >= abs(nx):
+		edge = "bottom" if ny > 0 else "top"
+	else:
+		edge = "right" if nx > 0 else "left"
+	return CameraTilt(total_deg=total, pitch_deg=pitch, roll_deg=roll, far_edge=edge)
+
+
 def height_above(points: np.ndarray, plane: Plane) -> np.ndarray:
 	"""Signed height of each point above the plane, positive towards the camera.
 

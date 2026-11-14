@@ -194,6 +194,7 @@ source = { editable = "." }
 dependencies = [
     { name = "numpy" },
     { name = "opencv-python-headless" },
+    { name = "pillow" },
 ]
 
 [package.optional-dependencies]
@@ -223,6 +224,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.1" },
     { name = "opencv-python-headless", specifier = ">=4.10" },
     { name = "openvino", marker = "extra == 'anomaly'", specifier = ">=2026.4" },
+    { name = "pillow", specifier = ">=13.0.0" },
     { name = "pyrealsense2", marker = "sys_platform == 'linux' and extra == 'camera'", specifier = ">=2.56" },
     { name = "torch", marker = "sys_platform == 'linux' and extra == 'anomaly'", specifier = ">=2.9", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torch", marker = "sys_platform != 'linux' and extra == 'anomaly'", specifier = ">=2.9" },
