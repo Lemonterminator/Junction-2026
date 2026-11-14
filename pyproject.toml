@@ -35,6 +35,7 @@ sorter-anomalib-smoke = "defect_sorter.anomaly_smoke:main"
 sorter-marker-sheet = "defect_sorter.markers:main"
 sorter-alignment = "defect_sorter.alignment_page:main"
 sorter-joint-calibration = "defect_sorter.calibration_capture:main"
+sorter-move = "defect_sorter.motion:main"
 
 [build-system]
 requires = ["uv_build>=0.12.15,<0.14.0"]

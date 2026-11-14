@@ -235,5 +235,11 @@ base, the front camera or the bowls needs no new training.
   explicit `reachable` flag. Synthetic round-trip tests only; never commanded on the arm.
 - Studio dataset **grasp** created (project "Defect Sorting", environment "Sorting cell", task "Grasp the brick
   and lift it."): short episodes from a jaws-down hover ~8 cm above the brick to the lifted brick.
-- Open: motion module with speed/workspace limits (needs explicit approval before any run), grasp recordings,
-  ACT training on the wrist camera, Anomalib.
+- `motion.py` / `sorter-move`: plans a jaws-down move of the tool point (IK, rise first when low, ≤10°/s by
+  default, hard cap 30°/s), checks every waypoint (tool never lower than 2 cm once below it, elbow/wrist joints
+  ≥1 cm, reach ≤30 cm, servo ranges) and, only with `--go`, executes it: goals set to the present position before
+  torque comes on, stop and hold when a joint lags more than 10°, no retries, torque stays on at the end.
+- Dry run on the real follower (reads only): from rest (tool 9 mm up) to 6 cm above a point 22 cm out → plan ok,
+  160 steps, 8 s. Jaws-down hover is limited by the model's 95° wrist-flex stop: about 8 cm high at 18–22 cm out.
+- Not yet run with `--go`: the first real move needs the user's go in the conversation, with someone at the arm.
+- Open: grasp recordings, ACT training on the wrist camera, Anomalib, brick target from the top camera.
