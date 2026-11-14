@@ -1,0 +1,13 @@
+# Copy to a Git-ignored *.local.toml only if you also add an ignore rule, or
+# keep the customized contract under the already ignored .local/ directory.
+# Root is relative to THIS file, not the working directory.
+root = "../../data/sorting"
+repo_id = "local/defect-sorting"
+fps = 30
+# Order is significant: overview first, wrist second for pretrained SmolVLA.
+# Change to the exact keys recorded by Studio; do not silently rename cameras.
+camera_keys = ["observation.images.top", "observation.images.wrist"]
+joint_names = ["shoulder_pan.pos", "shoulder_lift.pos", "elbow_flex.pos", "wrist_flex.pos", "wrist_roll.pos", "gripper.pos"]
+# Example ONLY: confirm whether the recorder uses degrees or normalized body
+# joints. Gripper commonly uses normalized 0..100, not an angle in radians.
+joint_units = ["degrees", "degrees", "degrees", "degrees", "degrees", "normalized_0_100"]

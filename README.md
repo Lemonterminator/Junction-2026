@@ -59,6 +59,31 @@ uv run sorter-anomalib-smoke --workdir data/smoke
 
 Only one process can open the D415: stop the live demo before Physical AI Studio previews, records or runs a policy. Workstation setup is tracked in [docs/infrastructure/SETUP_STATUS.md](docs/infrastructure/SETUP_STATUS.md).
 
+## Local policy training and digital twin
+
+[Local training guide](docs/infrastructure/TRAINING.md) provides ACT imitation-learning,
+SmolVLA expert fine-tuning, and experimental Pi0.5 LoRA recipes for a separate CUDA
+environment. Plan generation and synthetic metadata/task tests run in the light
+project environment; no real dataset, model training, GPU-memory fit, or exported
+policy has been validated by these tests.
+
+```bash
+uv run python -m defect_sorter.training plan \
+  --recipe configs/training/smolvla_expert.toml \
+  --dataset configs/training/dataset.example.toml --run-name smolvla-first
+```
+
+The [SO-101 digital twin study](docs/research/SO101_DIGITAL_TWIN.md) describes model
+sources, simulator choices, calibration, state synchronization, and validation gates.
+
+The [Physical AI execution plan](docs/plans/PHYSICAL_AI_EXECUTION_PLAN.md) turns the
+[historical hardware winner study](docs/research/PAST_HARDWARE_WINNERS_REUSE.md) into
+staged work packages: calibration and Studio recording, Studio-managed training on
+the local 5090, defect-conditioned SmolVLA, Intel Runtime deployment, clutter tests,
+and power/temperature measurements. Twin playback is capped at G3a after the core
+deliverables pass; [Gemini/RL research](docs/plans/DEFERRED_GEMINI_RL_EXPERIMENTS.md)
+is deferred. The plan includes dependencies, acceptance gates and scope reductions.
+
 ## Junction 2026 Challenge Briefs
 
 Updated 2026-11-13. The Intel brief has been reviewed against all 15 rendered PDF pages, including image-based requirements and the 100-point judging table. Source facts, analysis recommendations, and unresolved event details are separated in Gold.

@@ -64,3 +64,85 @@ Supersedes the "No Ubuntu deployment, device capture, GPU/NPU inference" lines a
 - `src/defect_sorter`: uv package with TDD tests (20 passing). `detect_scene` finds objects by height above a RANSAC table plane and bowls by colour; live D415 run detected both bowls and two bricks at ~34 fps.
 
 Next: calibrate both arms (needs a person), fix camera mounts, teleop dry run, record demonstrations; collect good-object crops for the Anomalib baseline.
+
+## Update 2026-11-14 — local policy recipes and digital twin research
+
+Local work on `feat/local-finetune-and-digital-twin`; not committed or pushed by this
+update. Earlier workstation observations above were not re-verified remotely.
+
+- Added ACT baseline, SmolVLA action-expert fine-tuning and experimental Pi0.5 LoRA
+  recipes, with a light `python -m defect_sorter.training plan|run` entry point.
+  Actual execution delegates to the pinned Studio backend's isolated CUDA/Python
+  3.13 environment; root perception/tests remain Python 3.12.
+- Metadata validation requires LeRobot v3.0, matching camera keys, state/action joint
+  order, fps and explicit operator-declared units. Runtime preflight checks task
+  language and frame task references before policy loading. Existing runs cannot
+  be overwritten. Pi0.5 fitting 32GB VRAM is not established.
+- Parent validation: 54 tests passed (20 existing, 34 new); Ruff lint and format
+  checks passed. All three CLI plans report missing data, null metrics and no
+  created run directory; a missing-data run exits 2 before starting training.
+- A separate synthetic Parquet check in a temporary Windows pandas/pyarrow
+  environment stalled during pandas extension import; the first helper was stopped
+  and a bounded diagnostic retry timed out after 30 seconds. No Parquet payload was
+  decoded. Root tests do not validate the heavy parser, model imports, gradients,
+  CUDA memory use, training quality or export.
+- [Training guide](../docs/infrastructure/TRAINING.md) and
+  [SO-101 digital twin study](../docs/research/SO101_DIGITAL_TWIN.md) added; README
+  and AGENTS test ownership updated. The twin study pins official/Menagerie assets,
+  compares MuJoCo and LeIsaac, and specifies joint, gripper, camera, contact, timing
+  and sim-to-real validation requirements.
+- Native MuJoCo research smoke failed at import with WinError 4551 (Application
+  Control blocked DLL loading); no model loading, simulation steps or rendering
+  completed. No system-policy changes, camera capture or arm motion occurred.
+
+Next: prepare the independent CUDA environment on Linux/WSL, verify runtime task
+preflight and a short real-data fit/export; separately start the twin with calibrated
+joint/unit mapping and offline trajectory playback before synthetic-data expansion.
+
+## Update 2026-11-14 — historical hardware winner research
+
+- Added [winner reuse study](../docs/research/PAST_HARDWARE_WINNERS_REUSE.md), checking
+  Signvision (2017), Oneiro (2018), LumenLoop (2019), QuickBIM (2024), and Wavelet
+  (2025) against public code, organizer announcements and author reports. Recorded
+  source revisions, evidence limits, and concrete defect-sorting/twin reuse ideas.
+- Identified unsupported performance details in the existing hardware Gold archive;
+  the study records these limits without treating archive narratives as benchmarks.
+  QuickBIM's overall third place is confirmed; KONE challenge first is not established
+  by the sources checked. No historical project was built or benchmarked.
+- Research only: no training, deployment, camera access or robot motion occurred.
+
+## Update 2026-11-14 — detailed Physical AI execution plan
+
+- Added [execution plan](../docs/plans/PHYSICAL_AI_EXECUTION_PLAN.md) based on the
+  historical winner study, current source constraints, training guide and twin study.
+  It defines staged work packages, data contracts, acceptance gates, ownership roles,
+  approximate effort, missing-data tasks, evaluation protocols and scope reductions.
+- Prioritizes the real single-object sorting loop and Intel deployment evidence;
+  twin playback follows, with Gemini curriculum and RL as optional gated experiments.
+  Proposed module names, numeric targets and effort budgets are plans, not results.
+- Linked the plan from README and the winner study. Documentation only; no training,
+  runtime setup, deployment, camera access or robot motion was performed.
+- Validation after the plan was written: 12 local links checked across the plan,
+  winner study and STATUS; 54 tests passed; Ruff lint and format checks passed;
+  `git diff --check` passed. These checks do not validate the planned hardware work.
+
+## Update 2026-11-14 — scoring gap revision
+
+- Revised the execution plan using the user-provided gap summary and pinned event,
+  Studio/trainer, SmolVLA and Runtime sources. The linked external report could not be
+  fetched; its unquoted sections were not reviewed.
+- Made calibration → teleoperation → first Studio recording the immediate critical
+  path. Selected defect-label-to-fixed-task mapping with behavioral verification,
+  and Studio-managed 5090 remote training as the preferred integration path.
+- Added device allocation, power/temperature/energy measurement boundaries, explicit
+  OpenVINO PhysicalAI Runtime/Suite evidence, and a stratified clutter/shift/occlusion
+  evaluation. Both scoring tables remain attributed pending organizer confirmation.
+- Capped optional twin work at G3a and 4 person-hours after core gates; moved Gemini/RL
+  tasks to a deferred plan. Updated README and training guidance. Documentation only;
+  no runtime setup, model training, deployment or hardware access occurred.
+- Validation: 57 local document links checked, 54 tests passed, Ruff lint/format and
+  whitespace checks passed. Hardware, trainer and Runtime integration remain planned.
+- Audit against the full gap analysis: plan matches the PDF deliverables and both rubrics;
+  added W2.9 (re-inspection after placement when a detection may be wrong) and removed an
+  unreachable report link. 59 local document links resolve. Tests and Ruff were not rerun
+  for the audit; the last recorded run is the one above.
