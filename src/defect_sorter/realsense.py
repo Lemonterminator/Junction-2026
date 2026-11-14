@@ -33,7 +33,10 @@ class D415Camera:
 	Parameters
 	----------
 	width, height, fps : int
-		Stream format used for both colour and depth.
+		Colour stream format; depth uses the same unless ``depth_size`` is given.
+	depth_size : tuple of int, optional
+		Depth resolution when it differs from colour (USB 2 links only allow 640x480 depth with 1280x720
+		colour). Depth is always aligned to the colour image.
 	white_balance_k : int or None
 		Fixed colour temperature. Auto white balance shifts every hue with the room lighting, which breaks
 		colour-based bowl detection and changes what the anomaly model sees. ``None`` keeps auto white balance.
@@ -47,6 +50,7 @@ class D415Camera:
 		height: int = 480,
 		fps: int = 30,
 		*,
+		depth_size: tuple[int, int] | None = None,
 		white_balance_k: int | None = WHITE_BALANCE_K,
 		warmup_frames: int = 30,
 	) -> None:
@@ -55,7 +59,8 @@ class D415Camera:
 		self._rs = rs
 		self._pipe = rs.pipeline()
 		cfg = rs.config()
-		cfg.enable_stream(rs.stream.depth, width, height, rs.format.z16, fps)
+		depth_w, depth_h = depth_size or (width, height)
+		cfg.enable_stream(rs.stream.depth, depth_w, depth_h, rs.format.z16, fps)
 		cfg.enable_stream(rs.stream.color, width, height, rs.format.bgr8, fps)
 		profile = self._pipe.start(cfg)
 		device = profile.get_device()

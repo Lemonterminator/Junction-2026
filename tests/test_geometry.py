@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from defect_sorter.geometry import Intrinsics, deproject, fit_table_plane, height_above
+from defect_sorter.geometry import Intrinsics, Plane, camera_tilt, deproject, fit_table_plane, height_above
 
 INTR = Intrinsics(fx=600.0, fy=600.0, ppx=320.0, ppy=240.0)
 
@@ -60,3 +60,25 @@ class TestTablePlane:
 	def test_rejects_too_few_points(self):
 		with pytest.raises(ValueError, match="at least 3"):
 			fit_table_plane(np.zeros((2, 3)))
+
+
+class TestCameraTilt:
+	def test_level_camera_has_no_tilt(self):
+		tilt = camera_tilt(Plane(normal=np.array([0.0, 0.0, -1.0]), offset=0.6, inlier_fraction=1.0))
+		assert tilt.total_deg == pytest.approx(0.0, abs=1e-9)
+		assert tilt.pitch_deg == pytest.approx(0.0, abs=1e-9)
+		assert tilt.roll_deg == pytest.approx(0.0, abs=1e-9)
+
+	def test_table_farther_at_the_bottom_of_the_image(self):
+		# plane z = 0.6 + 0.1 * y: the bottom of the image (y > 0) is farther away
+		pts = deproject(tilted_table_depth(), INTR).reshape(-1, 3)
+		tilt = camera_tilt(fit_table_plane(pts))
+		assert tilt.pitch_deg == pytest.approx(np.degrees(np.arctan(0.1)), abs=0.05)
+		assert tilt.roll_deg == pytest.approx(0.0, abs=0.05)
+		assert tilt.far_edge == "bottom"
+
+	def test_table_farther_on_the_right(self):
+		n = np.array([0.2, 0.0, -1.0])
+		tilt = camera_tilt(Plane(normal=n / np.linalg.norm(n), offset=0.6, inlier_fraction=1.0))
+		assert tilt.roll_deg == pytest.approx(np.degrees(np.arctan(0.2)), abs=1e-6)
+		assert tilt.far_edge == "right"

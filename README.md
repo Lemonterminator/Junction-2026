@@ -45,6 +45,9 @@ Python package for the Intel Physical AI Challenge pipeline (PERCEIVE → DETECT
 | `src/defect_sorter/scene.py` | Bowls by colour, objects by height, object-in-bowl relation (`detect_scene`) |
 | `src/defect_sorter/realsense.py` | D415 aligned colour + depth with fixed white balance |
 | `src/defect_sorter/live_demo.py` | Live MJPEG debug page for the top camera |
+| `src/defect_sorter/markers.py` | Printed ArUco marker set, print sheet (`sorter-marker-sheet`), marker pose detection |
+| `src/defect_sorter/alignment.py` | Depth-refined marker poses and drift against a saved reference |
+| `src/defect_sorter/alignment_page.py` | Live alignment page: camera tilt, markers, drift (`sorter-alignment`) |
 | `src/defect_sorter/anomaly_smoke.py` | Anomalib → OpenVINO export and CPU/GPU/NPU latency check |
 
 ```bash
