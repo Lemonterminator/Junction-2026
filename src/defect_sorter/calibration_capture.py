@@ -38,15 +38,15 @@ class StillnessGate:
 	hold_s : float
 		How long joints and marker must stay within tolerance.
 	tick_tol : int
-		Allowed joint drift while "still", ticks.
+		Allowed joint drift while "still", ticks (12 ticks is about 1 degree: an arm held by hand trembles).
 	marker_tol_mm : float
-		Allowed marker drift while "still", millimetres.
+		Allowed marker drift while "still", millimetres (hand tremor plus depth noise).
 	min_change_deg : float
 		A new sample needs at least one body joint this far from the last recorded pose.
 	"""
 
 	def __init__(
-		self, hold_s: float = 1.0, tick_tol: int = 3, marker_tol_mm: float = 1.0, min_change_deg: float = 5.0
+		self, hold_s: float = 0.8, tick_tol: int = 12, marker_tol_mm: float = 4.0, min_change_deg: float = 5.0
 	) -> None:
 		self.hold_s, self.tick_tol, self.marker_tol_mm, self.min_change_deg = (
 			hold_s,
@@ -160,6 +160,7 @@ def _capture(args: argparse.Namespace) -> None:
 		raw: list[dict[str, int]] = []
 		obs: list[Observation] = []
 		frames = 0
+		last_status = 0.0
 		try:
 			while len(obs) < args.count:
 				frame = camera.read()
@@ -175,8 +176,18 @@ def _capture(args: argparse.Namespace) -> None:
 				table = table_frame(plane, poses)
 				ticks = arm.read_ticks()
 				marker = poses.get(args.marker)
-				usable = marker is not None and marker.source == "depth" and table.basis.startswith("anchors")
+				anchors_ok = table.basis.startswith("anchors")
+				usable = marker is not None and anchors_ok
 				position = table.point(marker.position_m) if usable else None
+				now = time.monotonic()
+				if now - last_status >= 2.0:
+					seen = "not seen" if marker is None else f"seen ({marker.source})"
+					anchors = "ok" if anchors_ok else "NOT both visible"
+					sys.stdout.write(
+						f"[{len(obs)}/{args.count}] marker {args.marker}: {seen} | anchors 16+17: {anchors}\n"
+					)
+					sys.stdout.flush()
+					last_status = now
 				if gate.update(time.monotonic(), ticks, position):
 					raw.append(ticks)
 					obs.append(
