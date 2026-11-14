@@ -241,5 +241,9 @@ base, the front camera or the bowls needs no new training.
   torque comes on, stop and hold when a joint lags more than 10°, no retries, torque stays on at the end.
 - Dry run on the real follower (reads only): from rest (tool 9 mm up) to 6 cm above a point 22 cm out → plan ok,
   160 steps, 8 s. Jaws-down hover is limited by the model's 95° wrist-flex stop: about 8 cm high at 18–22 cm out.
-- Not yet run with `--go`: the first real move needs the user's go in the conversation, with someone at the arm.
+- First real move (`--go`, user's go, someone at the arm): rest → 6 cm above (323, 100) mm in 8 s at 10°/s, no
+  stop; joints within 1° of plan except the elbow, 2.4° short (gravity sag). Tip error not measured yet: the top
+  camera cannot see the jaw tips or marker 4 in a jaws-down pose. The wrist camera sees the table, the bowl rim and
+  the jaw tips from the hover pose. Next accuracy check: hover above table marker 12 and read its offset in the
+  wrist image.
 - Open: grasp recordings, ACT training on the wrist camera, Anomalib, brick target from the top camera.
