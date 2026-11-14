@@ -13,18 +13,16 @@ Presentation only: detection is :mod:`defect_sorter.markers`, depth refinement a
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 import cv2
 import numpy as np
 
 from defect_sorter.alignment import (
-	MarkerPose,
 	compare_to_reference,
 	load_reference,
 	refine_with_depth,
@@ -33,22 +31,12 @@ from defect_sorter.alignment import (
 )
 from defect_sorter.geometry import CameraTilt, Intrinsics, Plane, camera_tilt, deproject, fit_table_plane
 from defect_sorter.markers import detect_markers
+from defect_sorter.webview import FrameBuffer, make_handler, page_html
 
 logger = logging.getLogger(__name__)
 
 REFIT_EVERY = 15  # frames between table-plane fits
 DISPLAY_WIDTH = 960
-
-PAGE = b"""<!doctype html><html><head><meta charset=utf-8><title>Cell alignment</title>
-<style>body{font-family:system-ui;background:#111;color:#eee;margin:16px}img{max-width:100%;border:1px solid #333}
-button{padding:6px 12px;margin:8px 8px 8px 0}pre{background:#1b1b1b;padding:12px;font-size:13px;max-height:45vh;overflow:auto}
-.ok{color:#6c6}.bad{color:#f66}</style></head>
-<body><h3>Cell alignment (top camera)</h3><img src="/stream"><br>
-<button onclick="fetch('/reference',{method:'POST'}).then(()=>0)">Save reference</button>
-<button onclick="fetch('/refit',{method:'POST'})">Refit table</button>
-<pre id=s></pre>
-<script>setInterval(async()=>{try{document.getElementById('s').textContent=JSON.stringify(await (await fetch('/state')).json(),null,1)}catch(e){}},700)</script>
-</body></html>"""
 
 
 def _fmt_tilt(t: CameraTilt) -> str:
@@ -66,12 +54,9 @@ class AlignmentView:
 		self._reference = load_reference(reference_path) if reference_path.exists() else {}
 		self._plane: Plane | None = None
 		self._frames = 0
-		self._lock = threading.Lock()
-		self._poses: dict[int, MarkerPose] = {}
 		self.refit_requested = True
 		self.save_requested = False
-		self.jpeg: bytes | None = None
-		self.state: dict = {}
+		self.buffer = FrameBuffer()
 
 	def step(self) -> None:
 		frame = self._camera.read()
@@ -155,15 +140,13 @@ class AlignmentView:
 			],
 			"missing_from_reference": [d.id for d in deltas.values() if d.missing],
 		}
-		with self._lock:
-			if ok:
-				self.jpeg = buf.tobytes()
-			self.state = state
-			self._poses = poses
+		self.buffer.publish(buf.tobytes() if ok else None, state)
 
-	def snapshot(self) -> tuple[bytes | None, dict]:
-		with self._lock:
-			return self.jpeg, self.state
+	def request_save(self) -> None:
+		self.save_requested = True
+
+	def request_refit(self) -> None:
+		self.refit_requested = True
 
 	def run_forever(self) -> None:
 		while True:
@@ -176,59 +159,6 @@ class AlignmentView:
 
 def _scaled(intr: Intrinsics, factor: float) -> Intrinsics:
 	return Intrinsics(fx=intr.fx * factor, fy=intr.fy * factor, ppx=intr.ppx * factor, ppy=intr.ppy * factor)
-
-
-def make_handler(view: AlignmentView) -> type[BaseHTTPRequestHandler]:
-	"""HTTP handler: page, ``/stream`` (MJPEG), ``/state`` (JSON), ``POST /reference`` and ``POST /refit``."""
-
-	class Handler(BaseHTTPRequestHandler):
-		def log_message(self, format: str, *args: object) -> None:
-			logger.debug(format, *args)
-
-		def do_GET(self) -> None:
-			if self.path == "/":
-				self._send(200, "text/html", PAGE)
-			elif self.path == "/state":
-				self._send(200, "application/json", json.dumps(view.snapshot()[1]).encode())
-			elif self.path == "/stream":
-				self.send_response(200)
-				self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=f")
-				self.end_headers()
-				try:
-					while True:
-						jpg, _ = view.snapshot()
-						if jpg:
-							self.wfile.write(
-								b"--f\r\nContent-Type: image/jpeg\r\nContent-Length: "
-								+ str(len(jpg)).encode()
-								+ b"\r\n\r\n"
-								+ jpg
-								+ b"\r\n"
-							)
-						time.sleep(0.1)
-				except (BrokenPipeError, ConnectionResetError):
-					return
-			else:
-				self.send_error(404)
-
-		def do_POST(self) -> None:
-			if self.path == "/reference":
-				view.save_requested = True
-			elif self.path == "/refit":
-				view.refit_requested = True
-			else:
-				self.send_error(404)
-				return
-			self.send_response(204)
-			self.end_headers()
-
-		def _send(self, code: int, content_type: str, body: bytes) -> None:
-			self.send_response(code)
-			self.send_header("Content-Type", content_type)
-			self.end_headers()
-			self.wfile.write(body)
-
-	return Handler
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -245,7 +175,9 @@ def main(argv: list[str] | None = None) -> None:
 	view = AlignmentView(D415Camera(1280, 720, 15, depth_size=(640, 480)), args.reference)
 	threading.Thread(target=view.run_forever, daemon=True).start()
 	logger.info("serving on http://%s:%d/", args.host, args.port)
-	ThreadingHTTPServer((args.host, args.port), make_handler(view)).serve_forever()
+	page = page_html("Cell alignment (top camera)", {"reference": "Save reference", "refit": "Refit table"})
+	actions = {"reference": view.request_save, "refit": view.request_refit}
+	ThreadingHTTPServer((args.host, args.port), make_handler(view.buffer, page, actions)).serve_forever()
 
 
 if __name__ == "__main__":

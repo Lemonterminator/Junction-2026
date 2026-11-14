@@ -72,6 +72,7 @@ Test ownership:
 - `tests/test_scene.py` owns `defect_sorter.scene` (bowl detection by colour, object detection by height, object-in-bowl relation).
 - `tests/test_markers.py` owns `defect_sorter.markers` (printed marker set, print sheet, marker detection and pose).
 - `tests/test_alignment.py` owns `defect_sorter.alignment` (depth-refined marker poses, drift against a saved reference).
+- `tests/test_webview.py` owns `defect_sorter.webview` (frame buffer, page, frame polling and action endpoints).
 - `tests/test_training.py` owns `defect_sorter.training` and `defect_sorter.training_preflight` (local policy recipes, dataset contracts, plans, task validation and training launch preflight).
 
 Extend the owning module by default. Add a new test file only for a new stable module boundary, and update this map in the same change.
@@ -81,10 +82,11 @@ Extend the owning module by default. Add a new test file only for a new stable m
 - `geometry.py`: pure camera geometry and RANSAC table-plane fit. No OpenCV drawing, no hardware.
 - `scene.py`: scene understanding from one aligned colour+depth frame → `Scene` (bowls, objects). Thresholds live in `SceneConfig`, not as literals scattered through the code.
 - `realsense.py`: the only module importing `pyrealsense2`; returns aligned `Frame` objects and pins colour settings (fixed white balance) so colours are stable across runs.
-- `live_demo.py`: debug visualisation and MJPEG web server over `scene`. Presentation only; no detection logic.
+- `live_demo.py`: debug visualisation over `scene`, served through `webview`. Presentation only; no detection logic.
 - `markers.py`: the printed ArUco set (ids, sizes, uses) as the single source for the print sheet and detection.
 - `alignment.py`: marker poses refined with depth, reference save/load and drift comparison.
 - `alignment_page.py`: live alignment page (camera tilt, markers, drift). Presentation only.
+- `webview.py`: shared HTTP plumbing for the live pages; the browser pulls one complete JPEG at a time, so a slow link cannot freeze the view.
 - `anomaly_smoke.py`: Anomalib → OpenVINO toolchain check and per-device latency benchmark.
 
 Keep modules deep: callers use `detect_scene(...)` and `D415Camera`, not the internals. Do not fabricate detections, scores or latencies; when data is missing, return an empty or explicit failure result rather than a guess. A dependency that "supports OpenVINO" is not proof of GPU/NPU deployment; report configuration, build, runtime and hardware checks separately.
