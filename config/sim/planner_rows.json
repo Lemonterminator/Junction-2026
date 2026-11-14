@@ -1,0 +1,410 @@
+[
+  {
+    "situation": "clear normal",
+    "repeat": 0,
+    "rules": "SORT_GREEN",
+    "action": "SORT_GREEN",
+    "source": "llm",
+    "reason": "The detector confidently labels the brick as normal with a score well below the threshold.",
+    "latency_ms": 2459.5,
+    "state": {
+      "label": "normal",
+      "score": 0.12,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 0,
+      "last_outcome": null
+    }
+  },
+  {
+    "situation": "clear normal",
+    "repeat": 1,
+    "rules": "SORT_GREEN",
+    "action": "SORT_GREEN",
+    "source": "llm",
+    "reason": "The detector confidently labels the brick as normal with a score well below the threshold.",
+    "latency_ms": 607.8,
+    "state": {
+      "label": "normal",
+      "score": 0.12,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 0,
+      "last_outcome": null
+    }
+  },
+  {
+    "situation": "clear normal",
+    "repeat": 2,
+    "rules": "SORT_GREEN",
+    "action": "SORT_GREEN",
+    "source": "llm",
+    "reason": "The detector confidently labels the brick as normal with a score well below the threshold.",
+    "latency_ms": 611.6,
+    "state": {
+      "label": "normal",
+      "score": 0.12,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 0,
+      "last_outcome": null
+    }
+  },
+  {
+    "situation": "clear defect",
+    "repeat": 0,
+    "rules": "SORT_PINK",
+    "action": "SORT_PINK",
+    "source": "llm",
+    "reason": "The detector confidently labeled the brick as defective with a high score.",
+    "latency_ms": 599.2,
+    "state": {
+      "label": "defective",
+      "score": 0.93,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 0,
+      "last_outcome": null
+    }
+  },
+  {
+    "situation": "clear defect",
+    "repeat": 1,
+    "rules": "SORT_PINK",
+    "action": "SORT_PINK",
+    "source": "llm",
+    "reason": "The detector confidently labeled the brick as defective with a high score.",
+    "latency_ms": 571.2,
+    "state": {
+      "label": "defective",
+      "score": 0.93,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 0,
+      "last_outcome": null
+    }
+  },
+  {
+    "situation": "clear defect",
+    "repeat": 2,
+    "rules": "SORT_PINK",
+    "action": "SORT_PINK",
+    "source": "llm",
+    "reason": "The detector confidently labeled the brick as defective with a high score.",
+    "latency_ms": 557.1,
+    "state": {
+      "label": "defective",
+      "score": 0.93,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 0,
+      "last_outcome": null
+    }
+  },
+  {
+    "situation": "uncertain first look",
+    "repeat": 0,
+    "rules": "REINSPECT",
+    "action": "REINSPECT",
+    "source": "llm",
+    "reason": "The detector is uncertain with a score close to the threshold, so a second inspection is needed.",
+    "latency_ms": 664.5,
+    "state": {
+      "label": "uncertain",
+      "score": 0.49,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 0,
+      "last_outcome": null
+    }
+  },
+  {
+    "situation": "uncertain first look",
+    "repeat": 1,
+    "rules": "REINSPECT",
+    "action": "REINSPECT",
+    "source": "llm",
+    "reason": "The detector is uncertain with a score close to the threshold, so a second inspection is needed.",
+    "latency_ms": 706.8,
+    "state": {
+      "label": "uncertain",
+      "score": 0.49,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 0,
+      "last_outcome": null
+    }
+  },
+  {
+    "situation": "uncertain first look",
+    "repeat": 2,
+    "rules": "REINSPECT",
+    "action": "REINSPECT",
+    "source": "llm",
+    "reason": "The detector is uncertain with a score close to the threshold, so a second inspection is needed.",
+    "latency_ms": 655.7,
+    "state": {
+      "label": "uncertain",
+      "score": 0.49,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 0,
+      "last_outcome": null
+    }
+  },
+  {
+    "situation": "uncertain after re-inspection",
+    "repeat": 0,
+    "rules": "SKIP_AND_ALERT",
+    "action": "SKIP_AND_ALERT",
+    "source": "rules",
+    "reason": "still uncertain after re-inspection (LLM REINSPECT rejected: re-inspection limit reached)",
+    "latency_ms": 617.2,
+    "state": {
+      "label": "uncertain",
+      "score": 0.51,
+      "threshold": 0.5,
+      "inspections": 2,
+      "grasp_retries": 0,
+      "last_outcome": null
+    }
+  },
+  {
+    "situation": "uncertain after re-inspection",
+    "repeat": 1,
+    "rules": "SKIP_AND_ALERT",
+    "action": "SKIP_AND_ALERT",
+    "source": "rules",
+    "reason": "still uncertain after re-inspection (LLM REINSPECT rejected: re-inspection limit reached)",
+    "latency_ms": 607.8,
+    "state": {
+      "label": "uncertain",
+      "score": 0.51,
+      "threshold": 0.5,
+      "inspections": 2,
+      "grasp_retries": 0,
+      "last_outcome": null
+    }
+  },
+  {
+    "situation": "uncertain after re-inspection",
+    "repeat": 2,
+    "rules": "SKIP_AND_ALERT",
+    "action": "SKIP_AND_ALERT",
+    "source": "rules",
+    "reason": "still uncertain after re-inspection (LLM REINSPECT rejected: re-inspection limit reached)",
+    "latency_ms": 618.1,
+    "state": {
+      "label": "uncertain",
+      "score": 0.51,
+      "threshold": 0.5,
+      "inspections": 2,
+      "grasp_retries": 0,
+      "last_outcome": null
+    }
+  },
+  {
+    "situation": "missed grasp",
+    "repeat": 0,
+    "rules": "RETRY_GRASP",
+    "action": "RETRY_GRASP",
+    "source": "llm",
+    "reason": "The brick was not grasped, so the grasp must be retried before sorting.",
+    "latency_ms": 573.1,
+    "state": {
+      "label": "defective",
+      "score": 0.88,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 0,
+      "last_outcome": "not_grasped"
+    }
+  },
+  {
+    "situation": "missed grasp",
+    "repeat": 1,
+    "rules": "RETRY_GRASP",
+    "action": "RETRY_GRASP",
+    "source": "llm",
+    "reason": "The brick was not grasped, so the grasp must be retried before sorting.",
+    "latency_ms": 562.8,
+    "state": {
+      "label": "defective",
+      "score": 0.88,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 0,
+      "last_outcome": "not_grasped"
+    }
+  },
+  {
+    "situation": "missed grasp",
+    "repeat": 2,
+    "rules": "RETRY_GRASP",
+    "action": "RETRY_GRASP",
+    "source": "llm",
+    "reason": "The brick was not grasped, so the grasp must be retried before sorting.",
+    "latency_ms": 573.2,
+    "state": {
+      "label": "defective",
+      "score": 0.88,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 0,
+      "last_outcome": "not_grasped"
+    }
+  },
+  {
+    "situation": "missed grasp twice",
+    "repeat": 0,
+    "rules": "SKIP_AND_ALERT",
+    "action": "SKIP_AND_ALERT",
+    "source": "rules",
+    "reason": "grasp missed again (LLM RETRY_GRASP rejected: grasp retry limit reached)",
+    "latency_ms": 616.2,
+    "state": {
+      "label": "defective",
+      "score": 0.88,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 1,
+      "last_outcome": "not_grasped"
+    }
+  },
+  {
+    "situation": "missed grasp twice",
+    "repeat": 1,
+    "rules": "SKIP_AND_ALERT",
+    "action": "SKIP_AND_ALERT",
+    "source": "rules",
+    "reason": "grasp missed again (LLM RETRY_GRASP rejected: grasp retry limit reached)",
+    "latency_ms": 625.0,
+    "state": {
+      "label": "defective",
+      "score": 0.88,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 1,
+      "last_outcome": "not_grasped"
+    }
+  },
+  {
+    "situation": "missed grasp twice",
+    "repeat": 2,
+    "rules": "SKIP_AND_ALERT",
+    "action": "SKIP_AND_ALERT",
+    "source": "rules",
+    "reason": "grasp missed again (LLM RETRY_GRASP rejected: grasp retry limit reached)",
+    "latency_ms": 631.5,
+    "state": {
+      "label": "defective",
+      "score": 0.88,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 1,
+      "last_outcome": "not_grasped"
+    }
+  },
+  {
+    "situation": "placed in wrong bowl",
+    "repeat": 0,
+    "rules": "SORT_GREEN",
+    "action": "REINSPECT",
+    "source": "llm",
+    "reason": "The detector score is far below the threshold and the previous placement was wrong, indicating uncertainty that requires re-inspection.",
+    "latency_ms": 665.3,
+    "state": {
+      "label": "normal",
+      "score": 0.2,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 0,
+      "last_outcome": "placed_wrong"
+    }
+  },
+  {
+    "situation": "placed in wrong bowl",
+    "repeat": 1,
+    "rules": "SORT_GREEN",
+    "action": "REINSPECT",
+    "source": "llm",
+    "reason": "The detector score is far below the threshold and the previous placement was wrong, indicating uncertainty that requires re-inspection.",
+    "latency_ms": 739.4,
+    "state": {
+      "label": "normal",
+      "score": 0.2,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 0,
+      "last_outcome": "placed_wrong"
+    }
+  },
+  {
+    "situation": "placed in wrong bowl",
+    "repeat": 2,
+    "rules": "SORT_GREEN",
+    "action": "REINSPECT",
+    "source": "llm",
+    "reason": "The detector score is far below the threshold and the previous placement was wrong, indicating uncertainty that requires re-inspection.",
+    "latency_ms": 690.2,
+    "state": {
+      "label": "normal",
+      "score": 0.2,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 0,
+      "last_outcome": "placed_wrong"
+    }
+  },
+  {
+    "situation": "arm fault",
+    "repeat": 0,
+    "rules": "STOP",
+    "action": "STOP",
+    "source": "rules",
+    "reason": "arm fault (LLM RETRY_GRASP rejected: arm fault: only STOP is allowed)",
+    "latency_ms": 613.1,
+    "state": {
+      "label": "normal",
+      "score": 0.2,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 0,
+      "last_outcome": "arm_fault"
+    }
+  },
+  {
+    "situation": "arm fault",
+    "repeat": 1,
+    "rules": "STOP",
+    "action": "STOP",
+    "source": "rules",
+    "reason": "arm fault (LLM RETRY_GRASP rejected: arm fault: only STOP is allowed)",
+    "latency_ms": 764.5,
+    "state": {
+      "label": "normal",
+      "score": 0.2,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 0,
+      "last_outcome": "arm_fault"
+    }
+  },
+  {
+    "situation": "arm fault",
+    "repeat": 2,
+    "rules": "STOP",
+    "action": "STOP",
+    "source": "rules",
+    "reason": "arm fault (LLM RETRY_GRASP rejected: arm fault: only STOP is allowed)",
+    "latency_ms": 763.0,
+    "state": {
+      "label": "normal",
+      "score": 0.2,
+      "threshold": 0.5,
+      "inspections": 1,
+      "grasp_retries": 0,
+      "last_outcome": "arm_fault"
+    }
+  }
+]

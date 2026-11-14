@@ -514,3 +514,11 @@ base, the front camera or the bowls needs no new training.
   and the tip offset; then the wrist-camera correction step (reference image, pixel offset → table correction).
 - Full suite: 499 passed, 2 failed in `test_training.py` because the Studio submodule's working tree is missing
   `library/` (staged deletions inside the submodule, not from this change).
+
+## 2026-11-14: simulation augmentation and LLM planner (Linan)
+
+- MuJoCo sorting cell in WSL2 (`scripts/sim/so101_sort_sim.py`). It simulates once and stores full 3D state per frame, then renders many random but plausible cameras into the `offline_pipeline` format. The real layout prior comes from the first and last frames of sort-depth-v2. Calibration of the top camera from real data (`config/sim/`, `scripts/sim/calibration/`) is coarse: about 1 cm near the brick.
+- `defect_sorter.planner`: closed action set, deterministic validator, rule fallback. Local Qwen (vLLM) takes about 0.6 s per decision, and the validator caught 3 unsafe proposals.
+- `lerobot_export.py --video --robot-type` writes cameras as video like Studio recordings.
+- Open: expert grasp success, the 30 fps batch plus export, and the front camera fit. Details are in `docs/sim/SIM_AUGMENTATION.md` and `memory/handoffs/2026-11-14-sim-augmentation-handoff.md`.
+- Full suite: 587 passed, 1 failed (`test_uvc_controls.py::test_find_device_picks_the_capture_node_of_the_named_camera`, which also fails on Windows without this change).
