@@ -34,12 +34,12 @@ function render() {
 	$('score-value').textContent = view.score;
 	$('task').textContent = isDecision && state.task && !fault ? `${demo ? 'Demo: ' : ''}“${state.task}”` : 'No movement requested';
 	$('outcome').textContent = state.stage === 'complete' && state.outcome ? `${demo ? 'Demo: ' : ''}${state.outcome} bowl · verified` : 'Not yet verified';
-	const { normal_below: low, defective_above: high } = state.thresholds;
 	$('explanation').textContent = explanation(state);
-	$('threshold-copy').textContent = `Perfect below ${low.toFixed(2)}, defective above ${high.toFixed(2)}, unsure between`;
-	$('gauge-green').setAttribute('d', arc(0, Math.max(0,low-.006)));
-	$('gauge-yellow').setAttribute('d', arc(low+.006, Math.max(low+.006,high-.006)));
-	$('gauge-red').setAttribute('d', arc(Math.min(1,high+.006),1));
+	$('threshold-copy').textContent = view.thresholdText;
+	const low = state.thresholds?.normal_below, high = state.thresholds?.defective_above;
+	$('gauge-green').setAttribute('d', state.thresholds ? arc(0, Math.max(0,low-.006)) : '');
+	$('gauge-yellow').setAttribute('d', state.thresholds ? arc(low+.006, Math.max(low+.006,high-.006)) : '');
+	$('gauge-red').setAttribute('d', state.thresholds ? arc(Math.min(1,high+.006),1) : '');
 	$('needle').style.transform = `rotate(${-180 + (state.score ?? 0)*180}deg)`;
 	$('needle').style.visibility = state.score === null ? 'hidden' : 'visible';
 	$('gauge-title').textContent = state.score === null ? 'Anomaly score unavailable' : `${demo ? 'Demo ' : ''}anomaly score ${view.score}`;
@@ -51,8 +51,8 @@ function render() {
 		if (active) el.setAttribute('aria-current','step'); else el.removeAttribute('aria-current');
 	});
 	$('reason-stage').textContent = isDecision ? (state.destination ? view.destination : 'Human review') : 'Decision';
-	$('act-stage').textContent = fault ? 'Stopped' : state.stage === 'complete' ? 'Placed' : state.stage === 'act' ? 'Moving' : 'Waiting';
-	$('verify-stage').textContent = state.stage === 'complete' ? 'Confirmed' : 'Placement';
+	$('act-stage').textContent = view.actStatus;
+	$('verify-stage').textContent = view.verifyStatus;
 	const status = {perceive:'Capturing the part',detect:'Inspecting for defects',reason:'Selecting the destination',act:'Placing the part',verify:'Checking placement',complete:'Cycle complete',review:'Waiting for human review',fault:'Stopped · no automatic retry'};
 	$('progress-text').textContent = `${demo ? 'Demo · ' : ''}${status[state.stage]}`;
 	$('inspect').disabled = !demo || Boolean(timer);

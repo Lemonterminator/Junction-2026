@@ -552,3 +552,15 @@ be inferred merely from the presence of a recording; the reader and calibrated p
 After rebase onto main `79e38b9`: 573 Python tests passed, one existing optional PyArrow episode test skipped
 (45.78 s); thirteen frontend tests and four module syntax checks passed. Ruff checks over `src tests packages`
 passed, with all 89 files formatted. No hardware was touched during verification.
+
+## Update 2026-11-14 — dashboard telemetry corrections
+
+An unavailable verified outcome no longer marks a completed cycle as placed or confirmed. Snapshot thresholds and
+joint readings may be null, with absent thresholds shown explicitly and without coloured gauge arcs; joint units
+must be null with absent joints. Regression tests cover unverified completion and missing measurements. Dashboard
+transport and real robot integration remain unimplemented.
+
+Validation on Windows: 15 frontend tests passed; Ruff check and format check passed. After initializing the pinned
+Studio submodule, the full Python suite reported 572 passed, one skipped and one failure: the existing
+`test_find_device_picks_the_capture_node_of_the_named_camera` compares a Windows-formatted `Path` to a POSIX path.
+No hardware was touched.

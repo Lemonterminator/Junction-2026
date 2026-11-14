@@ -79,3 +79,24 @@ test('backend decision text does not infer a threshold comparison from the label
 	const state = { ...createDemo('normal'), mode: 'real', score: .9 };
 	assert.equal(explanation(state), 'The backend classified this part as normal and assigned it to the green bowl.');
 });
+
+test('completion does not claim placement or verification without an outcome', () => {
+	const state = { ...createDemo('normal'), mode: 'real', stage: 'complete', outcome: null };
+	assert.equal(validateTelemetry(state), true);
+	assert.equal(displayState(state).actStatus, 'Not confirmed');
+	assert.equal(displayState(state).verifyStatus, 'Not verified');
+	assert.equal(stageProgress(state).find(s => s.stage === 'verify').passed, false);
+	const verified = { ...state, outcome: 'pink' };
+	assert.equal(displayState(verified).actStatus, 'Placed');
+	assert.equal(displayState(verified).verifyStatus, 'Confirmed');
+	assert.equal(stageProgress(verified).find(s => s.stage === 'verify').passed, true);
+});
+
+test('missing thresholds and joint readings are valid and remain explicitly unavailable', () => {
+	const state = { ...createDemo('normal'), mode: 'replay', score: null, thresholds: null, joints: null, joint_unit: null };
+	assert.equal(validateTelemetry(state), true);
+	assert.equal(displayState(state).thresholdText, 'Inspection thresholds unavailable');
+	assert.equal(validateTelemetry({ ...state, joints: [1, 2, 3, 4, 5, 6] }), false);
+	assert.equal(validateTelemetry({ ...state, joint_unit: 'degrees_and_gripper_0_100' }), false);
+	assert.equal(validateTelemetry({ ...state, thresholds: { normal_below: .8, defective_above: .2 } }), false);
+});

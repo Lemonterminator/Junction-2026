@@ -45,11 +45,11 @@ Every snapshot contains the following fields. Missing measurements use `null`, n
 | `stage` | `perceive`, `detect`, `reason`, `act`, `verify`, `complete`, `review` or `fault`. |
 | `label` | Backend decision: `normal`, `defective` or `uncertain`. |
 | `score` | Finite normalized score from `0` to `1`, or `null` when unavailable. |
-| `thresholds` | `{ normal_below, defective_above }`, finite ordered boundaries within `0…1`. These describe the active inspector; the demo's `0.40` and `0.60` are not deployment settings. |
+| `thresholds` | `{ normal_below, defective_above }`, finite ordered boundaries within `0…1`, or `null` if unavailable. These describe the active inspector; the demo's `0.40` and `0.60` are not deployment settings. |
 | `destination` | `green`, `blue`, `pink` or `null`; supplied by the backend's task mapping. |
 | `task` | Task sentence actually selected by the backend, or `null`. |
-| `joints` | Six finite values ordered `shoulder_pan`, `shoulder_lift`, `elbow_flex`, `wrist_flex`, `wrist_roll`, `gripper`, matching the twin's `STATE_NAMES` order. |
-| `joint_unit` | Literal `degrees_and_gripper_0_100`: first five values in degrees; gripper on a `0…100` scale. Physical calibration and the gripper convention must be verified before real pose rendering. |
+| `joints` | Six finite values ordered `shoulder_pan`, `shoulder_lift`, `elbow_flex`, `wrist_flex`, `wrist_roll`, `gripper`, matching the twin's `STATE_NAMES` order; `null` when unavailable. |
+| `joint_unit` | Literal `degrees_and_gripper_0_100` when joints are supplied, otherwise `null`: first five values in degrees; gripper on a `0…100` scale. Physical calibration and the gripper convention must be verified before real pose rendering. |
 | `frame_id` | Nonnegative integer identifying the associated image. |
 | `camera_url`, `heatmap_url` | Same-origin absolute paths beginning with a single `/`, with no backslashes, control characters or whitespace, or `null`. A heatmap must come from model output; the initial demo does not establish model heatmap support. |
 | `outcome` | Verified destination (`green`, `blue`, `pink`) or `null` while missing/unverified. A planned destination is not placement evidence. |
@@ -57,7 +57,7 @@ Every snapshot contains the following fields. Missing measurements use `null`, n
 | `timings_ms` | `{ capture, inference, placement }`; each duration is finite, nonnegative milliseconds or `null`. |
 | `fault` | Fault description string or `null`. Fault handling must stop the controller; the UI does not retry motion. |
 
-A missing score displays as `—`. Data older than three seconds is stale. Transport integration must preserve capture timestamps and frame identifiers so the browser can show delays rather than silently treat old data as live.
+A missing score displays as `—`; missing thresholds are explicitly unavailable and have no coloured threshold arcs. A completed stage with a null outcome does not claim placement or verification. Data older than three seconds is stale. Transport integration must preserve capture timestamps and frame identifiers so the browser can show delays rather than silently treat old data as live.
 
 ## Backend integration tasks
 
