@@ -173,7 +173,7 @@ def _capture(args: argparse.Namespace) -> None:
 					d.id: refine_with_depth(d, frame.depth_m, frame.intrinsics)
 					for d in detect_markers(frame.color_bgr, frame.intrinsics)
 				}
-				table = table_frame(plane, poses)
+				table = table_frame(plane, poses, anchors=(args.anchors[0], args.anchors[1]))
 				ticks = arm.read_ticks()
 				marker = poses.get(args.marker)
 				anchors_ok = table.basis.startswith("anchors")
@@ -184,7 +184,7 @@ def _capture(args: argparse.Namespace) -> None:
 					seen = "not seen" if marker is None else f"seen ({marker.source})"
 					anchors = "ok" if anchors_ok else "NOT both visible"
 					sys.stdout.write(
-						f"[{len(obs)}/{args.count}] marker {args.marker}: {seen} | anchors 16+17: {anchors}\n"
+						f"[{len(obs)}/{args.count}] marker {args.marker}: {seen} | anchors {args.anchors[0]}+{args.anchors[1]}: {anchors}\n"
 					)
 					sys.stdout.flush()
 					last_status = now
@@ -211,7 +211,12 @@ def _capture(args: argparse.Namespace) -> None:
 				ranges,
 				raw,
 				obs,
-				meta={"marker": args.marker, "port": args.port, "captured_at": time.strftime("%Y-%m-%dT%H:%M:%S%z")},
+				meta={
+					"marker": args.marker,
+					"anchors": list(args.anchors),
+					"port": args.port,
+					"captured_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+				},
 			)
 			sys.stdout.write(f"saved {len(obs)} observations to {args.out}\n")
 
@@ -251,6 +256,14 @@ def main(argv: list[str] | None = None) -> None:
 	cap.add_argument("--port", required=True, help="follower serial port, e.g. /dev/ttyACM0 (check /dev/serial/by-id)")
 	cap.add_argument("--marker", type=int, default=4, help="id of the marker on the gripper")
 	cap.add_argument("--count", type=int, default=18)
+	cap.add_argument(
+		"--anchors",
+		type=int,
+		nargs=2,
+		default=[16, 17],
+		metavar=("A", "B"),
+		help="table markers that define the frame; keep one pair for a whole session",
+	)
 	cap.add_argument("--out", type=Path, default=Path("data/calibration/session.jsonl"))
 	cap.add_argument(
 		"--release-torque", action="store_true", help="switch torque off first (the arm goes limp: hold it)"
