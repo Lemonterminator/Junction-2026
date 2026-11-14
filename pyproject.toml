@@ -65,7 +65,7 @@ select = ["B", "C4", "E", "F", "G", "I", "LOG", "N", "PT", "RUF", "S", "SIM", "T
 ignore = ["W191", "E101", "E111", "E114", "E117", "E501"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]
+"tests/**" = ["S101", "S310"]  # asserts; urllib only opens local test-server URLs
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
