@@ -207,3 +207,15 @@ Branch `docs/tailscale-remote-operation`; details and the open questions for the
   environment, 7860 window, defect details, remaining kickoff items) are in the handoff.
 
 Documentation only; no hardware, arm motion or training.
+
+## Update 2026-11-14 — marker alignment
+
+Branch `feat/table-frame-alignment` (PR #7); brief: [MARKER_ALIGNMENT.md](../docs/infrastructure/MARKER_ALIGNMENT.md).
+
+- ArUco print sheet, depth-refined marker poses and a live alignment page exist. A level **table frame**
+  (table-plane normal as up, anchors 16 → 17 as the x axis) removes the camera's tilt and position, so the
+  camera can stay tilted (~29°) and the drift check only fires when something really moved.
+- Checked on the real cell: table markers read −4…+3 mm height; anchor distance equal in camera and table
+  space (523.0 mm). Self-consistency only; no ground-truth accuracy measurement yet.
+- Open: clamp marker (side of the base) not yet detected (image edge / facing away); no reference saved yet;
+  marker-based joint calibration is a proposal, not built.
