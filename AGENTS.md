@@ -77,6 +77,10 @@ Test ownership:
 - `tests/test_calibration_capture.py` owns `defect_sorter.calibration_capture` (stillness gate, session files).
 - `tests/test_webview.py` owns `defect_sorter.webview` (frame buffer, page, frame polling and action endpoints).
 - `tests/test_training.py` owns `defect_sorter.training` and `defect_sorter.training_preflight` (local policy recipes, dataset contracts, plans, task validation and training launch preflight).
+- `tests/test_inspection.py` owns `defect_sorter.inspection` (score to normal/defective/uncertain decision, crops).
+- `tests/test_closed_loop.py` owns `defect_sorter.closed_loop` (label-to-task mapping, attempt state machine, records).
+- `tests/test_twin.py` owns `defect_sorter.twin` (kinematic twin: TCP, IK, rate limits, grasp/release, cameras, scripted expert).
+- `tests/test_offline_pipeline.py` owns `defect_sorter.offline_pipeline` and the pure part of `defect_sorter.lerobot_export` (demo recording, anomaly crops, twin evaluation, LeRobot features).
 
 Extend the owning module by default. Add a new test file only for a new stable module boundary, and update this map in the same change.
 
@@ -94,6 +98,10 @@ Extend the owning module by default. Add a new test file only for a new stable m
 - `calibration_capture.py`: capture/solve CLI (`sorter-joint-calibration`); `so101_reader.py`: read-only servo access, never enables torque.
 - `webview.py`: shared HTTP plumbing for the live pages; the browser pulls one complete JPEG at a time, so a slow link cannot freeze the view.
 - `anomaly_smoke.py`: Anomalib → OpenVINO toolchain check and per-device latency benchmark.
+- `inspection.py`: anomaly score → normal/defective/uncertain with an explicit threshold; OpenVINO scorer for Anomalib exports; Padim training on a crop folder.
+- `closed_loop.py`: one sorting attempt (observe → inspect → plan → execute → verify) over replaceable `Cell`, inspector and `Policy` protocols; defect labels map to fixed task texts.
+- `twin.py`: kinematic digital twin of the cell (no physics engine) implementing `Cell`, plus a privileged scripted expert. Twin results are tagged `mode = twin` and never pooled with real ones.
+- `offline_pipeline.py`: hardware-free CLI (record demos, write anomaly crops, evaluate the loop); `lerobot_export.py`: demos → LeRobot v3, run in the Studio backend environment.
 
 Keep modules deep: callers use `detect_scene(...)` and `D415Camera`, not the internals. Do not fabricate detections, scores or latencies; when data is missing, return an empty or explicit failure result rather than a guess. A dependency that "supports OpenVINO" is not proof of GPU/NPU deployment; report configuration, build, runtime and hardware checks separately.
 

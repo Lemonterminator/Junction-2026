@@ -1,0 +1,10 @@
+# Twin demonstrations exported by src/defect_sorter/lerobot_export.py (see
+# docs/infrastructure/OFFLINE_PIPELINE.md). Synthetic data: pipeline checks only.
+# Root is relative to THIS file, not the working directory.
+root = "../../data/twin/lerobot"
+repo_id = "local/twin-sorting"
+fps = 30
+camera_keys = ["observation.images.top", "observation.images.wrist"]
+joint_names = ["shoulder_pan.pos", "shoulder_lift.pos", "elbow_flex.pos", "wrist_flex.pos", "wrist_roll.pos", "gripper.pos"]
+# The twin's own convention: body joints in degrees from mid-range, gripper 0 (closed) to 100 (open).
+joint_units = ["degrees", "degrees", "degrees", "degrees", "degrees", "normalized_0_100"]
