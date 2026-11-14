@@ -38,3 +38,24 @@ and performance profiling are recommendations, not adopted contest requirements.
 ## 2026-11-14 — Perception: depth for objects, colour for bowls
 
 The table background stays cluttered, so objects are found by height above a fitted table plane (D415 depth) rather than by appearance, and shallow bowls by colour. The D415 colour sensor uses a fixed 4600 K white balance because auto white balance shifted every hue under venue lighting. Evidence: live run on 2026-11-13/14 (see handoff). Status: adopted.
+
+## 2026-11-14 — Workstation runtime layout
+
+One checkout at `~/junction` holds our code and the Studio submodule. Studio runs from the submodule's
+`application/docker` compose (compose project `docker`, profile `xpu`, privileged) with the prebuilt
+`physical-ai-studio-xpu:main` image, chosen for speed over a source build. The submodule pin
+(`junction2026`, `17714488`) and the running image (`main`) therefore differ; results must record which
+one they used. The old `~/Downloads` copy is unused. Status: adopted.
+
+## 2026-11-14 — SO-101 wrist roll uses the full-turn range on both arms
+
+Wrist roll has no mechanical stop, so the recorded range depends on how far the operator turned it.
+Both arms now use [0, 4095] (LeRobot's convention), keeping leader and follower on the same scale.
+Re-running Studio's calibration wizard overwrites this and must be followed by the same adjustment.
+Status: adopted; evidence in the 2026-11-14 hardware handoff.
+
+## 2026-11-14 — Camera USB topology
+
+Two uncompressed 640×480 UVC streams plus the D415 do not fit through one USB 2 hub. Keep the wrist and
+front cameras on different laptop ports (separate hubs), and prefer the D415 on a USB 3 link.
+Status: adopted; the D415 still enumerates as USB 2.1 and works at 640×480 colour.

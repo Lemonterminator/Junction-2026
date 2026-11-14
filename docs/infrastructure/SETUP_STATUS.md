@@ -24,3 +24,13 @@ to the Ubuntu workstation. Current evidence: [shared status](../../memory/STATUS
 - **intel account:** groups docker, video, render added. Access and admin workarounds are kept in the untracked `.local/` folder.
 - **Anomalib env:** `~/workspace/.venv-anomalib` (uv, Python 3.12): anomalib[openvino] 2.7.0, OpenVINO 2026.4.1, torch 2.15 CPU, NNCF, pyrealsense2, opencv-headless. Smoke test `~/workspace/smoke_anomalib.py` (Padim, synthetic data) trains, exports to OpenVINO, and runs on all devices.
 - **Measured (Padim resnet18, static 1×3×256×256, LATENCY hint):** CPU 5.0 ms, GPU 1.5 ms, NPU 8.5 ms per inference. NPU requires a static input shape (`model.reshape(...)`); the dynamic export fails to compile on NPU.
+
+## Update 2026-11-14 (morning)
+
+Supersedes the Studio location and arm state above.
+
+- Studio runs from the repository checkout `~/junction` (submodule `external/physical-ai-studio`,
+  `application/docker`, compose project `docker`, prebuilt `xpu:main` image). The `~/Downloads` copy is unused.
+- Both arms are added, calibrated and working in teleoperation; environments `Sorting cell` and
+  `Arms only (teleop test)` exist. Details: [memory/STATUS.md](../../memory/STATUS.md).
+- Cameras need two hubs on separate laptop ports; see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
