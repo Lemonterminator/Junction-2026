@@ -27,7 +27,7 @@ REINSPECT and the rules chose SORT_GREEN; both are valid. Fine for one decision 
 **Camera calibration (top D415 view, sim base frame):**
 - Arm silhouette IoU fit: `config/sim/top_camera_silhouette.json`, IoU 0.42. Height 0.56 and tilt 24.0 disagree with the measured plane-v2 (0.508 m, 25.9°).
 - Grasp-correspondence fit: `config/sim/top_camera_grasp.json`. Height, tilt and focal are fixed to plane-v2 and the D415 values. Correspondences pair the brick pixel (height drop between the first and last frame) with the jaw centre from FK at the lowest point. Median error is 13 px (about 1.2 cm); IoU 0.375.
-- A joint fit (IoU + grasp error + priors) was still running in WSL at handoff and writes `/home/linan/sim/out/top_camera_joint.json`.
+- Joint fit (IoU + grasp error + priors): `config/sim/top_camera_joint.json`, height 0.513 m, tilt 26.1°, focal 612 px, which agree with plane-v2 and the D415. IoU is 0.38 and grasp median error 12.5 px. **Use this one.**
 
 **Rendering speed:** in WSL, the CPU rasteriser (`LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe`) is about 90 ms per 640x480 RGB frame. The D3D12 GPU path is about 215 ms because it is readback-bound. Use `--workers` (32 cores).
 

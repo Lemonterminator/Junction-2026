@@ -33,7 +33,7 @@ export MUJOCO_GL=egl LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe   # CPU ras
 R=/mnt/c/Users/Jiang/.gemini/antigravity/scratch/hackjunction
 DS=$R/data/studio/af9b173a-ee59-4e24-97c8-be71dba701ce
 SIM=$R/scripts/sim/so101_sort_sim.py
-CAM=$R/config/sim/top_camera_grasp.json        # or ~/sim/out/top_camera_joint.json when the joint fit finished
+CAM=$R/config/sim/top_camera_joint.json   # recommended joint fit: IoU 0.38, grasp median 12.5 px
 
 ~/mjenv/bin/python $SIM layout-prior $DS --camera $CAM --out ~/sim/out/prior.json
 ~/mjenv/bin/python $SIM simulate --camera $CAM --prior ~/sim/out/prior.json --out ~/sim/out/sim_a --episodes 40 --workers 8
