@@ -1,0 +1,15 @@
+# Cap Physical AI Studio's live session preview so it fits a slow link (venue Wi-Fi).
+# Mounts docker/studio-patches over the upstream image's backend; no image rebuild. Recording is unaffected.
+# Add after the Studio compose file (relative paths resolve from external/physical-ai-studio/application/docker),
+# then recreate the container. Limits are documented in docker/studio-patches/preview_limits.py.
+# The patched runtime_ws.py is a copy of the image's file (revision 8f1324161ece2b24f2d38765b6e943ed1961258c);
+# recheck it against the image when IMAGE_TAG changes.
+services:
+  physical-ai-studio-xpu:
+    environment:
+      - STUDIO_PREVIEW_MAX_HZ=${STUDIO_PREVIEW_MAX_HZ:-10}
+      - STUDIO_PREVIEW_JPEG_QUALITY=${STUDIO_PREVIEW_JPEG_QUALITY:-60}
+      - STUDIO_PREVIEW_SKIP=${STUDIO_PREVIEW_SKIP:-}
+    volumes:
+      - ../../../../docker/studio-patches/runtime_ws.py:/app/application/backend/src/api/runtime_ws.py:ro
+      - ../../../../docker/studio-patches/preview_limits.py:/app/application/backend/src/api/preview_limits.py:ro

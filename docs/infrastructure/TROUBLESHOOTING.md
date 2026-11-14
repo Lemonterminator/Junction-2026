@@ -23,3 +23,17 @@
   roll shows only part of the real rotation. Compare in the regular robot viewer instead.
 - Scripts cannot open an arm's serial port: a Studio browser tab on an environment or robot page holds the arms and
   reconnects after restarts. Close the tab first. After Studio disconnects, the follower keeps holding position (torque on).
+- Live camera view lags by seconds while recording or teleoperating: the Studio session socket pushes every camera
+  as a JPEG on every preview tick, and on venue Wi-Fi the send blocks (Studio logs `session-sampler ... missed`) while
+  stale frames queue in TCP buffers. On 2026-11-14 the workstation and the viewing laptop were both on guest Wi-Fi
+  (ping 27–636 ms, 10% loss) and every session had 0.4–15 s stalls. First choice: use the workstation's own screen
+  (`http://localhost:7860`) or wired Ethernet. Otherwise add `docker/studio-preview.override.yaml`, which caps the
+  preview at 10 Hz and JPEG quality 60 (`STUDIO_PREVIEW_MAX_HZ`, `STUDIO_PREVIEW_JPEG_QUALITY`, and
+  `STUDIO_PREVIEW_SKIP=top_depth` to leave a camera out). Recording is unaffected. Recreating the container ends
+  open sessions, so check nobody is recording first:
+
+  ```bash
+  cd ~/junction/external/physical-ai-studio/application/docker
+  docker compose -f docker-compose.yaml -f ~/junction/docker/studio-tailnet.override.yaml \
+    -f ~/junction/docker/studio-preview.override.yaml --profile xpu up -d physical-ai-studio-xpu
+  ```

@@ -274,3 +274,13 @@ chunk with synthetic input) and published as the private pre-release `model-smol
 Status `smoke-test`: not for the arm. Guide: [MODEL_RELEASES](../docs/infrastructure/MODEL_RELEASES.md).
 MLflow is still loopback-only: `tailscale serve` needs Serve enabled for the tailnet in the admin console, and
 direct binding to the tailnet IP is blocked by the PC's inbound firewall (left unchanged).
+
+## Update 2026-11-14 — camera lag in Studio's live view
+
+Diagnosis (read-only): the multi-second lag came from the network, not the cameras. Studio's session socket pushed
+four JPEG streams at 20 Hz (~19 Mbit/s) to a laptop on the same venue guest Wi-Fi (ping 27–636 ms, 10% loss);
+every session that day logged 0.4–15 s send stalls. Camera side measured tens of ms (D415 bridge: read 26 ms, depth
+image 7 ms, encode 1 ms, local HTTP 0.4 ms). Added `docker/studio-preview.override.yaml`, which mounts a patched
+`runtime_ws.py` plus `preview_limits.py` into the upstream image (no rebuild) and caps the preview at 10 Hz / JPEG 60.
+Fix and recreate command: [TROUBLESHOOTING](../docs/infrastructure/TROUBLESHOOTING.md). Wired Ethernet or the
+workstation's own screen remains the first choice.
