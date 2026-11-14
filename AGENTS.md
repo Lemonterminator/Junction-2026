@@ -72,9 +72,10 @@ Test ownership:
 - `tests/test_scene.py` owns `defect_sorter.scene` (bowl detection by colour, object detection by height, object-in-bowl relation).
 - `tests/test_markers.py` owns `defect_sorter.markers` (printed marker set, print sheet, marker detection and pose).
 - `tests/test_alignment.py` owns `defect_sorter.alignment` (depth-refined marker poses, table frame and camera-pose invariance, drift against a saved reference).
-- `tests/test_kinematics.py` owns `defect_sorter.kinematics` (SO-101 forward kinematics).
+- `tests/test_kinematics.py` owns `defect_sorter.kinematics` (SO-101 forward kinematics, tool frame, inverse kinematics).
 - `tests/test_joint_calibration.py` owns `defect_sorter.joint_calibration` (tick conversion, offset and base-pose fit, observability).
-- `tests/test_calibration_capture.py` owns `defect_sorter.calibration_capture` (stillness gate, session files).
+- `tests/test_calibration_capture.py` owns `defect_sorter.calibration_capture` (stillness gate, session files, solve CLI).
+- `tests/test_robot_pose.py` owns `defect_sorter.robot_pose` (table/base frames, base-marker link and relocation, readings vs model angles, calibration files).
 - `tests/test_webview.py` owns `defect_sorter.webview` (frame buffer, page, frame polling and action endpoints).
 - `tests/test_training.py` owns `defect_sorter.training` and `defect_sorter.training_preflight` (local policy recipes, dataset contracts, plans, task validation and training launch preflight).
 - `tests/test_inspection.py` owns `defect_sorter.inspection` (score to normal/defective/uncertain decision, crops).
@@ -96,9 +97,10 @@ Extend the owning module by default. Add a new test file only for a new stable m
 - `markers.py`: the printed ArUco set (ids, sizes, uses) as the single source for the print sheet and detection.
 - `alignment.py`: marker poses refined with depth (with a fit-quality guard), the table frame (level, anchored on markers 16 and 17) that removes the camera's own tilt and position, reference save/load and drift comparison in that frame.
 - `alignment_page.py`: live alignment page (camera tilt, markers, drift). Presentation only.
-- `kinematics.py`: SO-101 forward kinematics from the URDF joint table.
+- `kinematics.py`: SO-101 forward kinematics from the URDF joint table, the tool point between the jaws, and inverse kinematics (position + approach direction, wrist roll given) within the URDF joint limits.
 - `joint_calibration.py`: measure-only fit of joint zero offsets and the robot base pose from marker observations.
-- `calibration_capture.py`: capture/solve CLI (`sorter-joint-calibration`); `so101_reader.py`: read-only servo access, never enables torque.
+- `robot_pose.py`: the saved robot calibration (joint offsets, base pose in the table frame, base-plate marker link); converts table points to robot targets and model angles to joint readings.
+- `calibration_capture.py`: capture/solve/link-base/locate CLI (`sorter-joint-calibration`); `so101_reader.py`: read-only servo access, never enables torque.
 - `webview.py`: shared HTTP plumbing for the live pages; the browser pulls one complete JPEG at a time, so a slow link cannot freeze the view.
 - `anomaly_smoke.py`: Anomalib → OpenVINO toolchain check and per-device latency benchmark.
 - `inspection.py`: anomaly score → normal/defective/uncertain with an explicit threshold; OpenVINO scorer for Anomalib exports; Padim training on a crop folder.

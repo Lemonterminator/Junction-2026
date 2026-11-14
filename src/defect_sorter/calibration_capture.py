@@ -6,7 +6,14 @@ once: the joint ticks plus the marker pose in the table frame. Solve: :func:`def
 reports joint zero offsets, the robot base pose on the table and the fit quality. Nothing is written to the arm.
 
 	uv run sorter-joint-calibration capture --port /dev/ttyACM0 --out data/calibration/session.jsonl
-	uv run sorter-joint-calibration solve --session data/calibration/session.jsonl
+	uv run sorter-joint-calibration solve --session data/calibration/session.jsonl --save data/calibration/robot.json
+	uv run sorter-joint-calibration link-base --calibration data/calibration/robot.json --marker 15
+	uv run sorter-joint-calibration locate --calibration data/calibration/robot.json
+
+``solve`` accepts several sessions of the same marker mounting and fits them together; vary the wrist roll between
+poses, or the wrist_flex offset is not observable. ``link-base`` measures a marker fixed on the base plate while
+the robot still stands where it was calibrated; afterwards ``locate`` finds the base from that marker alone, so
+the robot can be moved without another capture.
 
 Only one process can open the D415 and each serial port: stop the alignment page and close Studio's environment
 and robot pages first.
@@ -24,6 +31,7 @@ from pathlib import Path
 import numpy as np
 
 from defect_sorter.joint_calibration import TICKS_PER_DEGREE, Observation, angles_from_ticks, solve
+from defect_sorter.robot_pose import RobotCalibration, link_base_marker, load_calibration, save_calibration
 
 logger = logging.getLogger(__name__)
 
@@ -221,8 +229,75 @@ def _capture(args: argparse.Namespace) -> None:
 			sys.stdout.write(f"saved {len(obs)} observations to {args.out}\n")
 
 
+def _measure_marker(marker_id: int, anchors: tuple[int, int], frames: int = 30) -> tuple[np.ndarray, np.ndarray]:
+	"""Average table-frame pose of one marker over a burst of top-camera frames (hardware)."""
+	from scipy.spatial.transform import Rotation
+
+	from defect_sorter.alignment import refine_with_depth, table_frame, table_rotation
+	from defect_sorter.geometry import Intrinsics, deproject, fit_table_plane
+	from defect_sorter.markers import detect_markers
+	from defect_sorter.realsense import D415Camera
+
+	camera = D415Camera(1280, 720, 15, depth_size=(640, 480))
+	positions, rotations = [], []
+	try:
+		for k in range(frames + 5):
+			frame = camera.read()
+			if k < 5:  # let auto exposure settle
+				continue
+			i = frame.intrinsics
+			pts = deproject(frame.depth_m[::4, ::4], Intrinsics(i.fx / 4, i.fy / 4, i.ppx / 4, i.ppy / 4))
+			plane = fit_table_plane(pts[pts[..., 2] > 0])
+			poses = {
+				d.id: refine_with_depth(d, frame.depth_m, frame.intrinsics)
+				for d in detect_markers(frame.color_bgr, frame.intrinsics)
+			}
+			table = table_frame(plane, poses, anchors=anchors)
+			if marker_id in poses and table.basis.startswith("anchors"):
+				positions.append(table.point(poses[marker_id].position_m))
+				rotations.append(table_rotation(poses[marker_id], table))
+	finally:
+		camera.close()
+	if len(positions) < frames // 2:
+		sys.exit(f"marker {marker_id} with anchors {anchors} seen in only {len(positions)} of {frames} frames")
+	spread_mm = float(np.max(np.std(positions, axis=0)) * 1000)
+	logger.info("marker %d: %d frames, position spread %.1f mm", marker_id, len(positions), spread_mm)
+	return Rotation.from_matrix(np.array(rotations)).mean().as_matrix(), np.mean(positions, axis=0)
+
+
+def _link_base(args: argparse.Namespace) -> None:
+	cal = load_calibration(args.calibration)
+	rotation, position = _measure_marker(args.marker, tuple(args.anchors))
+	link = link_base_marker(cal.base_rotation, cal.base_position_m, rotation, position)
+	save_calibration(
+		args.calibration, RobotCalibration(cal.offsets_deg, cal.base_rotation, cal.base_position_m, args.marker, link)
+	)
+	sys.stdout.write(f"linked base marker {args.marker} in {args.calibration}\n")
+
+
+def _locate(args: argparse.Namespace) -> None:
+	cal = load_calibration(args.calibration)
+	if cal.base_marker_id is None:
+		sys.exit("no base marker linked: run link-base first")
+	rotation, position = _measure_marker(cal.base_marker_id, tuple(args.anchors))
+	moved = cal.relocated(rotation, position)
+	shift = (moved.base_position_m - cal.base_position_m) * 1000
+	turn = float(np.degrees(np.arctan2(moved.base_rotation[1, 0], moved.base_rotation[0, 0])))
+	sys.stdout.write(
+		f"base at x {moved.base_position_m[0] * 1000:.0f} mm, y {moved.base_position_m[1] * 1000:.0f} mm, yaw {turn:.1f} deg "
+		f"(moved {np.linalg.norm(shift[:2]):.0f} mm since the saved pose)\n"
+	)
+	if args.update:
+		save_calibration(args.calibration, moved)
+		sys.stdout.write(f"updated {args.calibration}\n")
+
+
 def _solve(args: argparse.Namespace) -> None:
-	_, _, obs, meta = load_session(args.session)
+	obs: list[Observation] = []
+	meta: dict = {}
+	for path in args.session:
+		_, _, session_obs, meta = load_session(path)
+		obs.extend(session_obs)
 	result = solve(obs)
 	r = result.base_rotation
 	base_yaw = float(np.degrees(np.arctan2(r[1, 0], r[0, 0])))
@@ -247,6 +322,9 @@ def _solve(args: argparse.Namespace) -> None:
 		if big
 		else f"all fitted offsets within {args.tolerance_deg} deg: no change needed\n"
 	)
+	if args.save:
+		save_calibration(args.save, RobotCalibration(result.offsets_deg, result.base_rotation, result.base_position_m))
+		out.write(f"saved robot calibration to {args.save}\n")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -269,11 +347,25 @@ def main(argv: list[str] | None = None) -> None:
 		"--release-torque", action="store_true", help="switch torque off first (the arm goes limp: hold it)"
 	)
 	sol = sub.add_parser("solve", help="fit offsets and base pose from a recorded session")
-	sol.add_argument("--session", type=Path, default=Path("data/calibration/session.jsonl"))
+	sol.add_argument(
+		"--session", type=Path, nargs="+", default=[Path("data/calibration/session.jsonl")], help="one or more sessions"
+	)
 	sol.add_argument("--tolerance-deg", type=float, default=2.0)
+	sol.add_argument("--save", type=Path, help="write offsets and base pose as a robot calibration (JSON)")
+	for name, text in (
+		("link-base", "measure the base-plate marker next to the calibrated base and store the link"),
+		("locate", "find the base from the base-plate marker (after the robot was moved)"),
+	):
+		sp = sub.add_parser(name, help=text)
+		sp.add_argument("--calibration", type=Path, default=Path("data/calibration/robot.json"))
+		sp.add_argument("--anchors", type=int, nargs=2, default=[16, 17], metavar=("A", "B"))
+		if name == "link-base":
+			sp.add_argument("--marker", type=int, default=15, help="id of the marker on the base plate")
+		else:
+			sp.add_argument("--update", action="store_true", help="save the new base pose into the calibration")
 	args = parser.parse_args(argv)
 	logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-	_capture(args) if args.command == "capture" else _solve(args)
+	{"capture": _capture, "solve": _solve, "link-base": _link_base, "locate": _locate}[args.command](args)
 
 
 if __name__ == "__main__":

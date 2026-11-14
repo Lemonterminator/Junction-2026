@@ -284,3 +284,21 @@ image 7 ms, encode 1 ms, local HTTP 0.4 ms). Added `docker/studio-preview.overri
 `runtime_ws.py` plus `preview_limits.py` into the upstream image (no rebuild) and caps the preview at 10 Hz / JPEG 60.
 Fix and recreate command: [TROUBLESHOOTING](../docs/infrastructure/TROUBLESHOOTING.md). Wired Ethernet or the
 workstation's own screen remains the first choice.
+
+## Update 2026-11-14 — robot localisation and inverse kinematics
+
+Branch `feat/base-localisation-ik` (on top of PR #9). Plan: geometry (top camera, ArUco, calibration, IK) moves
+the gripper above the brick and to the bowl; a wrist-camera ACT policy does only the grasp, so moving the robot
+base, the front camera or the bowls needs no new training.
+
+- Joint calibration run on the real follower: lift +1.2°, elbow −6.6°, wrist flex −2.4° (26 poses, RMS 4.0 mm /
+  4.4°). Kept in our kinematics, not in Studio's calibration. Details in
+  [MARKER_ALIGNMENT.md](../docs/infrastructure/MARKER_ALIGNMENT.md).
+- Marker 15 (40 mm) is flat on the follower base plate; `robot_pose` links it to the base so `locate` finds the
+  robot after a move.
+- `kinematics.inverse`: tool point + approach direction + wrist roll → joint angles within URDF limits, with an
+  explicit `reachable` flag. Synthetic round-trip tests only; never commanded on the arm.
+- Studio dataset **grasp** created (project "Defect Sorting", environment "Sorting cell", task "Grasp the brick
+  and lift it."): short episodes from a jaws-down hover ~8 cm above the brick to the lifted brick.
+- Open: motion module with speed/workspace limits (needs explicit approval before any run), grasp recordings,
+  ACT training on the wrist camera, Anomalib.

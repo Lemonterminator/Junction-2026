@@ -1,7 +1,11 @@
 import numpy as np
+import pytest
+from scipy.spatial.transform import Rotation
 
-from defect_sorter.calibration_capture import StillnessGate, load_session, save_session
-from defect_sorter.joint_calibration import Observation
+from defect_sorter.calibration_capture import StillnessGate, load_session, main, save_session
+from defect_sorter.joint_calibration import Observation, angles_from_ticks
+from defect_sorter.kinematics import forward
+from defect_sorter.robot_pose import load_calibration
 
 
 def ticks(lift: int, elbow: int = 2000, wrist: int = 2000) -> dict[str, int]:
@@ -74,3 +78,33 @@ def test_session_round_trips_through_jsonl(tmp_path):
 	assert loaded_obs[0].angles_deg == {"shoulder_lift": 12.5}
 	np.testing.assert_allclose(loaded_obs[0].marker_position_m, [0.1, 0.2, 0.3])
 	np.testing.assert_allclose(loaded_obs[0].marker_rotation, np.eye(3))
+
+
+def _synthetic_session(path, offsets, base_r, base_t, seed):
+	"""Session file whose marker poses follow from known offsets and base pose (marker taped at the tool point)."""
+	rng = np.random.default_rng(seed)
+	ranges = dict.fromkeys(("shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll"), (1000, 3000))
+	raw, obs = [], []
+	for _ in range(8):
+		t = {j: int(rng.integers(1400, 2600)) for j in ranges}
+		read = angles_from_ticks(t, ranges)
+		tip = forward({j: v + offsets.get(j, 0.0) for j, v in read.items()})
+		raw.append(t)
+		obs.append(Observation(read, base_r @ tip[:3, :3], base_r @ tip[:3, 3] + base_t))
+	save_session(path, ranges, raw, obs, meta={"marker": 4})
+
+
+def test_solve_combines_sessions_and_saves_a_robot_calibration(tmp_path):
+	offsets = {"shoulder_lift": 1.0, "elbow_flex": -6.0, "wrist_flex": 2.0}
+	base_r = Rotation.from_euler("z", 63, degrees=True).as_matrix()
+	base_t = np.array([0.226, -0.096, 0.0])
+	_synthetic_session(tmp_path / "a.jsonl", offsets, base_r, base_t, seed=1)
+	_synthetic_session(tmp_path / "b.jsonl", offsets, base_r, base_t, seed=2)
+	out = tmp_path / "robot.json"
+
+	main(["solve", "--session", str(tmp_path / "a.jsonl"), str(tmp_path / "b.jsonl"), "--save", str(out)])
+
+	cal = load_calibration(out)
+	for joint, value in offsets.items():
+		assert cal.offsets_deg[joint] == pytest.approx(value, abs=0.05)
+	np.testing.assert_allclose(cal.base_position_m, base_t, atol=1e-3)
