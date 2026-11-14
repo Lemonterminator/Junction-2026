@@ -1,0 +1,10 @@
+# Studio dataset sort-depth-v2 (workstation volume datasets/af9b173a-...), copied read-only into the Git-ignored
+# data/ folder. 35 episodes, 37,515 frames at 30 fps: episodes 0-22 green bowl, 23-34 pink bowl.
+# Root is relative to THIS file, not the working directory.
+root = "../../data/studio/af9b173a-ee59-4e24-97c8-be71dba701ce"
+repo_id = "local/sort-depth-v2"
+fps = 30
+# Overview first and wrist second for pretrained SmolVLA; the depth image (height above table, grey) is the fourth view.
+camera_keys = ["observation.images.top_rgb_v2", "observation.images.wrist", "observation.images.front", "observation.images.top_depth_v2"]
+joint_names = ["shoulder_pan.pos", "shoulder_lift.pos", "elbow_flex.pos", "wrist_flex.pos", "wrist_roll.pos", "gripper.pos"]
+joint_units = ["normalized_-100_100", "normalized_-100_100", "normalized_-100_100", "normalized_-100_100", "normalized_-100_100", "normalized_0_100"]
