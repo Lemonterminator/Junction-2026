@@ -104,7 +104,7 @@ real task.
 Problems found on the way, with the workaround used:
 
 - **`physicalai` console script fails on Windows**: it imports the robot CLI, whose
-  transport lock imports POSIX-only `fcntl`. `scripts/offline_pipeline/fit_without_robot_cli.py`
+  transport lock imports POSIX-only `fcntl`. `scripts/offline_pipeline/physicalai_without_robot_cli.py`
   builds only the `fit` parser; `training.py` now uses it on Windows (see the real-data
   section). On Linux the normal path is unchanged.
 - **Windows Application Control blocks freshly installed DLLs once**: the first
@@ -148,7 +148,7 @@ The twin uses degrees for body joints, so twin and Studio data must not be mixed
 until one is converted.
 
 On Windows, `training.py` now plans `fit` through
-`scripts/offline_pipeline/fit_without_robot_cli.py` and sets
+`scripts/offline_pipeline/physicalai_without_robot_cli.py` and sets
 `video_backend = "pyav"`: torchcodec's Windows wheel needs FFmpeg shared libraries
 that are not installed, while PyAV bundles an AV1 decoder (dav1d). Linux plans are
 unchanged.

@@ -222,7 +222,7 @@ def build_plan(
 		uv executable name or absolute path.
 	platform : str
 		Target ``sys.platform``. On Windows the ``physicalai`` console script fails importing the POSIX-only
-		robot CLI, so the plan runs ``fit`` through ``scripts/offline_pipeline/fit_without_robot_cli.py``, and videos
+		robot CLI, so the plan runs ``fit`` through ``scripts/offline_pipeline/physicalai_without_robot_cli.py``, and videos
 		are decoded with PyAV.
 
 	Returns
@@ -255,7 +255,11 @@ def build_plan(
 			num_cameras=len(dataset.camera_keys),
 		)
 	fit_entry = (
-		["python", str(project_root.resolve() / "scripts" / "offline_pipeline" / "fit_without_robot_cli.py"), "fit"]
+		[
+			"python",
+			str(project_root.resolve() / "scripts" / "offline_pipeline" / "physicalai_without_robot_cli.py"),
+			"fit",
+		]
 		if platform == "win32"
 		else ["physicalai", "fit"]
 	)

@@ -254,7 +254,7 @@ no arm, camera or workstation was touched.
   Padim OpenVINO inspector 20/20 DONE, 19/20 sorted correctly on CPU and on the Intel iGPU; demos exported to
   LeRobot v3 pass the training contract; SmolVLA expert fine-tune 50 steps on the 5090, loss 0.96 → 0.47.
 - Windows blockers found: the `physicalai` CLI imports `fcntl` (worked around with
-  `scripts/offline_pipeline/fit_without_robot_cli.py`); Application Control blocks fresh DLLs on first import.
+  `scripts/offline_pipeline/physicalai_without_robot_cli.py`); Application Control blocks fresh DLLs on first import.
 
 Next: real-cell `Cell` adapter and SmolVLA runtime policy adapter (both need hardware/real recordings); replace twin
 demos with Studio recordings and twin crops with real good-brick crops; the rest of the chain stays.
