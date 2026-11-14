@@ -1,18 +1,22 @@
-"""Live alignment page for the top camera: camera tilt, marker poses, and drift from a saved reference.
+"""Live alignment page for the top camera: marker poses in a table frame, and drift from a saved reference.
 
 Run on the workstation (stop the live demo first; only one process can open the D415)::
 
 	uv run sorter-alignment --host <tailscale-ip> --port 8091
 
-Shows the camera's tilt against the table (adjust the mount until it reads near 0), every known marker with its
-position, yaw and tilt relative to the table, and, once a reference is saved, whether each marker moved.
-Presentation only: detection is :mod:`defect_sorter.markers`, depth refinement and comparison are
+The camera may look across the table at any tilt. The page fits the table plane from depth, builds a level table
+frame from it and the two anchor markers (16 and 17), and reports every marker there: position in millimetres
+(z = height above the table), tilt from flat, and heading. The camera's tilt is shown for information only. Once a
+reference is saved, each marker is compared with it in the table frame, so bumping the camera does not trigger
+false alarms while a robot base or bowl that really moved does.
+Presentation only: detection is :mod:`defect_sorter.markers`, depth refinement, the frame and the comparison are
 :mod:`defect_sorter.alignment`.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import threading
 import time
@@ -27,7 +31,8 @@ from defect_sorter.alignment import (
 	load_reference,
 	refine_with_depth,
 	save_reference,
-	tilt_deg,
+	table_frame,
+	to_table_pose,
 )
 from defect_sorter.geometry import CameraTilt, Intrinsics, Plane, camera_tilt, deproject, fit_table_plane
 from defect_sorter.markers import detect_markers
@@ -52,6 +57,7 @@ class AlignmentView:
 		self._camera = camera
 		self._reference_path = reference_path
 		self._reference = load_reference(reference_path) if reference_path.exists() else {}
+		self._reference_basis = json.loads(reference_path.read_text()).get("frame") if reference_path.exists() else None
 		self._plane: Plane | None = None
 		self._frames = 0
 		self.refit_requested = True
@@ -70,13 +76,21 @@ class AlignmentView:
 
 		detections = detect_markers(frame.color_bgr, frame.intrinsics)
 		poses = {d.id: refine_with_depth(d, frame.depth_m, frame.intrinsics) for d in detections}
-		if self.save_requested and poses:
-			save_reference(self._reference_path, poses)
-			self._reference = dict(poses)
-			self.save_requested = False
-			logger.info("saved reference with %d markers to %s", len(poses), self._reference_path)
-		deltas = compare_to_reference(poses, self._reference) if self._reference else {}
 		tilt = camera_tilt(self._plane) if self._plane is not None else None
+		table = None
+		table_poses = {}
+		if self._plane is not None:
+			table = table_frame(self._plane, poses)
+			table_poses = {i: to_table_pose(p, table) for i, p in poses.items()}
+		if self.save_requested and table_poses:
+			save_reference(self._reference_path, table_poses, table.basis)
+			self._reference, self._reference_basis = dict(table_poses), table.basis
+			self.save_requested = False
+			logger.info(
+				"saved reference (%s) with %d markers to %s", table.basis, len(table_poses), self._reference_path
+			)
+		basis_ok = table is not None and (self._reference_basis is None or self._reference_basis == table.basis)
+		deltas = compare_to_reference(table_poses, self._reference) if self._reference and basis_ok else {}
 
 		vis = frame.color_bgr.copy()
 		for d in detections:
@@ -99,8 +113,23 @@ class AlignmentView:
 				colour,
 				2,
 			)
-		lines = [_fmt_tilt(tilt) if tilt else "camera tilt: no table depth yet"]
-		lines.append(f"reference: {len(self._reference)} markers" if self._reference else "reference: none saved")
+		lines = [_fmt_tilt(tilt) + " - corrected, not an error" if tilt else "camera tilt: no table depth yet"]
+		if table is None:
+			lines.append("table frame: no table depth yet")
+		elif table.basis == "camera x axis":
+			lines.append(
+				"table frame: anchors 16 and 17 not both visible - horizontal positions only valid while the camera stays put"
+			)
+		else:
+			lines.append(f"table frame: {table.basis}")
+		if not self._reference:
+			lines.append("reference: none saved")
+		elif not basis_ok:
+			lines.append(
+				f"reference was saved with {self._reference_basis}: drift check off until both anchors are visible"
+			)
+		else:
+			lines.append(f"reference: {len(self._reference)} markers")
 		for i, text in enumerate(lines):
 			cv2.putText(vis, text, (12, 30 + 30 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 4)
 			cv2.putText(vis, text, (12, 30 + 30 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
@@ -118,15 +147,18 @@ class AlignmentView:
 				"far_edge": tilt.far_edge,
 			},
 			"table_distance_m": None if self._plane is None else round(self._plane.offset, 4),
+			"table_frame": None if table is None else table.basis,
+			"reference_frame": self._reference_basis,
 			"markers": [
 				{
 					"id": p.id,
 					"use": p.use,
-					"position_mm": [round(v * 1000, 1) for v in p.position_m],
-					"yaw_deg": round(p.yaw_deg, 2),
-					"tilt_vs_table_deg": None
-					if self._plane is None
-					else round(tilt_deg(p.normal, self._plane.normal), 2),
+					"x_mm": round(float(p.position_mm[0]), 1),
+					"y_mm": round(float(p.position_mm[1]), 1),
+					"height_mm": round(float(p.position_mm[2]), 1),
+					"tilt_from_flat_deg": round(p.tilt_deg, 1),
+					"yaw_deg": round(p.yaw_deg, 1),
+					"facing_deg": None if p.facing_deg is None else round(p.facing_deg, 1),
 					"source": p.source,
 					"delta": None
 					if p.id not in deltas
@@ -136,7 +168,7 @@ class AlignmentView:
 						"yaw_deg": round(deltas[p.id].yaw_deg, 2),
 					},
 				}
-				for p in poses.values()
+				for p in table_poses.values()
 			],
 			"missing_from_reference": [d.id for d in deltas.values() if d.missing],
 		}
