@@ -64,6 +64,8 @@ uv run sorter-anomalib-smoke --workdir data/smoke
 
 How the printed markers and the self-levelling table frame work: [docs/infrastructure/MARKER_ALIGNMENT.md](docs/infrastructure/MARKER_ALIGNMENT.md).
 
+First-round CPU/GPU/NPU profiling of SmolVLA and Anomalib, with the scripts used: [docs/infrastructure/HARDWARE_PROFILING.md](docs/infrastructure/HARDWARE_PROFILING.md).
+
 Only one process can open the D415: stop the live demo before Physical AI Studio previews, records or runs a policy. Workstation setup is tracked in [docs/infrastructure/SETUP_STATUS.md](docs/infrastructure/SETUP_STATUS.md). The proposed (not yet applied) Tailscale layout for remote Studio and SSH access is in [docs/infrastructure/TAILSCALE_REMOTE_OPERATION.md](docs/infrastructure/TAILSCALE_REMOTE_OPERATION.md).
 
 ## Local policy training and digital twin

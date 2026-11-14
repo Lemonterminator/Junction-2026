@@ -60,7 +60,7 @@ Supersedes the "No Ubuntu deployment, device capture, GPU/NPU inference" lines a
 
 - Workstation runs upstream Studio via its own `application/docker` compose (profile `xpu`, privileged) at port 7860; devices plugged in after container start are invisible until `docker compose restart`.
 - Studio project "Defect Sorting (Intel Challenge)": cameras `wrist` (USB2.0_CAM1), `front` (webcam), `top` (RealSense D415, colour); follower `5AAF262737` and leader `5AE7045026` added and online; environment "Sorting cell" pairs them. Arms are **not calibrated**; no teleoperation or recording yet.
-- Host Intel runtimes installed (OpenCL/Level Zero GPU, NPU user-space driver 1.38.0). OpenVINO lists CPU, GPU and NPU; a Padim (resnet18) OpenVINO export ran on all three: CPU 5.0 ms, GPU 1.5 ms, NPU 8.5 ms per 1×3×256×256 inference. NPU needs a static input shape.
+- Host Intel runtimes installed (OpenCL/Level Zero GPU, NPU user-space driver 1.38.0). OpenVINO lists CPU, GPU and NPU; a Padim (resnet18) OpenVINO export ran on all three: CPU 5.0 ms, GPU 1.5 ms, NPU 8.5 ms per 1×3×256×256 inference. NPU needs a static input shape.  Latency only: the default GPU FP16 output was later found wrong, see [hardware profiling](../docs/infrastructure/HARDWARE_PROFILING.md).
 - `src/defect_sorter`: uv package with TDD tests (20 passing). `detect_scene` finds objects by height above a RANSAC table plane and bowls by colour; live D415 run detected both bowls and two bricks at ~34 fps.
 
 Next: calibrate both arms (needs a person), fix camera mounts, teleop dry run, record demonstrations; collect good-object crops for the Anomalib baseline.
@@ -219,3 +219,23 @@ Branch `feat/table-frame-alignment` (PR #7); brief: [MARKER_ALIGNMENT.md](../doc
   space (523.0 mm). Self-consistency only; no ground-truth accuracy measurement yet.
 - Open: clamp marker (side of the base) not yet detected (image edge / facing away); no reference saved yet;
   marker-based joint calibration is a proposal, not built.
+
+## Update 2026-11-14 — hardware profiling, first round
+
+Branch `docs/hardware-profiling`; full write-up in
+[HARDWARE_PROFILING](../docs/infrastructure/HARDWARE_PROFILING.md), scripts in `scripts/hardware_profiling/`.
+Inference only on synthetic inputs, run in a separate account on the workstation; no camera, arm or
+Studio container was touched.
+
+- **SmolVLA base (451M, 711.9 GFLOPs/chunk, 74 % in the vision encoder):** CPU 2268 ms, GPU 86 ms
+  whole policy; vision only CPU 1435, GPU 23.4, NPU 276 ms. The whole-graph NPU compile did not finish
+  in 25 minutes (no result). Splitting vision onto the NPU would be slower than the GPU alone.
+- **OpenVINO GPU plugin bug:** `Bucketize` returns wrong ids, corrupting the vision position embedding.
+  Folding the ids into constants fixes it (GPU matches CPU, cosine 1.00000). The NPU compiler also
+  rejects `Bucketize` with an i64 output. Not yet reported upstream.
+- **Padim (static 1×3×256×256, synthetic):** CPU 5.0 ms, NPU 6.6 ms with correct maps (corr 0.9986) but
+  about 16 % lower scores, so the CPU-calibrated threshold flags no defect. **GPU FP16 (default) is
+  numerically wrong** (corr 0.09, all scores 1.0) and the earlier "GPU 1.5 ms" figure measured speed
+  only; GPU FP32 is exact but 9–11 ms.
+- Not done: our two-camera shapes and dataset statistics, real observations, INT8, text decoder or
+  action expert on the NPU, concurrent Anomalib-NPU plus VLA-GPU run.
