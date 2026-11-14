@@ -1,5 +1,12 @@
 # Dataset sort-v1: teleoperated brick sorting
 
+For the proposed pick-inspect / held-place control split, use the
+[inspect-then-sort plan](../plans/INSPECT_THEN_SORT_PLAN.md). Its three skill texts
+and source-cycle splits belong to a new dataset version. The two full-task texts,
+episode protocol and existing recordings below retain their original meaning;
+they must not be relabelled as inspection or held-placement skills without valid
+segment boundaries and matching demonstrated behavior.
+
 One dataset of full sorting episodes recorded with the leader arm in Physical AI Studio. It is meant to train three
 kinds of policy from the same recordings, so the open control-split decision does not block recording:
 
