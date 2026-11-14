@@ -30,6 +30,22 @@ Retain both scoring rubrics and attribute them separately. Do not assume the Git
 rubric supersedes the PDF. Ask organizers for the final rubric before score-based
 prioritization. Additional repositories are optional opportunities; Instant Learn
 and performance profiling are recommendations, not adopted contest requirements.
+Superseded for the rubric by the 2026-11-14 kickoff answers below.
+
+## 2026-11-14 — Kickoff answers: rubric, 5090 trainer, defect definition
+
+Relayed by linan from the organizers; not independently verified, so correct this entry if a
+teammate heard otherwise.
+
+- **Final scoring table is the GitHub (`JUNCTION2026.md`) one**: Task Success Rate 25, Intel Tech
+  Integration 25, Dataset & Pipeline Quality 20, System Efficiency 20, Creativity 10. The PDF table is
+  no longer the planning baseline. The execution plan's evidence table still uses the old split and needs
+  a remap.
+- **A 5090 as Studio remote trainer counts** as valid training. The Studio Training Targets route in plan
+  §4.4 stays the preferred path.
+- **A defect is a cross drawn with a marker pen on a Lego brick.** Anomalib must therefore detect a small
+  hand-drawn mark, not a shape or colour change; the open details (pen colour, face, brick colours) are in
+  the handoff. Status: adopted as the working definition.
 
 ## 2026-11-14 — Python package and workstation runtime
 

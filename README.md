@@ -60,7 +60,7 @@ uv run sorter-live-demo --host <tailscale-ip> --port 8090
 uv run sorter-anomalib-smoke --workdir data/smoke
 ```
 
-Only one process can open the D415: stop the live demo before Physical AI Studio previews, records or runs a policy. Workstation setup is tracked in [docs/infrastructure/SETUP_STATUS.md](docs/infrastructure/SETUP_STATUS.md).
+Only one process can open the D415: stop the live demo before Physical AI Studio previews, records or runs a policy. Workstation setup is tracked in [docs/infrastructure/SETUP_STATUS.md](docs/infrastructure/SETUP_STATUS.md). The proposed (not yet applied) Tailscale layout for remote Studio and SSH access is in [docs/infrastructure/TAILSCALE_REMOTE_OPERATION.md](docs/infrastructure/TAILSCALE_REMOTE_OPERATION.md).
 
 ## Local policy training and digital twin
 
