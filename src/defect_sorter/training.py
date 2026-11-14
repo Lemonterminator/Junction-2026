@@ -202,6 +202,7 @@ def build_plan(
 	project_root: Path,
 	*,
 	uv: str = "uv",
+	platform: str = sys.platform,
 ) -> dict[str, Any]:
 	"""Build an inspectable config and argument vector without creating files.
 
@@ -219,6 +220,10 @@ def build_plan(
 		Checkout containing the pinned Studio submodule.
 	uv : str
 		uv executable name or absolute path.
+	platform : str
+		Target ``sys.platform``. On Windows the ``physicalai`` console script fails importing the POSIX-only
+		robot CLI, so the plan runs ``fit`` through ``scripts/offline_pipeline/physicalai_without_robot_cli.py``, and videos
+		are decoded with PyAV.
 
 	Returns
 	-------
@@ -249,6 +254,15 @@ def build_plan(
 			},
 			num_cameras=len(dataset.camera_keys),
 		)
+	fit_entry = (
+		[
+			"python",
+			str(project_root.resolve() / "scripts" / "offline_pipeline" / "physicalai_without_robot_cli.py"),
+			"fit",
+		]
+		if platform == "win32"
+		else ["physicalai", "fit"]
+	)
 	config = {
 		"model": {"class_path": f"physicalai.policies.{_POLICIES[recipe['policy']]}", "init_args": model},
 		"data": {
@@ -295,6 +309,9 @@ def build_plan(
 			],
 		},
 	}
+	if platform == "win32":
+		# torchcodec needs FFmpeg shared libraries that its Windows wheels do not ship; PyAV bundles its decoders.
+		config["data"]["init_args"]["video_backend"] = "pyav"
 	return {
 		"recipe": recipe["name"],
 		"experimental": recipe["experimental"],
@@ -312,8 +329,7 @@ def build_plan(
 			"--extra",
 			"cuda",
 			"--frozen",
-			"physicalai",
-			"fit",
+			*fit_entry,
 			"--config",
 			str(output / "config.json"),
 		],

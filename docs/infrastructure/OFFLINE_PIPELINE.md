@@ -104,10 +104,9 @@ real task.
 Problems found on the way, with the workaround used:
 
 - **`physicalai` console script fails on Windows**: it imports the robot CLI, whose
-  transport lock imports POSIX-only `fcntl`. `training.py run` therefore cannot
-  launch training on Windows. `scripts/offline_pipeline/fit_without_robot_cli.py`
-  builds only the `fit` parser and runs the `config.json` that `training.py run`
-  wrote. On Linux the normal path is unchanged.
+  transport lock imports POSIX-only `fcntl`. `scripts/offline_pipeline/physicalai_without_robot_cli.py`
+  builds only the `fit` or `export` parser; `training.py` now uses it on Windows (see the real-data
+  section). On Linux the normal path is unchanged.
 - **Windows Application Control blocks freshly installed DLLs once**: the first
   import of `scipy.optimize._highspy._core` and `scipy.io._mio5_utils` in a new
   environment failed with "An Application Control policy has blocked this file";
@@ -123,6 +122,40 @@ Problems found on the way, with the workaround used:
 
 Not run: inference with the fine-tuned checkpoint inside the loop, OpenVINO export
 of the policy, NPU runs, anything on the arm or cameras.
+
+## Real Studio recording → training (2026-11-14)
+
+The same training path ran on the first real recording from the workstation's
+Studio volume (`datasets/50815c02-…`, copied read-only into `data/studio/`):
+LeRobot v3.0, 2 episodes (840 and 317 frames, 30 fps), one task ("Pick up the brick
+and place it in the green bowl."), cameras `top`, `wrist` and `front` at 640×480
+AV1. Contract: `configs/training/dataset.studio.toml`; recipe
+`configs/training/smolvla_studio_smoke.toml`.
+
+```bash
+uv run python -m defect_sorter.training run --recipe configs/training/smolvla_studio_smoke.toml   --dataset configs/training/dataset.studio.toml --run-name studio-smoke-1
+```
+
+| Step | Result |
+| --- | --- |
+| `training.py plan` | `metadata_validated`; validation episode 0, training episode 1 |
+| Runtime preflight (task shards, frame task references) | passed |
+| SmolVLA expert fine-tune, 50 steps, three cameras, RTX 5090 | finished; train loss 0.94 → 0.16 (one training episode, so mostly memorised); held-out episode `val/loss` 0.81 at step 39; `best.ckpt` and `last.ckpt` written |
+
+Units: Studio's SO-101 driver records body joints normalised to [−100, 100] and the
+gripper to [0, 100] by default (`physicalai_so101_plugin`, `unit = "normalized"`).
+The twin uses degrees for body joints, so twin and Studio data must not be mixed
+until one is converted.
+
+On Windows, `training.py` now plans `fit` through
+`scripts/offline_pipeline/physicalai_without_robot_cli.py` and sets
+`video_backend = "pyav"`: torchcodec's Windows wheel needs FFmpeg shared libraries
+that are not installed, while PyAV bundles an AV1 decoder (dav1d). Linux plans are
+unchanged.
+
+What this shows: real recordings decode, train and checkpoint end to end on the
+5090. What it does not show: a usable policy. That needs about 30–50 clean episodes
+covering both tasks.
 
 ## What is still missing
 

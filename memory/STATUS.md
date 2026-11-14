@@ -254,7 +254,23 @@ no arm, camera or workstation was touched.
   Padim OpenVINO inspector 20/20 DONE, 19/20 sorted correctly on CPU and on the Intel iGPU; demos exported to
   LeRobot v3 pass the training contract; SmolVLA expert fine-tune 50 steps on the 5090, loss 0.96 → 0.47.
 - Windows blockers found: the `physicalai` CLI imports `fcntl` (worked around with
-  `scripts/offline_pipeline/fit_without_robot_cli.py`); Application Control blocks fresh DLLs on first import.
+  `scripts/offline_pipeline/physicalai_without_robot_cli.py`); Application Control blocks fresh DLLs on first import.
 
 Next: real-cell `Cell` adapter and SmolVLA runtime policy adapter (both need hardware/real recordings); replace twin
 demos with Studio recordings and twin crops with real good-brick crops; the rest of the chain stays.
+
+Later the same day: the first real Studio recording (2 episodes, green-bowl task only, three cameras, units
+normalised −100…100 / 0…100) was copied read-only from the workstation and trained for 50 SmolVLA steps on the
+5090 through `training.py run` (train loss 0.94 → 0.16, held-out `val/loss` 0.81). On Windows the plan now uses a
+fit-only launcher and PyAV video decoding. A usable policy still needs ~30–50 episodes covering both tasks.
+
+MLflow: a local tracking server runs on the training PC (loopback :5000, store under `artifacts/mlflow/`).
+`defect_sorter.tracking` logged today's two training runs (with checkpoints) and two twin evaluations, each tagged
+`source` twin/real. Guide: [TRAINING.md](../docs/infrastructure/TRAINING.md#experiment-tracking-with-mlflow).
+
+Model sharing: the studio-smoke-1 SmolVLA checkpoint was exported to OpenVINO (runs on CPU, ~295 ms per 50×6
+chunk with synthetic input) and published as the private pre-release `model-smolvla-studio-smoke-1` with a
+`release.json` manifest (`defect_sorter.model_release`); a fresh `gh release download` plus `verify` reported ok.
+Status `smoke-test`: not for the arm. Guide: [MODEL_RELEASES](../docs/infrastructure/MODEL_RELEASES.md).
+MLflow is still loopback-only: `tailscale serve` needs Serve enabled for the tailnet in the admin console, and
+direct binding to the tailnet IP is blocked by the PC's inbound firewall (left unchanged).

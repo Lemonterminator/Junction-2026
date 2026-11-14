@@ -187,3 +187,25 @@ Source contracts: [training CLI parser](../../external/physical-ai-studio/librar
 [Pi0.5 LoRA example](../../external/physical-ai-studio/library/configs/physicalai/pi05/aloha/lora.yaml),
 [v3 import checks](../../external/physical-ai-studio/application/backend/src/cli/hf/inspection.py),
 [task metadata semantics](../../external/physical-ai-studio/application/backend/src/internal_datasets/lerobot/episode_task.py).
+
+## Experiment tracking with MLflow
+
+Finished runs are logged to a local MLflow server on the training PC
+(`defect_sorter.tracking`, `tracking` extra). The trainer's environment needs no
+MLflow: the logger reads the run directory afterwards (`plan.json`, Lightning's
+`metrics.csv`, and `best.ckpt` or else `last.ckpt`). Every run carries a `source`
+tag (`twin` or `real`) and a `kind` tag (`training` or `evaluation`).
+
+```bash
+uv run --extra tracking mlflow server --host 127.0.0.1 --port 5000 \
+  --backend-store-uri sqlite:///artifacts/mlflow/mlflow.db --artifacts-destination artifacts/mlflow/artifacts
+uv run --extra tracking python -m defect_sorter.tracking training artifacts/training/<run>
+uv run --extra tracking python -m defect_sorter.tracking evaluation artifacts/twin/<eval>
+```
+
+On Windows set `PYTHONUTF8=1`; MLflow prints an emoji when a run finishes and a
+cp1252 console crashes on it. The server listens on loopback only. Teammates can
+reach it with `ssh -L 5000:127.0.0.1:5000`, or over `tailscale serve` once Serve
+is enabled for the tailnet (see [MODEL_RELEASES.md](MODEL_RELEASES.md#training-curves-mlflow)). Store and artifacts live in the Git-ignored
+`artifacts/mlflow/`. Each checkpoint is about 1.7 GB, so use `--no-artifacts` for
+runs whose weights are not worth keeping.

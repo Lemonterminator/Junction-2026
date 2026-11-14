@@ -286,3 +286,29 @@ def test_runtime_language_preflight_rejects_empty_labels_or_broken_task_referenc
 
 def test_runtime_language_preflight_accepts_ordered_tasks_and_frame_references():
 	validate_tasks(["place good object in green bowl", "place defective object in pink bowl"], [0, 1], [1, 0, 1])
+
+
+@pytest.mark.parametrize(
+	("platform", "entry"),
+	[
+		("linux", ["physicalai", "fit"]),
+		("win32", ["python", "scripts/offline_pipeline/physicalai_without_robot_cli.py", "fit"]),
+	],
+)
+def test_windows_plan_launches_fit_without_the_posix_only_robot_cli(tmp_path, platform, entry):
+	recording(tmp_path)
+	plan = build_plan(
+		load_recipe(RECIPES / "smolvla_expert.toml"),
+		load_dataset(dataset_spec(tmp_path)),
+		tmp_path / "runs",
+		"r1",
+		ROOT,
+		platform=platform,
+	)
+	tail = [str(ROOT / part) if part.endswith(".py") else part for part in entry]
+	tail += ["--config", str(tmp_path / "runs" / "r1" / "config.json")]
+	assert plan["command"][-len(tail) :] == tail
+	assert plan["command"][:2] == ["uv", "run"]
+	# torchcodec needs FFmpeg DLLs that Windows wheels do not ship; PyAV bundles its own decoders.
+	expected_backend = "pyav" if platform == "win32" else None
+	assert plan["config"]["data"]["init_args"].get("video_backend") == expected_backend
