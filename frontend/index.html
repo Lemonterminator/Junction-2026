@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#e9edef">
+  <title>PhysicAI — Sorting cell</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.mjs"></script>
+</head>
+<body>
+  <main class="dashboard">
+    <header class="masthead">
+      <a class="brand" href="./" aria-label="PhysicAI home">
+        <svg viewBox="0 0 44 44" aria-hidden="true"><path d="m8 33 9-23 17 8-2 14"/><circle cx="8" cy="33" r="4"/><circle cx="17" cy="10" r="4"/><circle cx="34" cy="18" r="4"/><path d="m27 34 5-3 6 3"/></svg>
+        <span><strong>PhysicAI</strong><small>Defect inspection that knows when it’s unsure</small></span>
+      </a>
+      <div class="header-status"><span class="badge demo-badge"><i></i> Demo · no hardware connected</span><span class="badge" id="connection">Illustrative playback</span></div>
+    </header>
+
+    <section class="workspace" aria-label="Sorting workspace">
+      <section class="panel scene-panel" aria-label="Illustrative sorting cell">
+        <canvas id="scene" tabindex="0" aria-label="Illustrative 3D sorting cell. Drag or use arrow keys to rotate the view."></canvas>
+        <div class="legend"><span><i class="dot green"></i>Green bowl: perfect</span><span><i class="dot pink"></i>Pink bowl: defective</span><span><i class="stripe-dot"></i>Striped mark: human review</span></div>
+        <div class="scene-tools"><span>Drag to look around</span><button id="reset-view" aria-label="Reset scene view" title="Reset view">↺</button></div>
+        <div class="scene-caption"><span class="live-dot"></span> SO-101 <span class="separator">/</span> illustrative cell</div>
+        <ol class="pipeline" aria-label="Sorting stages">
+          <li data-stage="perceive"><strong>Perceive <i></i></strong><small>Camera</small></li>
+          <li data-stage="detect"><strong>Detect <i></i></strong><small>Anomalib</small></li>
+          <li data-stage="reason"><strong>Reason <i></i></strong><small id="reason-stage">Decision</small></li>
+          <li data-stage="act"><strong>Act <i></i></strong><small id="act-stage">Waiting</small></li>
+          <li data-stage="verify"><strong>Verify <i></i></strong><small id="verify-stage">Placement</small></li>
+        </ol>
+      </section>
+
+      <section class="panel decision-panel" id="decision-panel" aria-labelledby="decision-title">
+        <div><div class="eyebrow">REASON <span id="episode-tag">PART 001</span></div>
+        <h1 id="decision-title">Defective</h1>
+        <div class="destination"><i class="dot pink" id="destination-dot"></i><span id="destination">Pink bowl</span></div>
+        <p id="explanation">The demo score is above the defect threshold.</p>
+        <dl><div><dt>Defect score</dt><dd id="decision-score">0.90</dd></div><div><dt>Sent to robot</dt><dd id="task">Waiting for inspection</dd></div><div><dt>Outcome</dt><dd id="outcome">Not yet verified</dd></div></dl></div>
+        <div class="decision-actions"><div id="progress-text" role="status" aria-live="polite">Ready to inspect</div><button class="primary" id="inspect">Inspect next part <kbd>Space</kbd></button></div>
+      </section>
+    </section>
+
+    <section class="details" aria-label="Inspection evidence">
+      <section class="panel camera-panel"><div class="panel-heading"><h2>What the camera saw</h2><span class="micro-label">DEMO IMAGE</span></div><div class="camera-view"><canvas id="crop" aria-label="Synthetic Lego brick crop, not a camera capture"></canvas><img id="camera-image" alt="Backend inspection crop" hidden><span class="camera-corner">TOP CAMERA <i></i></span><span class="camera-foot">Synthetic preview · not a live feed</span></div></section>
+      <section class="panel score-panel"><div class="panel-heading"><h2>Defect score</h2><span class="micro-label">ANOMALY</span></div>
+        <svg class="gauge" viewBox="0 0 300 175" role="img" aria-labelledby="gauge-title"><title id="gauge-title">Demo anomaly score</title><path class="gauge-track" d="M40 140 A110 110 0 0 1 260 140"/><path id="gauge-green" class="gauge-arc" stroke="#19876a"/><path id="gauge-yellow" class="gauge-arc" stroke="#e6ac27"/><path id="gauge-red" class="gauge-arc" stroke="#d94638"/><g id="needle"><path d="M150 140 L246 140"/><circle cx="150" cy="140" r="6"/></g><text x="35" y="163">0</text><text x="257" y="163">1</text></svg>
+        <div class="score-value" id="score-value">0.90</div><p class="threshold-copy" id="threshold-copy"></p><div class="score-key"><span><i class="dot green"></i>Perfect</span><span><i class="dot amber"></i>Unsure</span><span><i class="dot pink"></i>Defective</span></div>
+      </section>
+      <section class="panel timing-panel"><div class="panel-heading"><h2>Where the time goes</h2><span class="micro-label">PER CYCLE</span></div>
+        <div class="timing-row" data-timing="capture"><div><span>Capture image</span><span class="device">Camera</span><strong>—</strong></div><div class="bar"><i></i></div></div>
+        <div class="timing-row" data-timing="inference"><div><span>Anomalib</span><span class="device" id="inference-device">Unverified</span><strong>—</strong></div><div class="bar"><i></i></div></div>
+        <div class="timing-row" data-timing="placement"><div><span>Robot places part</span><span class="device">Robot</span><strong>—</strong></div><div class="bar"><i></i></div></div>
+        <p class="timing-note">Waiting for measured timings. No device performance is claimed in demo mode.</p><div class="timing-footer"><span class="live-dot"></span><span id="source-status">Local demo · backend not connected</span></div>
+      </section>
+    </section>
+    <footer class="toolbar"><div class="scenario-control"><label for="scenario">Demo scenario</label><select id="scenario"><option value="defective">Defective part</option><option value="normal">Perfect part</option><option value="uncertain">Needs review</option><option value="fault">Arm fault</option></select><button id="play" class="secondary">Play demo</button></div><span class="footer-note">PERCEIVE → DETECT → REASON → ACT → OPTIMIZE <span>Intel Physical AI Challenge</span></span></footer>
+    <noscript>This dashboard needs JavaScript. Demo mode does not connect to hardware.</noscript>
+  </main>
+</body>
+</html>

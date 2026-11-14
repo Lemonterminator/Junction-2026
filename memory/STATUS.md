@@ -514,3 +514,41 @@ base, the front camera or the bowls needs no new training.
   and the tip offset; then the wrist-camera correction step (reference image, pixel offset → table correction).
 - Full suite: 499 passed, 2 failed in `test_training.py` because the Studio submodule's working tree is missing
   `library/` (staged deletions inside the submodule, not from this change).
+
+## Update 2026-11-14 — initial sorting dashboard
+
+Work prepared on `feat/sorting-dashboard`; check Git and the remote for publication state. Added a standalone dashboard in
+`frontend/` with an illustrative cell, synthetic crop, score gauge, decision panel and sorting stages.
+Demo scenarios cover normal, defective, uncertain and arm-fault states; missing timings remain blank.
+The v1 telemetry model keeps backend decisions authoritative and distinguishes demo, twin, replay and real sources.
+
+The [dashboard guide](../docs/infrastructure/DASHBOARD.md) records local startup, the snapshot fields,
+the in-page adapter boundary and backend integration tasks. README and AGENTS test ownership are updated.
+The initial UI has no live transport, calibrated real-joint rendering or hardware command integration.
+No camera, arm, Studio service or shared workstation was touched. Validation: thirteen frontend regression tests passed;
+`uv run pytest -q` passed 165 tests in 24.04 s; `uv run ruff check src tests` passed; and
+`uv run ruff format --check src tests` reported 34 files already formatted. Module syntax checks and local
+preview HTTP 200 passed. Headless Firefox could not open its temporary profile; browser visual and interaction
+QA remains unverified. The initial fetch was blocked by GitHub 403. After account authentication was fixed,
+the branch was rebased onto the latest main, preserving the armkit, camera, dataset and training changes.
+
+The PR review added complete-image loading with newest-frame coalescing, error recovery and resets, avoiding
+cancelled downloads at high telemetry rates. README now separates checkout setup, the local dashboard,
+hardware-free generation/evaluation, a fresh CPU Studio deployment, shared-workstation access and training plans.
+It documents Git LFS, Python/Node prerequisites, expected outputs and the working-directory 404 fix.
+README smoke checks passed with temporary outputs: two twin demonstrations completed, crop generation wrote
+20 training and eight test images, two oracle-evaluated attempts completed with `mode = twin`, and the example
+training plan reported missing data and null metrics without creating a run. These are pipeline checks, not
+learned-policy or physical-task evidence. All 43 local README/dashboard links and anchors resolve.
+
+The user reports a Studio-volume dataset `datasets/50815c02-…`, LeRobot v3.0, robot type
+`SO101_Follower`, containing two episodes described as simulated. The newer offline pipeline guide describes the
+same shortened identifier as the first real recording used in a training smoke run. Confirm the full identifier and
+provenance before replay integration; this dashboard work has not accessed or validated the files. Next: obtain
+the export location, inspect metadata, joint units, media and time alignment, then add replay preserving confirmed
+source provenance. No anomaly scores, model timings or verified outcomes may
+be inferred merely from the presence of a recording; the reader and calibrated playback remain unimplemented.
+
+After rebase onto main `79e38b9`: 573 Python tests passed, one existing optional PyArrow episode test skipped
+(45.78 s); thirteen frontend tests and four module syntax checks passed. Ruff checks over `src tests packages`
+passed, with all 89 files formatted. No hardware was touched during verification.

@@ -95,6 +95,9 @@ Test ownership:
 - `tests/test_model_release.py` owns `defect_sorter.model_release` (release manifest and download verification).
 - `tests/test_studio_preview_patch.py` owns `docker/studio-patches` (Studio live-preview rate, JPEG quality and skipped cameras).
 
+- `frontend/tests/telemetry.test.mjs` owns `frontend/telemetry.mjs` and the state-driven pose behavior of `frontend/scene.mjs` (demo transitions, telemetry validation, missing data, display state and fault freeze); run with `node --test frontend/tests/telemetry.test.mjs`.
+- `frontend/tests/image-loader.test.mjs` owns `frontend/image-loader.mjs` (complete-image loading, newest-frame coalescing, errors and resets). Run all frontend tests with `node --test frontend/tests/*.test.mjs`.
+
 Extend the owning module by default. Add a new test file only for a new stable module boundary, and update this map in the same change.
 
 ## Architecture
