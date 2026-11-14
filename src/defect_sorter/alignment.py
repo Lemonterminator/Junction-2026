@@ -252,6 +252,18 @@ def to_table_pose(pose: MarkerPose, frame: TableFrame) -> TablePose:
 	)
 
 
+def table_rotation(pose: MarkerPose, frame: TableFrame) -> np.ndarray:
+	"""Marker orientation in the table frame: columns are its x (top edge), y and z (face normal) axes."""
+	if pose.corners_m is None:
+		raise ValueError("marker pose has no corners; use refine_with_depth")
+	z = frame.direction(pose.normal)
+	z = z / np.linalg.norm(z)
+	x = frame.direction(pose.corners_m[1] - pose.corners_m[0])
+	x = x - (x @ z) * z
+	x = x / np.linalg.norm(x)
+	return np.stack([x, np.cross(z, x), z], axis=1)
+
+
 def compare_to_reference(
 	current: dict[int, TablePose],
 	reference: dict[int, TablePose],

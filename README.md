@@ -48,6 +48,8 @@ Python package for the Intel Physical AI Challenge pipeline (PERCEIVE → DETECT
 | `src/defect_sorter/markers.py` | Printed ArUco marker set, print sheet (`sorter-marker-sheet`), marker pose detection |
 | `src/defect_sorter/alignment.py` | Depth-refined marker poses, a level table frame (camera tilt corrected), drift against a saved reference |
 | `src/defect_sorter/alignment_page.py` | Live alignment page: markers in the table frame, drift (`sorter-alignment`) |
+| `src/defect_sorter/kinematics.py` | SO-101 forward kinematics (joint table from the `so101_new_calib` URDF) |
+| `src/defect_sorter/joint_calibration.py`, `calibration_capture.py` | Camera-based joint calibration, measure only (`sorter-joint-calibration capture/solve`) |
 | `src/defect_sorter/anomaly_smoke.py` | Anomalib → OpenVINO export and CPU/GPU/NPU latency check |
 
 ```bash

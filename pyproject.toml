@@ -11,12 +11,14 @@ dependencies = [
 	"numpy>=2.1",
 	"opencv-python-headless>=4.10",
 	"pillow>=13.0.0",
+	"scipy>=1.18.1",
 ]
 
 [project.optional-dependencies]
 # Intel RealSense capture; the SDK wheel is only used on the Ubuntu workstation.
 camera = [
 	"pyrealsense2>=2.56; sys_platform == 'linux'",
+	"feetech-servo-sdk>=1.0; sys_platform == 'linux'",
 ]
 # Anomalib training/export and OpenVINO inference.
 anomaly = [
@@ -32,6 +34,7 @@ sorter-live-demo = "defect_sorter.live_demo:main"
 sorter-anomalib-smoke = "defect_sorter.anomaly_smoke:main"
 sorter-marker-sheet = "defect_sorter.markers:main"
 sorter-alignment = "defect_sorter.alignment_page:main"
+sorter-joint-calibration = "defect_sorter.calibration_capture:main"
 
 [build-system]
 requires = ["uv_build>=0.12.15,<0.14.0"]

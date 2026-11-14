@@ -64,13 +64,21 @@ The roles are a convention in `MARKER_SET`; the code only requires 16 and 17 for
 - Small face-on markers seen without usable depth have poorly known tilt (10–15°).
 - Only one process can open the D415: stop the page before Studio records.
 
-## Not built yet (proposal)
+## Joint calibration from the camera (built, measure only)
 
-**Joint calibration from the camera.** With markers on the follower's gripper and arm, record about 15 poses
-(motor readings plus the marker poses in the table frame) and fit each joint's zero offset against the arm's
-forward kinematics from the URDF. That would give correct joint zeros, the wrist roll included, without judging
-angles by eye, and the camera-to-robot transform for a scripted fallback pick. Estimated 2–3 hours; time-boxed.
-The leader arm needs no markers: it can be matched to the corrected follower through teleoperation.
+`uv run sorter-joint-calibration capture --port <follower port> --out data/calibration/session.jsonl`, then
+`... solve --session data/calibration/session.jsonl`. With Studio's pages closed and the follower limp, someone
+moves it by hand through 15–20 clearly different poses and holds each still for a second with the gripper marker
+(id 4) visible; the tool records joint ticks plus the marker pose in the table frame once per held pose. The solver
+fits the zero offsets of shoulder lift, elbow and wrist flex, the robot base pose on the table (the camera-to-robot
+transform) and how the marker sits on the gripper, and reports the residuals. It writes nothing to the arms.
+
+Two zeros cannot be observed from a taped-on marker and are not fitted: a shoulder-pan offset looks exactly like the
+base being turned, and a wrist-roll offset like the marker being taped at another angle. Fixing them needs a marker
+squared to the base edge or to a modelled face of the gripper. Synthetic tests show the fit recovers the three
+offsets exactly from clean data and within 1° with 1.5 mm / 1° marker noise. Not yet run on the real arm.
+
+The leader needs no markers: once the follower is checked, the leader can be matched to it through teleoperation.
 
 ## 中文摘要
 
