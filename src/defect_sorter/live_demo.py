@@ -1,4 +1,4 @@
-"""Live perception demo: D415 → :func:`detect_scene` → annotated MJPEG stream and JSON state over HTTP.
+"""Live perception demo: D415 → :func:`detect_scene` → annotated frames and JSON state over HTTP.
 
 Run on the workstation::
 
@@ -10,27 +10,19 @@ then open ``http://100.76.18.70:8090/``. Bind to the Tailscale address, not ``0.
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import ThreadingHTTPServer
 
 import cv2
 import numpy as np
 
 from defect_sorter.geometry import Plane
 from defect_sorter.scene import Scene, SceneConfig, detect_scene
+from defect_sorter.webview import FrameBuffer, make_handler, page_html
 
 logger = logging.getLogger(__name__)
-
-PAGE = b"""<!doctype html><html><head><meta charset=utf-8><title>Scene perception</title>
-<style>body{font-family:system-ui;background:#111;color:#eee;margin:16px}img{max-width:100%;border:1px solid #333}
-pre{background:#1b1b1b;padding:12px;font-size:13px;max-height:40vh;overflow:auto}button{padding:6px 12px;margin:8px 0}</style></head>
-<body><h3>Top camera: depth objects + colour bowls</h3><img src="/stream"><br>
-<button onclick="fetch('/refit',{method:'POST'})">Refit table plane</button><pre id=s></pre>
-<script>setInterval(async()=>{try{document.getElementById('s').textContent=JSON.stringify(await (await fetch('/state')).json(),null,1)}catch(e){}},500)</script>
-</body></html>"""
 
 
 def scene_state(scene: Scene, fps: float) -> dict:
@@ -96,16 +88,14 @@ def render(color_bgr: np.ndarray, scene: Scene, config: SceneConfig, fps: float)
 
 
 class LiveScene:
-	"""Background loop that reads the camera, detects the scene and keeps the latest JPEG and state."""
+	"""Background loop that reads the camera, detects the scene and publishes the annotated frame and state."""
 
 	def __init__(self, camera, config: SceneConfig) -> None:
 		self._camera = camera
 		self._config = config
 		self._plane: Plane | None = None
-		self._lock = threading.Lock()
 		self.refit_requested = True
-		self.jpeg: bytes | None = None
-		self.state: dict = {}
+		self.buffer = FrameBuffer()
 		self._fps = 0.0
 
 	def step(self) -> None:
@@ -119,14 +109,10 @@ class LiveScene:
 		ok, buf = cv2.imencode(
 			".jpg", render(frame.color_bgr, scene, self._config, self._fps), [cv2.IMWRITE_JPEG_QUALITY, 80]
 		)
-		with self._lock:
-			if ok:
-				self.jpeg = buf.tobytes()
-			self.state = scene_state(scene, self._fps)
+		self.buffer.publish(buf.tobytes() if ok else None, scene_state(scene, self._fps))
 
-	def snapshot(self) -> tuple[bytes | None, dict]:
-		with self._lock:
-			return self.jpeg, self.state
+	def request_refit(self) -> None:
+		self.refit_requested = True
 
 	def run_forever(self) -> None:
 		while True:
@@ -135,56 +121,6 @@ class LiveScene:
 			except Exception:
 				logger.exception("perception step failed")
 				time.sleep(0.5)
-
-
-def make_handler(live: LiveScene) -> type[BaseHTTPRequestHandler]:
-	"""HTTP handler serving the page, ``/stream`` (MJPEG), ``/state`` (JSON) and ``POST /refit``."""
-
-	class Handler(BaseHTTPRequestHandler):
-		def log_message(self, format: str, *args: object) -> None:
-			logger.debug(format, *args)
-
-		def do_GET(self) -> None:
-			if self.path == "/":
-				self._send(200, "text/html", PAGE)
-			elif self.path == "/state":
-				self._send(200, "application/json", json.dumps(live.snapshot()[1]).encode())
-			elif self.path == "/stream":
-				self.send_response(200)
-				self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=f")
-				self.end_headers()
-				try:
-					while True:
-						jpg, _ = live.snapshot()
-						if jpg:
-							self.wfile.write(
-								b"--f\r\nContent-Type: image/jpeg\r\nContent-Length: "
-								+ str(len(jpg)).encode()
-								+ b"\r\n\r\n"
-								+ jpg
-								+ b"\r\n"
-							)
-						time.sleep(0.07)
-				except (BrokenPipeError, ConnectionResetError):
-					return
-			else:
-				self.send_error(404)
-
-		def do_POST(self) -> None:
-			if self.path == "/refit":
-				live.refit_requested = True
-				self.send_response(204)
-				self.end_headers()
-			else:
-				self.send_error(404)
-
-		def _send(self, code: int, content_type: str, body: bytes) -> None:
-			self.send_response(code)
-			self.send_header("Content-Type", content_type)
-			self.end_headers()
-			self.wfile.write(body)
-
-	return Handler
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -200,7 +136,10 @@ def main(argv: list[str] | None = None) -> None:
 	live = LiveScene(D415Camera(), SceneConfig())
 	threading.Thread(target=live.run_forever, daemon=True).start()
 	logger.info("serving on http://%s:%d/", args.host, args.port)
-	ThreadingHTTPServer((args.host, args.port), make_handler(live)).serve_forever()
+	page = page_html("Top camera: depth objects + colour bowls", {"refit": "Refit table plane"})
+	ThreadingHTTPServer(
+		(args.host, args.port), make_handler(live.buffer, page, {"refit": live.request_refit})
+	).serve_forever()
 
 
 if __name__ == "__main__":
