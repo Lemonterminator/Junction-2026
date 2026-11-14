@@ -514,3 +514,15 @@ base, the front camera or the bowls needs no new training.
   and the tip offset; then the wrist-camera correction step (reference image, pixel offset → table correction).
 - Full suite: 499 passed, 2 failed in `test_training.py` because the Studio submodule's working tree is missing
   `library/` (staged deletions inside the submodule, not from this change).
+
+## Update 2026-11-14 evening: sort-depth-v2 dataset and SmolVLA training
+
+- Studio dataset `sort-depth-v2` (35 episodes, 37,515 frames, 23 green-bowl + 12 pink-bowl, cameras front/wrist
+  640×480 and top_rgb_v2/top_depth_v2 512×416, AV1) was copied read-only to the RTX 5090 training PC. No long frozen
+  video runs (longest 2 repeated frames); top_rgb_v2 effectively ~23 fps. Older Studio datasets (practice-1, sort-v1,
+  sort-depth-v1) are no longer listed in Studio; check whether that was intended.
+- Run `sort-depth-v2-3k` (SmolVLA expert, 3k steps, 19 min): train loss 0.31 → 0.15 per 500-step average, still
+  falling; shorter than one epoch, so no validation and only `last.ckpt`. Logged to MLflow (`defect-sorter-training`).
+- Run `sort-depth-v2-10k` started 20:24 UTC with `configs/training/smolvla_sort_depth_v2.toml` (validation episodes
+  6, 15, 19, 25, 30). Handoff and what to do when it finishes:
+  [handoff](handoffs/2026-11-14-camera-latency-and-sort-depth-training.md).
