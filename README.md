@@ -51,6 +51,10 @@ Python package for the Intel Physical AI Challenge pipeline (PERCEIVE → DETECT
 | `src/defect_sorter/kinematics.py` | SO-101 forward kinematics (joint table from the `so101_new_calib` URDF) |
 | `src/defect_sorter/joint_calibration.py`, `calibration_capture.py` | Camera-based joint calibration, measure only (`sorter-joint-calibration capture/solve`) |
 | `src/defect_sorter/anomaly_smoke.py` | Anomalib → OpenVINO export and CPU/GPU/NPU latency check |
+| `src/defect_sorter/inspection.py` | Anomaly score → normal / defective / uncertain; OpenVINO scorer; Padim training on crops |
+| `src/defect_sorter/closed_loop.py` | One sorting attempt (observe → inspect → plan → execute → verify) over replaceable cell, inspector and policy |
+| `src/defect_sorter/twin.py` | Kinematic digital twin of the cell (SO-101 FK/IK, grasp, rendered cameras) and a scripted expert |
+| `src/defect_sorter/offline_pipeline.py`, `lerobot_export.py` | Hardware-free pipeline: twin demos → LeRobot v3, anomaly crops, twin evaluation ([guide](docs/infrastructure/OFFLINE_PIPELINE.md)) |
 
 ```bash
 uv sync                                   # light install: tests run anywhere
@@ -81,6 +85,8 @@ uv run python -m defect_sorter.training plan \
   --recipe configs/training/smolvla_expert.toml \
   --dataset configs/training/dataset.example.toml --run-name smolvla-first
 ```
+
+The [hardware-free pipeline guide](docs/infrastructure/OFFLINE_PIPELINE.md) runs the whole chain on a kinematic twin: demos → LeRobot v3 → SmolVLA fine-tune, crops → Padim → OpenVINO, and the closed loop.
 
 The [SO-101 digital twin study](docs/research/SO101_DIGITAL_TWIN.md) describes model
 sources, simulator choices, calibration, state synchronization, and validation gates.

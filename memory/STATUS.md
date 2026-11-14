@@ -239,3 +239,22 @@ Studio container was touched.
   only; GPU FP32 is exact but 9–11 ms.
 - Not done: our two-camera shapes and dataset statistics, real observations, INT8, text decoder or
   action expert on the NPU, concurrent Anomalib-NPU plus VLA-GPU run.
+
+## Update 2026-11-14 — hardware-free pipeline over a kinematic twin
+
+Branch `feat/offline-closed-loop`; guide and full results:
+[OFFLINE_PIPELINE](../docs/infrastructure/OFFLINE_PIPELINE.md). Run on linan's Windows PC (RTX 5090, Intel iGPU);
+no arm, camera or workstation was touched.
+
+- New modules: `closed_loop.py` (observe → inspect → plan → execute → verify over replaceable cell, inspector and
+  policy), `inspection.py` (score → normal/defective/uncertain, OpenVINO scorer, Padim training), `twin.py`
+  (kinematic SO-101 cell with FK/IK, grasp, rendered top/wrist cameras, scripted expert), `offline_pipeline.py`
+  and `lerobot_export.py`. 165 tests pass (47 new); Ruff lint and format clean.
+- Twin results (pipeline evidence only): 40/40 scripted demos; Padim on twin crops AUROC 1.0; closed loop with the
+  Padim OpenVINO inspector 20/20 DONE, 19/20 sorted correctly on CPU and on the Intel iGPU; demos exported to
+  LeRobot v3 pass the training contract; SmolVLA expert fine-tune 50 steps on the 5090, loss 0.96 → 0.47.
+- Windows blockers found: the `physicalai` CLI imports `fcntl` (worked around with
+  `scripts/offline_pipeline/fit_without_robot_cli.py`); Application Control blocks fresh DLLs on first import.
+
+Next: real-cell `Cell` adapter and SmolVLA runtime policy adapter (both need hardware/real recordings); replace twin
+demos with Studio recordings and twin crops with real good-brick crops; the rest of the chain stays.
