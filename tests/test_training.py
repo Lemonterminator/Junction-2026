@@ -292,7 +292,7 @@ def test_runtime_language_preflight_accepts_ordered_tasks_and_frame_references()
 	("platform", "entry"),
 	[
 		("linux", ["physicalai", "fit"]),
-		("win32", ["python", "scripts/offline_pipeline/fit_without_robot_cli.py", "fit"]),
+		("win32", ["python", "scripts/offline_pipeline/physicalai_without_robot_cli.py", "fit"]),
 	],
 )
 def test_windows_plan_launches_fit_without_the_posix_only_robot_cli(tmp_path, platform, entry):
