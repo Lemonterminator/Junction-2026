@@ -9,6 +9,7 @@ from defect_sorter.alignment import (
 	refine_with_depth,
 	save_reference,
 	table_frame,
+	table_rotation,
 	tilt_deg,
 	to_table_pose,
 )
@@ -334,3 +335,17 @@ class TestTableFrame:
 		assert frame.basis == "camera x axis"
 		assert got.position_mm[2] == pytest.approx(0.0, abs=1e-6)  # height is still correct
 		assert got.tilt_deg == pytest.approx(0.0, abs=1e-6)
+
+
+def test_table_rotation_of_a_flat_yawed_marker_and_an_upright_one():
+	plane, place = _camera_view(*CAMERA_A)
+	poses = {
+		16: place(16, (0, 0, 0)),
+		17: place(17, (0.4, 0, 0)),
+		10: place(10, (0.1, 0.2, 0), yaw_deg=30.0),
+		0: place(0, (0.2, 0.1, 0.03), yaw_deg=0.0, tilt_deg_=90.0),
+	}
+	frame = table_frame(plane, poses)
+
+	np.testing.assert_allclose(table_rotation(poses[10], frame), _rot_z(30.0), atol=1e-9)
+	np.testing.assert_allclose(table_rotation(poses[0], frame), _rot_x(90.0), atol=1e-9)
