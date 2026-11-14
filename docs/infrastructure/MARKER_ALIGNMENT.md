@@ -38,7 +38,8 @@ camera view (tilted 29°)  --depth plane fit-->  level table frame  --markers-->
 | 0 or 2 | 18–20 mm | side of the follower's clamp | robot base position and facing direction |
 | 10, 11 | 40 mm | on the bowls | bowl positions, "did a bowl move" |
 | 4 (5–9) | 30 mm | follower gripper bracket, arm | planned joint calibration (see below) |
-| 12–15, 18, 19, 3 | 20–40 mm | free | spares, extra reference points |
+| 15 | 40 mm | flat on the follower's base plate | base pose from one detection (`locate`) |
+| 12–14, 18, 19, 3 | 20–40 mm | free (13, 14 serve as anchors while 17 is taped over) | spares, extra reference points |
 
 The roles are a convention in `MARKER_SET`; the code only requires 16 and 17 for the frame.
 
@@ -76,7 +77,20 @@ transform) and how the marker sits on the gripper, and reports the residuals. It
 Two zeros cannot be observed from a taped-on marker and are not fitted: a shoulder-pan offset looks exactly like the
 base being turned, and a wrist-roll offset like the marker being taped at another angle. Fixing them needs a marker
 squared to the base edge or to a modelled face of the gripper. Synthetic tests show the fit recovers the three
-offsets exactly from clean data and within 1° with 1.5 mm / 1° marker noise. Not yet run on the real arm.
+offsets exactly from clean data and within 1° with 1.5 mm / 1° marker noise.
+
+**First real run (2026-11-14, anchors 13+14, 26 poses in two sessions):** shoulder lift +1.2°, elbow −6.6°, wrist
+flex −2.4°; leaving any one pose out moves them by at most 0.6°. RMS residual 4.0 mm / 4.4°. The wrist-flex offset
+is only observable when the wrist roll changes between poses: a first session with the roll held at one angle
+gave values from −26° to +35°. The fit also reports a 3.5° base tilt, while the base-plate marker lies within 1° of
+the table, so part of the residual is model error (link lengths) rather than a tilted base. The offsets are applied
+in our own kinematics (`robot_pose.readings_from_model`), not written into Studio's calibration, so teleoperation
+and recorded datasets stay as they are.
+
+`solve --save data/calibration/robot.json` stores offsets and base pose. `link-base --marker 15` then measures the
+base-plate marker while the robot still stands where it was calibrated; after moving the robot, `locate --update`
+finds the base again from that marker alone. `kinematics.inverse` turns a table-frame target (via
+`RobotCalibration.to_base`) into joint angles for a jaws-down approach. Nothing in this chain commands motion.
 
 The leader needs no markers: once the follower is checked, the leader can be matched to it through teleoperation.
 
