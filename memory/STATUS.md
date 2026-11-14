@@ -146,3 +146,42 @@ joint/unit mapping and offline trajectory playback before synthetic-data expansi
   added W2.9 (re-inspection after placement when a detection may be wrong) and removed an
   unreachable report link. 59 local document links resolve. Tests and Ruff were not rerun
   for the audit; the last recorded run is the one above.
+
+## Update 2026-11-14 — hardware bring-up: calibration and teleoperation
+
+Shared Ubuntu workstation, branch `docs/hardware-bringup-status`. Details, register values and
+revert values: [handoff](handoffs/2026-11-14-hardware-bringup.md). Supersedes "arms uncalibrated"
+in the earlier entries and in plan §3.1.
+
+- **Single checkout:** the workstation runs everything from `~/junction` (this repository, submodule
+  at `17714488`). Studio starts from the submodule's `application/docker` compose under project name
+  `docker`, using the prebuilt `physical-ai-studio-xpu:main` image (not built from the pinned source).
+- **Studio project** "Defect Sorting (Intel Challenge)": Follower `5AAF262737` (clamped), Leader
+  `5AE7045026`; Studio resolves them by serial because `/dev/ttyACM*` numbers change on re-plug.
+  Environments: `Sorting cell` (both arms + wrist/front/top cameras) and `Arms only (teleop test)`.
+- **Follower motor IDs were reversed** (base = 6 … gripper = 1). Renumbered to 1–6 through temporary
+  IDs with torque off; verified by moving joints by hand and reading which ID changed.
+- **Both arms calibrated** with Studio's wizard. Wrist roll uses the full-turn range [0, 4095] on both
+  arms (board and Studio copy), so the same wrist twist maps to the same normalized value.
+- **3D preview caveat:** the setup wizard feeds normalized values to the model as degrees (wrist roll
+  shows ~56 % of the real rotation); the regular viewer maps them onto the URDF limits (wrist roll
+  −157°…+163°). A wrist mismatch in the preview is not by itself a calibration error.
+- **Follower base motor** carried gripper-style protection (max torque 500, protection current 250,
+  overload torque 25): Studio's driver writes those to whichever servo has ID 6, and the base had
+  ID 6 before the renumber. Reset to the stock body-joint values (1000 / 310 / 80).
+- **Teleoperation works** (user-observed, 2026-11-14 morning). Two earlier attempts failed about 1 s
+  after enabling (follower "Sync read failed with comm result −6"), while the follower bus was healthy
+  at idle (597/597 reads at 30 Hz). It worked after the follower power connector was reseated and the
+  USB devices were split. Root cause not proven; leading explanation is a supply dip on the first large
+  move, since the driver sends the leader pose with no slew limit (`goal_time` is ignored).
+- **USB:** one USB 2 hub could not carry wrist + front webcam + D415 (the webcam failed to allocate
+  bandwidth at every format). With two hubs on two laptop ports, all three streamed together
+  (D415 colour 640×480 at 29 fps, still enumerating as USB 2.1).
+- The workstation keeps running with the lid closed (lid switch ignored, idle suspend off).
+
+Not done: camera and bowl positions frozen, first Studio recording, check of leader/follower wrist
+neutral agreement, real Anomalib data. No dataset, training or policy run has happened.
+
+Next: first recorded episode in `Sorting cell` (plan §3.1), then good-object captures for the Anomalib
+baseline. Proposal, not started: top-camera joint calibration with ArUco markers on base and gripper and
+a URDF forward-kinematics fit, which would also give the camera-to-robot transform.

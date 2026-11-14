@@ -49,3 +49,20 @@ observe the result. Proposed extension: one/few-shot object segmentation using
 Instant Learn; it does not by itself generalize the robot's grasping policy.
 Measure success rate, inference latency, sorting-cycle time, and hardware resource
 use before making efficiency claims. No robot integration has been implemented yet.
+
+## Event rules (Participant Guidebook)
+
+Source: [Participant Guidebook PDF](../docs/2026/silver/Junction_2026_Participant_Guidebook.pdf),
+24 pages, provided by the user on 2026-11-14.
+
+- Final submission: Sunday 15 November 10:00, strict; set the project from DRAFT to FINAL.
+  Required: name, punchline, description, challenge, technologies, a public pitch video of at most
+  2 minutes, demo and source code links, pitch deck PDF, team phone numbers and Discord usernames.
+- Peer review: Sunday 10:30–14:00 at the venue; teams absent from it are not eligible for the main
+  prize. Top 5 pitch for 3 minutes plus 3 minutes of questions. Challenge winners are chosen by partners.
+- Source code must be accessible to organizers; submissions are MIT-licensed; code outside open-source
+  libraries must be written at the event. This repository is private as of 2026-11-14, so access or
+  visibility must be settled before the deadline.
+- Intel workshop: Saturday 14 November 12:00–12:30, Hardware Lab, 5th floor. Team size 1–4.
+
+Live hardware status is in [STATUS.md](STATUS.md); the audit above is historical.

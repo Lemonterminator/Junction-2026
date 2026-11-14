@@ -18,6 +18,10 @@ Intel 文件于 2026-11-13 归档，共 15 页。Markdown 保留原文页序及�
 
 本次已用该 PDF 更新中英文合作方表中的 Intel 与 Ignite Next 赛题描述。其他合作方仍沿用原有来源，未在本次任务中重新核实。
 
+## 参赛者手册 / Participant Guidebook
+
+[Junction 2026 Participant Guidebook (PDF, 24 页 / pages)](./Junction_2026_Participant_Guidebook.pdf)：日程、提交要求、互评与规则。关键规则摘要见 / Key rules: [memory/PROJECT.md](../../../memory/PROJECT.md#event-rules-participant-guidebook)。
+
 ## Physical AI Studio 与组织仓库 / Upstream and ecosystem
 
 | 资料 / Material | 中文 | English | 来源 / Source |
