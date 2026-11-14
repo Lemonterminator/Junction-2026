@@ -1,0 +1,24 @@
+name = "pi05-lora-experimental"
+policy = "pi05"
+experimental = true
+batch_size = 1
+max_steps = 10000
+val_split = 0.1
+split_seed = 42
+precision = "bf16-mixed"
+accumulate_grad_batches = 8
+
+[model]
+pretrained_name_or_path = "lerobot/pi05_base"
+optimizer_lr = 0.000025
+dtype = "bfloat16"
+lora_enabled = true
+lora_rank = 16
+lora_alpha = 16
+lora_dropout = 0.05
+lora_adapter_dtype = "float32"
+lora_lr_scale = 10.0
+freeze_vision_encoder = false
+train_expert_only = false
+gradient_checkpointing = true
+compile_model = false

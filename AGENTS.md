@@ -70,6 +70,7 @@ Test ownership:
 
 - `tests/test_geometry.py` owns `defect_sorter.geometry` (intrinsics, deprojection, table-plane fit, height above table).
 - `tests/test_scene.py` owns `defect_sorter.scene` (bowl detection by colour, object detection by height, object-in-bowl relation).
+- `tests/test_training.py` owns `defect_sorter.training` and `defect_sorter.training_preflight` (local policy recipes, dataset contracts, plans, task validation and training launch preflight).
 
 Extend the owning module by default. Add a new test file only for a new stable module boundary, and update this map in the same change.
 

@@ -1,0 +1,17 @@
+name = "smolvla-expert"
+policy = "smolvla"
+experimental = false
+batch_size = 4
+max_steps = 10000
+val_split = 0.1
+split_seed = 42
+precision = "bf16-mixed"
+accumulate_grad_batches = 2
+
+[model]
+pretrained_name_or_path = "lerobot/smolvla_base"
+optimizer_lr = 0.0001
+freeze_vision_encoder = true
+train_expert_only = true
+train_state_proj = true
+compile_model = false
