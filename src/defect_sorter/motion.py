@@ -32,6 +32,7 @@ import numpy as np
 from defect_sorter.joint_calibration import TICKS_PER_DEGREE
 from defect_sorter.kinematics import inverse, joint_frames, tool_pose
 from defect_sorter.robot_pose import RobotCalibration, model_from_readings, readings_from_model
+from defect_sorter.targeting import BrickPose
 
 logger = logging.getLogger(__name__)
 
@@ -231,12 +232,62 @@ def execute(
 	return ExecutionResult(True, len(path_ticks))
 
 
+def _measure_brick(anchors: tuple[int, int], near_m: np.ndarray | None, frames: int = 10) -> BrickPose:
+	"""Brick pose in the table frame from a burst of top-camera frames, arm at rest (hardware)."""
+	from defect_sorter.alignment import refine_with_depth, table_frame
+	from defect_sorter.geometry import Intrinsics, deproject, fit_table_plane
+	from defect_sorter.markers import detect_markers
+	from defect_sorter.realsense import D415Camera
+	from defect_sorter.scene import detect_scene
+	from defect_sorter.targeting import brick_pose, combine_poses, select_brick
+
+	camera = D415Camera(1280, 720, 15, depth_size=(640, 480))
+	poses, reasons = [], []
+	try:
+		for k in range(frames + 5):
+			frame = camera.read()
+			if k < 5:  # let auto exposure settle
+				continue
+			i = frame.intrinsics
+			pts = deproject(frame.depth_m[::4, ::4], Intrinsics(i.fx / 4, i.fy / 4, i.ppx / 4, i.ppy / 4))
+			plane = fit_table_plane(pts[pts[..., 2] > 0])
+			markers = {
+				d.id: refine_with_depth(d, frame.depth_m, frame.intrinsics)
+				for d in detect_markers(frame.color_bgr, frame.intrinsics)
+			}
+			table = table_frame(plane, markers, anchors=anchors)
+			if not table.basis.startswith("anchors"):
+				reasons.append(f"anchors {anchors} not seen")
+				continue
+			scene = detect_scene(frame.color_bgr, frame.depth_m, frame.intrinsics, plane=plane)
+			found = [
+				p
+				for obj in scene.objects
+				if obj.in_bowl is None
+				and (p := brick_pose(obj, scene, frame.depth_m, frame.intrinsics, table)) is not None
+			]
+			chosen, reason = select_brick(found, near_m=near_m)
+			if chosen is None:
+				reasons.append(reason)
+			else:
+				poses.append(chosen)
+	finally:
+		camera.close()
+	if len(poses) < frames // 2:
+		sys.exit(f"brick found in only {len(poses)} of {frames} frames: {'; '.join(sorted(set(reasons)))}")
+	brick, spread_m = combine_poses(poses)
+	logger.info("brick: %d frames, centre spread %.1f mm", len(poses), spread_m * 1000)
+	return brick
+
+
 def main(argv: list[str] | None = None) -> None:
 	"""``sorter-move``: plan (default) or run one checked jaws-down move of the follower's tool point.
 
 	Without ``--go`` nothing moves: it reads the joints, plans and prints the checks. With ``--go`` it executes the
-	checked plan. Targets are table-frame millimetres (``--to``) or a point above a table marker (``--above-marker``,
-	needs the top camera). Studio must not hold the follower's port.
+	checked plan. Targets are table-frame millimetres (``--to``), a point above a table marker (``--above-marker``)
+	or a point above the brick on the table (``--above-brick``, wrist roll chosen to close the jaws across the
+	brick's short side); the last two need the top camera, and for the brick the arm must be at rest so it does not
+	hide or look like an object. Studio must not hold the follower's port.
 	"""
 	from defect_sorter.joint_calibration import angles_from_ticks
 	from defect_sorter.robot_pose import load_calibration
@@ -248,9 +299,13 @@ def main(argv: list[str] | None = None) -> None:
 	target = parser.add_mutually_exclusive_group(required=True)
 	target.add_argument("--to", type=float, nargs=3, metavar=("X", "Y", "Z"), help="table frame, mm")
 	target.add_argument("--above-marker", type=int, metavar="ID", help="hover above this table marker")
-	parser.add_argument("--height", type=float, default=60.0, help="hover height above the marker, mm")
+	target.add_argument("--above-brick", action="store_true", help="hover above the brick on the table")
+	parser.add_argument("--near", type=float, nargs=2, metavar=("X", "Y"), help="with several bricks: the one near")
+	parser.add_argument("--height", type=float, default=60.0, help="hover height above the marker or brick, mm")
 	parser.add_argument("--anchors", type=int, nargs=2, default=[16, 17], metavar=("A", "B"))
-	parser.add_argument("--roll", type=float, default=0.0, help="wrist roll reading at the goal, degrees")
+	parser.add_argument(
+		"--roll", type=float, help="wrist roll reading at the goal, degrees (default 0, or the grasp roll for a brick)"
+	)
 	parser.add_argument("--speed", type=float, default=10.0, help=f"deg/s, at most {HARD_MAX_SPEED_DEG_S:.0f}")
 	parser.add_argument("--go", action="store_true", help="execute the plan (the arm moves)")
 	args = parser.parse_args(argv)
@@ -262,6 +317,17 @@ def main(argv: list[str] | None = None) -> None:
 
 		_, position = _measure_marker(args.above_marker, tuple(args.anchors))
 		goal = position + np.array([0.0, 0.0, args.height / 1000])
+	elif args.above_brick:
+		from defect_sorter.targeting import hover_target
+
+		near = None if args.near is None else np.array(args.near) / 1000
+		brick = _measure_brick(tuple(args.anchors), near)
+		goal = hover_target(brick, height_m=args.height / 1000)
+		sys.stdout.write(
+			f"brick at ({brick.centre_m[0] * 1000:.0f}, {brick.centre_m[1] * 1000:.0f}) mm, top "
+			f"{brick.centre_m[2] * 1000:.0f} mm, yaw {brick.yaw_deg:+.0f} deg, "
+			f"{brick.length_m * 1000:.0f} x {brick.width_m * 1000:.0f} mm\n"
+		)
 	else:
 		goal = np.array(args.to) / 1000
 	limits = MotionLimits(max_speed_deg_s=args.speed)
@@ -270,12 +336,18 @@ def main(argv: list[str] | None = None) -> None:
 	with (SO101Driver if args.go else SO101Reader)(args.port) as arm:
 		ranges = arm.ranges()
 		start = angles_from_ticks(arm.read_ticks(), ranges)
-		plan = plan_move(start, goal, roll_deg=args.roll, calibration=cal, limits=limits, ranges=ranges, dt_s=dt)
+		roll = 0.0 if args.roll is None else args.roll
+		if args.above_brick and args.roll is None:
+			from defect_sorter.targeting import grasp_roll
+
+			grasp = grasp_roll(goal, brick.yaw_deg, calibration=cal, current_roll_deg=start["wrist_roll"])
+			if grasp is None:
+				sys.exit("refused: no wrist roll inside the joint range lines the jaws up with the brick")
+			roll = grasp.roll_deg
+		plan = plan_move(start, goal, roll_deg=roll, calibration=cal, limits=limits, ranges=ranges, dt_s=dt)
 		start_tool, start_h, _ = _heights({j: start[j] for j in BODY_JOINTS}, cal)
 		out.write(f"from tool at ({start_tool[0] * 1000:.0f}, {start_tool[1] * 1000:.0f}, {start_h * 1000:.0f}) mm\n")
-		out.write(
-			f"to   ({goal[0] * 1000:.0f}, {goal[1] * 1000:.0f}, {goal[2] * 1000:.0f}) mm, roll {args.roll:+.0f} deg\n"
-		)
+		out.write(f"to   ({goal[0] * 1000:.0f}, {goal[1] * 1000:.0f}, {goal[2] * 1000:.0f}) mm, roll {roll:+.0f} deg\n")
 		if not plan.ok:
 			sys.exit(f"refused: {plan.reason}")
 		lowest = min(_heights(wp, cal)[1] for wp in plan.path)
