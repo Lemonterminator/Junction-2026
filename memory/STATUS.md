@@ -312,3 +312,205 @@ base, the front camera or the bowls needs no new training.
   the jaw tips from the hover pose. Next accuracy check: hover above table marker 12 and read its offset in the
   wrist image.
 - Open: grasp recordings, ACT training on the wrist camera, Anomalib, brick target from the top camera.
+
+## Update 2026-11-14 — `armkit` library: automatic guarded calibration
+
+- New uv workspace member `packages/armkit/` (no reference to this project): generic revolute-chain model and URDF
+  loader, sphere collision model fitted from Studio's SO-101 follower URDF meshes, staged parking/sweep planning,
+  contact guard (rapid load rise / ceiling / stall) with step-back instead of failure, leashed end-stop search,
+  guarded path playback, Feetech adapter, simulated bus, LeRobot/Studio-format calibration files, `armkit-calibrate`.
+- `defect_sorter.kinematics` is now a thin wrapper over it; its existing tests pass unchanged (cross-check of FK/IK,
+  tool pose agrees with the old table to 1e-11 m).
+- Dry run `armkit-calibrate plan` finds a collision-free plan for every SO-101 joint end from Studio's rest pose; the
+  shoulder-lift forward swing is the tightest (two stages, 0 mm margin).
+- **Not run on the real arm.** Thresholds, torque limit and the rest pose (Studio wizard "home") are starting values.
+  First hardware run, only when asked: `armkit-calibrate run --port ... --only gripper --go`, watching the load.
+- Wrist roll keeps its existing homing offset and gets 0..4095 (see the full-turn decision).
+- Known: `tests/test_training.py` has two failures because the submodule checkout (`8f13241`) is not the pinned
+  commit (`1771448`) and lacks files those tests read; unrelated to this change.
+
+## Update 2026-11-14 — new cell layout, recalibration, sort-v1 dataset
+
+- The cell was rearranged (white paper, pink bowl left, green right, anchors 16+17 with 13+14 as a spare pair).
+  Recalibrated with 14 hand-held poses (anchors 16+17): lift +1.6°, elbow −4.7°, wrist flex −1.4° (wrist only
+  weakly constrained: roll covered −53…−3°). RMS 2.8 mm. Marker 15 re-linked; the link agrees with the old layout
+  within 2 mm sideways / 7 mm in height. Alignment reference saved (`data/alignment/reference-sort-v1.json`, 10
+  markers). Old-layout files kept under `data/calibration/old-layout-2026-11-14/`.
+- Studio dataset **sort-v1** (`7a4864a0-f49c-4fc5-adaa-5f88b74eea58`) created; dataset card and the 56-episode
+  recording plan: [docs/datasets/SORT_V1.md](../docs/datasets/SORT_V1.md). One dataset serves the whole-task
+  policy, SmolVLA (task text per episode) and the hybrid's grasp clips (cut at a 1 s hover pause).
+- `episodes.py` / `sorter-episodes`: reviews episodes (task text, cameras, grasp/release, hover pause) and finds
+  grasp-clip frame ranges. On practice-1: 2 of 2 usable, 1 with a detectable pause (no pause was asked for then).
+  Writing the cut clips as a new dataset is not built yet.
+- First hardware contact (2026-11-14, user-authorised, follower gripper only, `armkit-calibrate check`): reads of all six
+  servos work. The check stopped before any motion: the gripper's `Min_Position_Limit` write was not acknowledged
+  (servo busy after an EEPROM write) although it took effect. The gripper's calibration and torque were restored and
+  verified identical to the saved backup for all six joints. Fix: EEPROM writes are now verified by read-back (a lost
+  acknowledgement with a matching value is accepted). The gripper search itself has not run yet.
+- Hardware result (2026-11-14, follower gripper, `armkit-calibrate check`, user-authorised, nothing stored): both hard
+  stops found and each confirmed by two contacts, reproducible to the tick over 4 runs: upper 3501 / lower 2031 vs the
+  stored 3492 / 2040 (+/-9 ticks = 0.8 deg). Stored calibration of all six joints verified identical to the backup after
+  every run (original backup also in `.local/`). The attempt exposed servo behaviour now handled in `armkit.feetech`:
+  EEPROM writes are acknowledged late or dropped (verify by read-back, repeat the write), replies go missing or come
+  short (bounded read retry), torque changes read back late, a lone corrupted temperature byte must not abort a run.
+  Remaining: the gripper ends a few ticks (~0.7 deg) short of its start after each check; full `run` not tried on hardware.
+- `armkit-calibrate check` now gates body joints on the collision model: the arm's pose is taken from the stored
+  calibration and the joint's sweep must be clear, otherwise nothing is moved. On the real follower (pan -37, lift -38,
+  elbow 75, wrist flex 29, roll -17 deg) the model puts the gripper link 19 mm below the floor, so a wrist-flex check was
+  refused (verified live, read-only). Checking wrist flex needs the other joints parked first, i.e. the full procedure's
+  parking moves on hardware, which have not been run. The check also returns at the joint's normal torque limit now.
+- Hardware result (2026-11-14, follower shoulder_pan, `armkit-calibrate check`, user-authorised, nothing stored): both
+  ends confirmed by two contacts each: lower 1304 / upper 3234 vs stored 1253 / 3451 (+4.5 deg / -19.1 deg). The upper end
+  is 19 deg short of Studio's stored range: either a real stop or an obstruction on that side (cable, camera mount,
+  clamp); to be looked at physically. Calibration of all six joints verified identical to the backup afterwards; pan
+  returned within 2 ticks of its start. The gate allows a sweep that is no closer to a collision than the arm already is.
+- Hardware result (2026-11-14, follower shoulder_lift, `check --ends lower --torque-limit 500`, user-authorised): lower end
+  found at 838 (stored 839, -1 tick), confirmed by two contacts; calibration of all six joints identical to the backup
+  afterwards, lift back within 1 tick of its start. The upper end (forward swing) is refused by the collision model from the
+  current pose (gripper link already 19 mm under the floor in the model; the forward swing would meet the table), so it needs
+  the other joints parked first. `check` takes `--ends lower|upper` for exactly this case.
+- Correction (user, 2026-11-14): the pan's upper stop at 3234 was not the clamp; the arm hit nothing there. Cause unknown
+  (cable drag / friction / false contact). `check` now reports every contact (kind, load, position) so it can be judged.
+  Going further to Studio's stored 3451 would hit the clamp unless the rest of the arm is straightened first.
+- New `armkit-calibrate move --set joint=deg ...` (dry run by default; `--go` runs it with the guarded path mover at a
+  limited torque). Planned, not run: shoulder_lift/elbow_flex/wrist_flex to 0 deg from the current pose is a direct
+  150-waypoint, ~8 s path whose closest approach is the start pose itself (gripper 18 mm under the floor in the model).
+  The model does not contain the clamp, camera mounts or people.
+- Hardware (2026-11-14, user-authorised): `move --set shoulder_lift=0 elbow_flex=0 wrist_flex=0 --go` ran: the arm is now
+  straightened (lift +0.3, elbow +3.6, wrist flex +1.5 deg; elbow ends 41 ticks short, the extended arm sags a little at
+  600 permille). No contact events; torque limits restored to their old values; calibration of all joints identical to the
+  backup. Pan upper-end check from this pose with contact diagnostics is the next step.
+- Hardware results continued (2026-11-14, user-authorised, nothing stored):
+  - pan upper end again from the straightened arm: 3231 (stall, load 148, both contacts), so it does not depend on the
+    arm's pose; Studio's stored 3451 is not reachable. Real pan travel about 1304..3231 (~170 deg, Studio assumes ~193).
+  - wrist_flex both ends: 874 / 3192 vs stored 874 / 3185.
+  - elbow_flex lower-end attempt: the FOREARM DROPPED about 42 deg twice, because `check` switched the elbow's torque off
+    to widen its limit registers while the elbow held the forearm (holding load ~170 permille). Nothing was reported hit;
+    the arm now holds at elbow +45 deg; calibration unchanged. Fixed: a joint with holding load > 40 permille never has
+    its torque switched off; it is searched inside its stored range and ends beyond it are reported.
+- New `armkit-calibrate measure` pipeline (bottom-up, automatic parking per end, one-end checks, return to start,
+  proposed calibration file; stores nothing). Simulation-tested (true pose never collides); not yet run on hardware.
+- Remaining hardware checks: elbow both ends (inside stored range), shoulder_lift upper end (needs parking), then a full
+  `measure` run. Possible check before widening a loaded joint's limits: whether the STS3215 accepts EEPROM writes with
+  torque on and Lock=0 (not tried; needs explicit permission).
+- Hardware (2026-11-14): first full `measure` run. pan 1304/3231, wrist flex lower 874, gripper lower 2031 reproduced;
+  but the run ended with the arm NOSE DOWN ON THE TABLE (lift +103 stored-frame deg) and every move to raise it stalled.
+  Root cause (user photo): the planner assumed stored-range midpoints are the model's zeros; on this arm the elbow is off
+  by roughly 90 deg, so the planner thought the arm was stretched up when it was L-shaped, and tipping the shoulder
+  forward drove the gripper into the table. Also found: a garbled read of the gripper's stored calibration was written
+  back (offset 1281 / min 1303); restored and verified identical to the backup.
+- Fixes: planning (`measure`, `move`, body-joint `check`) now refuses without a measured `ModelFrame`
+  (`armkit-calibrate frame --pose so101-zero [--release] --go`); hardware margins at least 15 mm; stored calibration is
+  only believed when two reads agree and the pipeline reuses one verified copy; the end of a run verifies the stored
+  calibration is unchanged.
+- Next (needs the operator): free the arm from its nose-down pose (hold it while torque is released), set it in the
+  SO-101 zero pose by hand and record the frame; then re-run `measure` with `--frame`.
+- Hardware (2026-11-14): reference-pose frame recorded by hand (offsets pan +38.9, lift -26.2, elbow +14.6, wrist flex
+  -5.3, roll +52.9 deg). Second full `measure` run: pan 1303 / 3231 again; then the gripper tip hit the table during a
+  sweep because this arm's WRIST FLEX turns the opposite way to the URDF (photo: tip on the table where the model put it
+  13 cm up; a reversed wrist puts it at 0.7 cm). A one-pose frame cannot see a reversed joint. Stopped on the operator's
+  word; wrist torque limit restored, its limit registers still widened (0..4095) pending a supported restore.
+- Fixes: frames now carry per-joint directions, checked with a second hand-held pose (`frame --refine frame.json --pose
+  so101-second`); planning refuses unless every chain joint's direction is checked; all plans keep 8 cm of air above
+  the table (`--table-clearance`).
+
+- `depth_bridge.py` / `sorter-depth-bridge`: owns the D415 and serves colour + a depth image as MJPEG; Studio records
+  them as IP cameras `top_rgb` and `top_depth` (environment "Sorting cell + depth"). Measured on the workstation: 29.8 fps
+  camera loop, ≈30 fps read from inside the Studio container. Not yet verified: a full Studio recording through the IP
+  cameras.
+  - **sort-depth-v1** (grey `height` image at 0–10 cm, not 6 cm as noted before) was deleted from Studio with its
+    environment and the `top_rgb`/`top_depth` cameras; it held no episodes.
+  - Depth encoding v2 (2026-11-14): default `layers` mode (R 0–4 cm, G 0–30 cm, B valid), table plane held from the
+    first frame and saved/checked with `--plane`, `--crop` on colour and depth, 4:4:4 JPEG, `motion` camera filter
+    profile (`D415Camera(filters=..., preset=...)`). Ran once on the camera from an uncommitted copy in
+    `~/depth-v2` on the workstation (`~/junction` is on `main` without the bridge): brick 1.91 cm read as 1.9 cm,
+    plane `data/depth/plane-v2.json` (92 % inliers). Studio: environment "Sorting cell + depth v2", IP cameras
+    `top_rgb_v2`/`top_depth_v2` at 512×416, dataset **sort-depth-v2**, no episodes yet. Next: check the gripper stays
+    inside the crop over the whole brick grid, record, and get the branch merged so the workstation runs it from
+    `~/junction`. IDs in `docs/datasets/SORT_V1.md`.
+- `uvc_controls.py` / `sorter-camera-lock` (2026-11-14, applied on the workstation, every control read back ok):
+  profile `config/camera_controls.json` locks `front` (Webcam; was auto exposure, auto WB, continuous autofocus,
+  **60 Hz**) and `wrist` (USB2.0_CAM1; was auto exposure, auto WB, **dynamic framerate on**) to manual exposure 30 ms
+  (a multiple of the 10 ms mains period, under the 33 ms frame), gain 0, 50 Hz; front 4600 K (neutral on the table,
+  mean grey 121 vs 147 on auto, nothing clipped; its gain has no visible effect), wrist 3500 K (closest to neutral;
+  4600 K turned it green); front focus fixed at 270 (its last autofocus position). The wrist values were judged
+  with the gripper pointing at the ceiling: re-check them with the camera looking at the table. Studio does not
+  set these controls (its USB payload passes only width/height/fps). Both cameras delivered ≈22–23 fps in a short
+  OpenCV grab, auto or locked: check the real recorded fps. Studio's stored USB bus fingerprints for both cameras
+  no longer match their ports.
+- Finding (2026-11-14): Studio's robot worker was connected to the follower while armkit used the same serial port
+  (Studio log: 'Sync read failed with comm result -7', worker stopped 15:37). Two processes on one bus garble each
+  other's packets: the likely cause of the lost acknowledgements, short replies and the garbled calibration read seen
+  earlier. Before any armkit run: disconnect the follower in Studio (and close the tab that auto-reconnects) and check
+  `sudo fuser -v <port>` shows nothing.
+- New: `armkit-calibrate frame --directions --refine frame.json --go` (release the arm, move each joint by hand in its
+  described direction, directions read from the sampled readings) and `measure --preview` (the whole pipeline on a
+  simulated copy of the arm built from its stored calibration and readings; only reads the arm).
+- Hardware (2026-11-14, user-authorised): joint directions recorded by hand (`frame --directions`): all same as the
+  URDF except wrist_roll (reversed); the earlier "wrist flex reversed" reading of the photo was wrong. Elbow lower end:
+  three runs failed because the elbow (resting load ~200) does not move until its goal leads by ~5 deg, more than the
+  3 deg leash, so the guard saw a stall; fixed with droop compensation (goal register vs position), an adaptive leash
+  up to 12 deg and a stall threshold above the resting load. After the fix the elbow travelled its whole stored range
+  to 875 with no contact (stop at or beyond Studio's value). Chain joints now never lose torque and search at their
+  normal torque limit; the extra table clearance applies to the far links only.
+- Per-joint results so far (stored-calibration ticks, nothing stored): pan 1303..3231 (stored 1253..3451); lift lower
+  838 (839); elbow lower >= 875 (875); wrist flex 874 / 3192 (874 / 3185); gripper 2031 / 3501 (2040 / 3492).
+  Not reachable with the table as an infinite plane: lift upper (forward), elbow upper, wrist flex upper.
+- Hardware (2026-11-14, user-authorised): first complete `measure` run finished and wrote
+  ~/armkit-run/calibration-proposed.json on the workstation (pan 1322..3229 and gripper 2060..3508 proposed; others
+  kept at Studio values). It left the arm leaning fully back: lifting a near-horizontal arm off its back stop looked
+  like a stall to the path mover (the joint read light while resting on the stop). The operator lifted it by hand;
+  calibration still identical to the backup. Also found: a garbled read of the gripper's torque limit was written back
+  as 62721 (fixed to 500; torque limits now need two agreeing in-range reads, and out-of-range writes are refused).
+- Fix: the path mover treats every chain joint as possibly loaded (resting-load-relative stall threshold, up to 12 deg
+  of lag), as the end search already did.
+- Still open: lift forward end, elbow and wrist-flex upper ends point into the table; measurable only if the arm can
+  point off the table edge (`--table-area`), otherwise Studio's values stay.
+- Conclusion (2026-11-14): the base rotation is mechanically limited to about 170 deg, all of it over the table (operator).
+  That matches the measured pan range 1302..3249 (~171 deg), so Studio's stored pan range (1253..3451) is wider than the
+  arm can turn. The arm cannot point past the table edge, so shoulder-lift forward, elbow upper and wrist-flex upper
+  cannot reach their stops without touching the table; they keep Studio's values. Result of the pipeline:
+  ~/armkit-run/calibration-proposed.json on the workstation (pan 1322..3229, gripper 2060..3508, the rest unchanged);
+  nothing written to the servos or Studio. Storing it later: `armkit-calibrate restore --from <file> --go` with the arm
+  supported, then update Studio's stored copy.
+- Complete proposed calibration (all six joints) built from every end measured this session with `armkit.measure.propose`
+  (measured ends pulled in by 20 ticks, unmeasured ends keep Studio's value, homing offsets unchanged):
+  ~/armkit-run/calibration-complete-proposed.json on the workstation, copy in .local/. pan 1322..3229, lift 858..3191,
+  elbow 875..3081, wrist flex 894..3172, gripper 2060..3508, roll 0..4095. Not written to the servos or Studio.
+  Open point: the gripper's upper end read 3501 in four checks but 3528 in the last full run; recheck before storing.
+- Second complete `measure` run (2026-11-14, user-authorised) finished cleanly and returned to its start pose: pan
+  1301..3249, gripper 2040..3528, elbow and wrist-flex lower ends reach the stored limits without contact. Ends that
+  cannot be reached on this setup are now NOTES, not failures. Gripper recheck on the clean bus: closed 2040 every time,
+  open end compliant (3501 / 3528 / 3536 depending on push force), so the proposal uses the lowest clean value.
+  Final proposal (calibration-complete-proposed.json, copy in .local/): pan 1321..3229, lift 858..3191,
+  elbow 875..3081, wrist flex 894..3172, gripper 2060..3508, roll 0..4095; homing offsets unchanged; not stored.
+- Rule (AGENTS.md): calibration never falls back to Studio's stored limits. `check` now widens a weight-bearing
+  joint's limits with torque ON (EEPROM lock opened, limits verified by read-back, torque untouched) so it can search
+  past the stored range; if the servo refuses, the end is an issue (`NOT MEASURED`), not a note. First hardware run
+  (2026-11-14, user-authorised): the STS3215 takes new limits with torque on. Elbow lower end measured at 870
+  (stored 875): its own stop with the forearm straight up, two contacts within 2 ticks, nothing touched; limits and
+  calibration restored. Shoulder-lift forward (upper) end measured at 3197 (stored 3191) from a pose with the elbow
+  folded up and the wrist down (`check` with `--table-clearance 0.04`: the forearm's elbow end is the lowest point and
+  depends almost only on the shoulder angle); the gate now accepts a sweep the model clears only partly, if the clear
+  part goes past the stored end. Shoulder-lift lower 838 (earlier run with widened limits) is a real stop.
+  Open ends: elbow upper, wrist-flex both, gripper open.
+
+
+## Update 2026-11-14 — brick hover target from the top camera
+
+- New `targeting.py`: brick top-face pose in the table frame (centre, long-axis yaw, size) from one `detect_scene`
+  object. Only top-face pixels are used, so the side face the tilted camera sees does not pull the centre towards it
+  (a synthetic tilted view shows the naive blob centre off by more than 3 mm; the top-face centre within 1.5 mm).
+  `select_brick` skips tall or large objects and asks for `--near X Y` with several bricks; `combine_poses` takes
+  medians over frames, yaw averaged as an undirected angle.
+- `grasp_roll`: wrist roll that closes the jaws across the brick's short side, jaws down, nearest the current roll
+  inside the joint range; checked against forward kinematics. The two solutions are about 177°, not 180°, apart
+  (tool point off the roll axis). The jaw closing axis (`JAW_AXIS_TOOL`, tool x) is read from the URDF and not yet
+  confirmed on the gripper.
+- `sorter-move --above-brick [--near X Y] [--height mm]`: 10 top-camera frames with the arm at rest → brick pose →
+  hover target and grasp roll → the existing checked plan; dry run unless `--go`. Not yet run on hardware (no camera
+  or arm used).
+- Next, with the user's go: dry run `--above-brick`, then a real hover and a wrist-image check of the jaw direction
+  and the tip offset; then the wrist-camera correction step (reference image, pixel offset → table correction).
+- Full suite: 499 passed, 2 failed in `test_training.py` because the Studio submodule's working tree is missing
+  `library/` (staged deletions inside the submodule, not from this change).
