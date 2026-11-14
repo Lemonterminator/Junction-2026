@@ -1,5 +1,31 @@
 # Current status
 
+## Update 2026-11-15 — inspect-then-sort implementation plan
+
+- Added the detailed [three-skill plan](../docs/plans/INSPECT_THEN_SORT_PLAN.md):
+  pick and inspect, controlled holding handoff, Anomalib decision, green/pink
+  held-placement and physical outcome verification. The current controller still
+  scores before executing a complete pick-and-place task; no runtime behavior changed.
+- Defined a 50-source-cycle / 100-skill-clip pilot, grouped train/validation/test
+  splits, inspection coverage and quality gates, stale action/result cancellation,
+  threshold validation, module/test ownership and staged acceptance targets.
+- Linked README, the overall plan, dataset protocol and training guide. Existing
+  full-task recordings and recipes keep their original semantics; no new Studio
+  dataset, recipe or checkpoint was created.
+- Documentation only; no new behavior tests were added. No camera access, arm
+  motion, training or device deployment.
+- Verification on Windows: `uv sync --locked` passed; `uv run pytest -q` finished
+  with 571 passed, 2 failed and 1 skipped (the optional pyarrow episode-loader test).
+  Both failures are in unchanged baseline code:
+  `tests/test_depth_bridge.py::TestMjpegStream::test_each_part_carries_its_publish_time_for_latency_checks`
+  rounds the HTTP timestamp to six decimals, below the test's full-precision lower
+  bound; `tests/test_uvc_controls.py::test_find_device_picks_the_capture_node_of_the_named_camera`
+  expects `/dev/video12` but Windows returns a path with backslash separators. A diagnostic
+  `uv run pytest -q -x` also reproduced the timestamp failure (58 passed before it).
+- `uv run ruff check src tests packages` passed; `uv run ruff format --check src tests packages`
+  passed (89 files). All 96 local links across the six changed documents resolve;
+  `git diff --check` passed. No source, test or dependency lock files changed.
+
 Updated: 2026-11-14 (Europe/Helsinki). The source integration, shared memory, and
 Docker preparation below are included in this revision. The user requested commit
 and push on 14 November. Use `git status` and the remote branch to check the current
