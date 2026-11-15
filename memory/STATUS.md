@@ -20,6 +20,12 @@
   The sim recipe now runs on 8 x L40S in one Modal container (effective batch 64, 3,750
   steps, lr 2e-4, warm-up 250). A first single-GPU run was stopped after ~600 steps
   without a checkpoint, before this change.
+- Result: run `smolvla-sim-ddp8-01` (8 x H100, 3,750 steps, ~13 min of training, exit 0):
+  validation loss 0.112 after epoch 1 and 0.082 after epoch 2 on held-out simulated
+  episodes; final train loss 0.028. Downloaded to `artifacts/training/smolvla-sim-ddp8-01`
+  (best.ckpt = step 3299) and logged to MLflow `defect-sorter-training` with tag
+  `source = sim` (tracking now tags `sim` datasets instead of `real`). Not comparable with
+  the real sort-depth-v2 validation loss, and not yet evaluated on the arm or the twin.
 - The Modal spend limit is now raised (the sim render ran there). The Volume holds
   `/datasets/sim-batch-v1` and `/warm-start/sort-depth-v2-10k`.
 

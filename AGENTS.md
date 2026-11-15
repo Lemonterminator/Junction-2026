@@ -93,7 +93,7 @@ Test ownership:
 - `tests/test_presentation.py` owns `defect_sorter.presentation` (defect faces and cross strokes, show points in front of a camera, view cosine, show-pose order, camera height/direction/arm-clearance check).
 - `tests/test_twin.py` owns `defect_sorter.twin` (kinematic twin: TCP, IK, rate limits, grasp/release, cameras, scripted expert).
 - `tests/test_offline_pipeline.py` owns `defect_sorter.offline_pipeline` and the pure part of `defect_sorter.lerobot_export` (demo recording, anomaly crops, twin evaluation, LeRobot features, privileged sim labels).
-- `tests/test_tracking.py` owns `defect_sorter.tracking` (reading run and evaluation directories into MLflow records).
+- `tests/test_tracking.py` owns `defect_sorter.tracking` (reading run and evaluation directories into MLflow records, twin/sim/real source tags).
 - `tests/test_model_release.py` owns `defect_sorter.model_release` (release manifest and download verification).
 - `tests/test_modal_training.py` owns `defect_sorter.modal_training` (Modal Volume layout, recording root on the Volume, warm-start upload, GPU cost ceiling).
 - `tests/test_studio_preview_patch.py` owns `docker/studio-patches` (Studio live-preview rate, JPEG quality and skipped cameras).

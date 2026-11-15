@@ -55,6 +55,19 @@ def test_training_record_tags_twin_data(tmp_path):
 	assert training_record(run).tags["source"] == "twin"
 
 
+def test_training_record_tags_simulated_data_and_keeps_its_warm_start(tmp_path):
+	run = _run_dir(tmp_path, "step,train/loss\n0,1.0\n")
+	plan = json.loads((run / "plan.json").read_text(encoding="utf-8"))
+	plan["dataset"]["repo_id"] = "local/sim-batch-v1"
+	plan["warm_start"] = "sort-depth-v2-10k"
+	plan["devices"] = 8
+	(run / "plan.json").write_text(json.dumps(plan), encoding="utf-8")
+	record = training_record(run)
+	assert record.tags["source"] == "sim"
+	assert record.params["warm_start"] == "sort-depth-v2-10k"
+	assert record.params["devices"] == 8
+
+
 def test_training_record_without_plan_is_rejected(tmp_path):
 	with pytest.raises(FileNotFoundError):
 		training_record(tmp_path)
