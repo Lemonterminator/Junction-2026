@@ -36,6 +36,12 @@
 - Fine-tune on real data: `configs/training/smolvla_sort_depth_v2_from_sim.toml` warm-starts
   from smolvla-sim-ddp8-01 and uses the sort-depth-v2-10k validation episodes, so its
   validation loss compares with that run (0.292 best).
+- Result: run `smolvla-v2-from-sim-01` (8 x H100, 2,000 steps, exit 0): validation loss
+  0.335 / 0.334 / 0.335 after epochs 1-3 (best.ckpt = step 1029), final train loss 0.043.
+  Worse than sort-depth-v2-10k (0.292) on the same held-out episodes, so the sim detour did
+  not help on this metric; the baseline remains the safer arm candidate. Logged to MLflow
+  (`source = real`, `warm_start = smolvla-sim-ddp8-01`) and copied with OpenVINO IR to
+  `intel:~/models/smolvla/smolvla-v2-from-sim-01/`, hashes verified there.
 - The Modal spend limit is now raised (the sim render ran there). The Volume holds
   `/datasets/sim-batch-v1` and `/warm-start/sort-depth-v2-10k`.
 
