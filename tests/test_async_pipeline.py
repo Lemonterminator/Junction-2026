@@ -505,6 +505,7 @@ def test_fetch_http_jpeg() -> None:
 
 
 def test_openvino_smolvla_runner_mock() -> None:
+	pytest.importorskip("openvino", reason="needs the anomaly extra")
 	manifest = SmolVlaManifest(
 		image_resolution=(512, 512),
 		image_key_reorder_map={"top": 0},
@@ -545,6 +546,7 @@ def test_openvino_smolvla_runner_mock() -> None:
 
 
 def test_compress_ir_to_fp16(tmp_path: Path) -> None:
+	pytest.importorskip("openvino", reason="needs the anomaly extra")
 	src_xml = tmp_path / "src.xml"
 	dst_xml = tmp_path / "dst.xml"
 	src_xml.write_text("<net></net>")
@@ -614,6 +616,7 @@ def test_async_inspection_stage_default_crop_bgr_rgb_conversion() -> None:
 
 
 def test_openvino_smolvla_runner_task_newline_normalization() -> None:
+	pytest.importorskip("openvino", reason="needs the anomaly extra")
 	manifest = SmolVlaManifest(
 		image_resolution=(512, 512),
 		image_key_reorder_map={"wrist": 0},
