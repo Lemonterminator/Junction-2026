@@ -195,3 +195,133 @@ def test_studio_commands_reject_bodies_that_are_not_json_objects(studio_served):
 		urllib.request.urlopen(request, timeout=5)
 	assert error.value.code == 400
 	assert hub.started == []
+
+
+class FakeCell:
+	def __init__(self):
+		self.starts, self.stops, self.reviews = [], 0, []
+		self.running = False
+
+	def active(self):
+		return self.running
+
+	def state(self):
+		return {"configured": True, "cycle": None}
+
+	def start(self, request):
+		self.starts.append(request)
+		return 202, {"go": request.get("go") is True}
+
+	def stop(self):
+		self.stops += 1
+		return {"stopping": self.running}
+
+	def review(self, body):
+		self.reviews.append(body)
+		return 200, {"bowl": body.get("bowl")}
+
+	def table_jpeg(self):
+		return b"\xff\xd8table"
+
+	def view_crop(self, index):
+		return b"\xff\xd8view" if index == 0 else None
+
+
+def serve(tmp_path, hub=None, cell=None):
+	frontend = tmp_path / "frontend"
+	frontend.mkdir(exist_ok=True)
+	(frontend / "index.html").write_text("<h1>Dashboard</h1>")
+	server = ThreadingHTTPServer(
+		("127.0.0.1", 0),
+		make_handler(
+			frontend, SystemMetrics(tmp_path / "proc", tmp_path / "sys", host_platform="Linux"), None, hub, cell=cell
+		),
+	)
+	threading.Thread(target=server.serve_forever, daemon=True).start()
+	return server, f"http://127.0.0.1:{server.server_address[1]}"
+
+
+def test_cell_routes_are_absent_without_a_cell_link(tmp_path):
+	server, base = serve(tmp_path)
+	try:
+		assert get(base + "/api/cell/state")[0] == 204
+		assert get(base + "/api/cell/table.jpg")[0] == 404
+		assert post(base + "/api/cell/cycle", {"go": False}, CONTROL)[0] == 404
+		assert post(base + "/api/stop", {}, CONTROL) == (200, {"stopping": False})
+	finally:
+		server.shutdown()
+		server.server_close()
+
+
+def test_cell_state_pictures_and_commands(tmp_path):
+	cell = FakeCell()
+	server, base = serve(tmp_path, cell=cell)
+	try:
+		assert json.loads(get(base + "/api/cell/state")[2]) == {"configured": True, "cycle": None}
+		status, headers, body = get(base + "/api/cell/table.jpg")
+		assert (status, headers["Content-Type"], body) == (200, "image/jpeg", b"\xff\xd8table")
+		assert get(base + "/api/cell/view/0.jpg")[2] == b"\xff\xd8view"
+		assert get(base + "/api/cell/view/1.jpg")[0] == 204
+		assert get(base + "/api/cell/view/x.jpg")[0] == 404
+		assert post(base + "/api/cell/cycle", {"go": True}, {"Content-Type": "application/json"})[0] == 403
+		assert cell.starts == [], "commands need the dashboard's own JSON request"
+		assert post(base + "/api/cell/cycle", {"go": True}, CONTROL) == (202, {"go": True})
+		assert post(base + "/api/cell/review", {"bowl": "pink"}, CONTROL) == (200, {"bowl": "pink"})
+		assert post(base + "/api/cell/stop", {}, CONTROL)[0] == 200
+		assert cell.stops == 1
+	finally:
+		server.shutdown()
+		server.server_close()
+
+
+def test_one_stop_reaches_both_the_studio_run_and_the_cycle(tmp_path):
+	hub, cell = FakeHub(), FakeCell()
+	cell.running = True
+	server, base = serve(tmp_path, hub=hub, cell=cell)
+	try:
+		assert post(base + "/api/stop", {}, CONTROL) == (200, {"stopping": True})
+		assert (hub.stops, cell.stops) == (1, 1)
+	finally:
+		server.shutdown()
+		server.server_close()
+
+
+def test_a_studio_run_cannot_start_while_a_cycle_holds_the_arm(tmp_path):
+	hub, cell = FakeHub(), FakeCell()
+	cell.running = True
+	server, base = serve(tmp_path, hub=hub, cell=cell)
+	try:
+		status, body = post(base + "/api/studio/run", {"action": "SORT_GREEN"}, CONTROL)
+		assert status == 409
+		assert "cycle" in body["error"]
+		assert hub.started == []
+	finally:
+		server.shutdown()
+		server.server_close()
+
+
+def test_a_burst_of_page_load_requests_is_never_refused(tmp_path):
+	"""A page load opens a connection per module and poll at once; a backlog of 5 refused some (a blank page)."""
+	from concurrent.futures import ThreadPoolExecutor
+
+	from defect_sorter.dashboard import DashboardServer
+
+	frontend = tmp_path / "frontend"
+	frontend.mkdir()
+	(frontend / "index.html").write_text("<h1>Dashboard</h1>")
+	for k in range(60):
+		(frontend / f"m{k}.mjs").write_text(f"export const k = {k};")
+	server = DashboardServer(
+		("127.0.0.1", 0),
+		make_handler(frontend, SystemMetrics(tmp_path / "proc", tmp_path / "sys", host_platform="Linux")),
+	)
+	threading.Thread(target=server.serve_forever, daemon=True).start()
+	base = f"http://127.0.0.1:{server.server_address[1]}"
+	try:
+		assert server.request_queue_size >= 64
+		with ThreadPoolExecutor(60) as pool:
+			statuses = list(pool.map(lambda k: get(f"{base}/m{k}.mjs")[0], range(60)))
+		assert statuses == [200] * 60
+	finally:
+		server.shutdown()
+		server.server_close()

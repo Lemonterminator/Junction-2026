@@ -77,9 +77,48 @@
         </dl>
         <div class="decision-actions">
           <div id="progress-text" role="status" aria-live="polite">Ready</div>
-          <button class="btn primary big" id="inspect">Inspect next part <kbd>Space</kbd></button>
+          <button class="btn primary big" id="inspect">Play a demo part <kbd>Space</kbd></button>
         </div>
       </section>
+    </section>
+
+    <section class="panel pad cell-panel" id="cell-panel" aria-labelledby="cell-title" hidden>
+      <div class="panel-heading">
+        <div>
+          <h2 id="cell-title">The real cell</h2>
+          <div class="live-status"><span class="status" id="table-badge"><i></i><span>Top camera: waiting</span></span><span class="status" id="cycle-badge"><i></i><span>No cycle yet</span></span></div>
+        </div>
+        <div class="cycle-actions">
+          <label class="check"><input type="checkbox" id="cell-operator"> Someone is at the robot</label>
+          <button class="btn" id="cycle-plan" title="Measure the table and plan the moves; the arm does not move">Check plan</button>
+          <button class="btn primary" id="cycle-go">Sort a brick</button>
+          <button class="btn danger" id="cycle-stop" hidden>Stop</button>
+        </div>
+      </div>
+      <p class="cycle-headline" id="cycle-headline" role="status" aria-live="polite"></p>
+      <div class="cell-grid">
+        <div class="table-col">
+          <figure class="table-view">
+            <img id="table-image" alt="Top camera: the bowls and bricks found in colour and depth" hidden>
+            <div class="waiting" id="table-waiting">Waiting for the depth bridge…</div>
+            <figcaption>Top camera · colour + depth</figcaption>
+          </figure>
+          <figure class="map-view">
+            <svg id="table-map" class="table-map" role="img" aria-label="Table map: bowls, bricks and the robot base in millimetres"></svg>
+            <figcaption id="table-note">Table frame, mm (tag 16 at the origin)</figcaption>
+          </figure>
+        </div>
+        <div class="cycle-col">
+          <ol class="cycle-steps" id="cycle-steps"></ol>
+          <div class="review-box" id="cycle-review" hidden>
+            <div><b>Unsure brick · you decide</b><span>The arm holds it in front of the camera until you choose.</span></div>
+            <div class="review-actions"><button class="btn" data-review="green"><i class="led green"></i>Good → green</button><button class="btn" data-review="pink"><i class="led pink"></i>Defect → pink</button><button class="btn" data-review="hold">Keep holding</button></div>
+          </div>
+          <div class="cycle-views" id="cycle-views"></div>
+          <details class="cycle-log"><summary>Cycle log</summary><ol id="cycle-log"></ol></details>
+        </div>
+      </div>
+      <p class="note" id="cycle-lock"></p>
     </section>
 
     <section class="details" aria-label="Inspection evidence">
@@ -146,11 +185,12 @@
           </div>
         </form>
         <div class="run-config" id="run-config" hidden>
-          <label>Environment<select id="run-environment"></select></label>
-          <label>Policy<select id="run-model"></select></label>
-          <label>Device<select id="run-device"><option>auto</option><option>CPU</option><option>GPU</option><option>NPU</option></select></label>
-          <label>Camera<select id="run-camera"></select></label>
-          <label class="check"><input type="checkbox" id="operator-present"> Someone is at the robot</label>
+          <label data-studio-run>Environment<select id="run-environment"></select></label>
+          <label data-studio-run>Policy<select id="run-model"></select></label>
+          <label data-studio-run>Device<select id="run-device"><option>auto</option><option>CPU</option><option>GPU</option><option>NPU</option></select></label>
+          <label>Inspection camera<select id="run-camera"></select></label>
+          <label class="check" data-studio-run><input type="checkbox" id="operator-present"> Someone is at the robot</label>
+          <p class="note cycle-route" id="cycle-route" hidden>Sorting commands run the cell’s sort cycle (panel above).</p>
         </div>
         <div class="command-out" id="command-out" aria-live="polite">
           <p class="note">Inspect, sort, send to a plate, or stop.</p>
