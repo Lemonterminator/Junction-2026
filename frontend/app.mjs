@@ -44,7 +44,7 @@ function animateMeter() {
 }
 requestAnimationFrame(animateMeter);
 
-const toneOf = s => !s ? 'idle' : s.stage === 'fault' ? 'fault' : s.label;
+const toneOf = s => !s ? 'idle' : s.stage === 'fault' ? 'fault' : ['perceive', 'detect'].includes(s.stage) ? 'idle' : s.label;
 const fmtMs = v => v === null || v === undefined ? '—' : v >= 1000 ? `${(v / 1000).toFixed(1)}s` : `${v.toFixed(1)}ms`;
 
 function render() {
@@ -52,47 +52,47 @@ function render() {
 	const panel = $('decision-panel');
 	panel.className = `panel decision-panel ${toneOf(s)}`;
 	if (!s) {
-		$('decision-title').textContent = 'Ready_';
-		$('destination').textContent = 'No part loaded';
+		$('decision-title').textContent = 'Ready';
+		$('destination').textContent = 'No part yet';
 		$('destination-dot').className = 'led';
-		$('explanation').textContent = 'Press “Inspect next part”, type a command below, or take the guided tour.';
-		$('decision-score').textContent = '—'; $('task').textContent = '—'; $('outcome').textContent = 'Not yet verified';
+		$('explanation').textContent = 'Inspect a part to see the decision.';
+		$('decision-score').textContent = '—'; $('task').textContent = '—'; $('outcome').textContent = 'Not verified';
 		$('score-value').textContent = '0.00'; $('score-value').className = 'big'; meterTarget = 0; meterZones({normal_below: .4, defective_above: .6});
-		$('threshold-copy').textContent = 'Thresholds come from the active inspector.';
+		$('threshold-copy').textContent = '';
 		document.querySelectorAll('[data-stage]').forEach(el => el.classList.remove('active', 'passed'));
-		$('progress-text').textContent = 'Ready to inspect';
+		$('progress-text').textContent = 'Ready';
 		renderButtons(); return;
 	}
 	const view = displayState(s);
 	const demo = s.mode === 'demo', fault = s.stage === 'fault';
 	const decided = ['reason', 'act', 'verify', 'complete', 'review', 'fault'].includes(s.stage);
-	$('decision-title').textContent = decided ? (fault ? 'Stopped' : {normal: 'Pass', defective: 'Reject', uncertain: 'Review'}[s.label]) : s.stage === 'detect' ? 'Scoring_' : 'Scan_';
-	$('destination').textContent = !decided ? 'Deciding' : fault ? 'Operator check required' : view.destination;
+	$('decision-title').textContent = decided ? (fault ? 'Stopped' : {normal: 'Pass', defective: 'Reject', uncertain: 'Review'}[s.label]) : s.stage === 'detect' ? 'Scoring…' : 'Inspecting…';
+	$('destination').textContent = !decided ? 'Deciding' : fault ? 'Check the arm' : view.destination.replace('bowl', 'plate');
 	$('destination-dot').className = `led ${decided ? (s.destination === 'green' ? 'green' : s.destination === 'pink' ? 'red' : 'amber') : ''}`;
-	$('episode-tag').textContent = demo ? `PART ${String(part).padStart(3, '0')}` : s.episode_id.toUpperCase();
-	$('explanation').textContent = decided ? explanation(s) : s.stage === 'detect' ? 'The anomaly model is scoring the brick crop.' : 'Capturing the part under the top camera.';
+	$('episode-tag').textContent = demo ? `Part ${part}` : s.episode_id;
+	$('explanation').textContent = decided ? explanation(s).replace(/bowl/g, 'plate') : s.stage === 'detect' ? 'Scoring the brick.' : 'Taking a picture of the part.';
 	const showScore = decided || s.stage === 'detect';
 	$('decision-score').textContent = showScore ? view.score : '—';
-	$('task').textContent = decided && s.task && !fault ? `${demo ? 'Demo: ' : ''}“${s.task}”` : decided ? 'No movement requested' : '—';
-	$('outcome').textContent = s.stage === 'complete' && s.outcome ? `${demo ? 'Demo: ' : ''}${s.outcome} bowl · verified` : 'Not yet verified';
+	$('task').textContent = decided && s.task && !fault ? `“${s.task}”` : decided ? 'Nothing (arm stays still)' : '—';
+	$('outcome').textContent = s.stage === 'complete' && s.outcome ? `In the ${s.outcome} plate` : 'Not verified';
 	meterZones(s.thresholds);
 	meterTarget = showScore && Number.isFinite(s.score) ? s.score : 0;
 	const big = $('score-value');
 	big.textContent = showScore ? view.score.replace('—', '-.--') : '0.00';
 	big.className = `big ${showScore && Number.isFinite(s.score) ? 'on' : ''}`;
 	big.style.color = !showScore || !Number.isFinite(s.score) ? '' : s.label === 'defective' ? 'var(--red)' : s.label === 'uncertain' ? 'var(--amber)' : 'var(--g)';
-	$('threshold-copy').textContent = s.thresholds ? `${demo ? 'Demo thresholds: ' : 'Inspector thresholds: '}pass below ${s.thresholds.normal_below.toFixed(2)}, reject above ${s.thresholds.defective_above.toFixed(2)}, a person decides in between.` : 'Thresholds unavailable.';
+	$('threshold-copy').textContent = s.thresholds ? `Pass below ${s.thresholds.normal_below.toFixed(2)}, reject above ${s.thresholds.defective_above.toFixed(2)}, review in between.` : 'No thresholds.';
 	const stages = stageProgress(s);
 	document.querySelectorAll('[data-stage]').forEach((el, i) => { el.classList.toggle('active', stages[i].active); el.classList.toggle('passed', stages[i].passed); });
-	$('reason-stage').textContent = decided ? (s.destination ? view.destination : 'Human review') : 'Decision';
+	$('reason-stage').textContent = decided ? (s.destination ? view.destination.replace('bowl', 'plate') : 'Review') : 'Decision';
 	$('act-stage').textContent = view.actStatus; $('verify-stage').textContent = view.verifyStatus;
-	const status = {perceive: 'Capturing the part', detect: 'Inspecting for defects', reason: 'Selecting the destination', act: 'Placing the part', verify: 'Checking placement', complete: 'Cycle complete', review: 'Waiting for human review', fault: 'Stopped · no automatic retry'};
+	const status = {perceive: 'Taking a picture', detect: 'Scoring', reason: 'Deciding', act: 'Placing the part', verify: 'Checking placement', complete: 'Done', review: 'Waiting for a person', fault: 'Stopped'};
 	$('progress-text').textContent = `${demo ? 'Demo · ' : s.mode === 'replay' ? 'Replay · ' : 'Live · '}${status[s.stage]}`;
 	inferenceWindow.add(s);
 	const summary = inferenceWindow.summary();
 	$('inference-median').textContent = fmtMs(summary.median); $('inference-p95').textContent = fmtMs(summary.p95);
-	$('inference-samples').textContent = summary.count ? `${summary.count} measured ${summary.mode} cycles on ${summary.device ?? 'an unverified device'} · nearest-rank percentiles` : demo ? 'Demo parts carry no timings: only measured runs fill these numbers.' : 'No measured cycles yet.';
-	$('inference-device').textContent = (s.device ?? 'unverified').toUpperCase();
+	$('inference-samples').textContent = summary.count ? `${summary.count} measured cycles on ${summary.device ?? 'an unverified device'}` : demo ? 'Demo parts have no timings.' : 'No measured cycles yet.';
+	$('inference-device').textContent = s.device ?? 'Unverified';
 	for (const row of document.querySelectorAll('[data-timing]')) {
 		const v = s.timings_ms[row.dataset.timing];
 		row.querySelector('strong').textContent = fmtMs(v);
@@ -113,7 +113,7 @@ function renderButtons() {
 	const busy = Boolean(timer);
 	const live = source === 'live';
 	$('inspect').disabled = source === 'replay' || busy || (live && !studio?.inspector);
-	$('inspect').firstChild.textContent = live ? '> Inspect live part ' : busy ? '> Inspecting… ' : '> Inspect next part ';
+	$('inspect').firstChild.textContent = live ? 'Inspect live part ' : busy ? 'Inspecting… ' : 'Inspect next part ';
 	$('play').disabled = source !== 'demo';
 	$('scenario').disabled = source !== 'demo';
 	$('play').textContent = busy ? 'Pause demo' : 'Play demo';
@@ -122,8 +122,7 @@ function renderButtons() {
 function updatePitch(summary) {
 	if (summary.count && summary.mode === 'real') {
 		$('fact-npu').textContent = `${summary.median.toFixed(1)} ms`;
-		$('fact-npu').previousElementSibling.textContent = `Live median · ${summary.device ?? 'device'}`;
-		$('fact-npu-note').textContent = `measured on this laptop over ${summary.count} inspections`;
+		$('fact-npu-note').textContent = `Inference on ${summary.device ?? 'this laptop'} (live median)`;
 	}
 }
 
@@ -164,32 +163,31 @@ window.addEventListener('sorter:telemetry', event => {
 
 // ------------------------------------------------------------------ source switch + badges
 function setBadge(id, tone, text, blink = false) {
-	const el = $(id); el.className = `badge ${tone}`;
-	el.querySelector('i').className = blink ? 'blink' : '';
+	const el = $(id); el.className = `status ${blink ? 'live' : tone}`;
 	el.querySelector('span').textContent = text;
 }
 function setSource(next) {
-	if (next === 'replay' && !recorder.entries.length) { reply('refuse', 'Nothing recorded yet', 'Switch to Live and press Record first. Replay plays back the last 90 seconds you recorded.'); return; }
+	if (next === 'replay' && !recorder.entries.length) { reply('refuse', 'Nothing recorded yet', 'Record something in Live first.'); return; }
 	source = next;
 	document.querySelectorAll('[data-source]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.source === source)));
 	stopReplay();
-	if (source === 'demo') { $('brick-source').textContent = 'ILLUSTRATIVE'; $('brick-note').textContent = 'Defect marked where it sits on the part. Demo parts are illustrative.'; }
-	if (source === 'live') { pause(); $('brick-source').textContent = 'LIVE INSPECTION'; $('brick-note').textContent = 'The crop is what the model scored. The 3D views show where a defect would be marked.'; }
+	if (source === 'demo') { $('brick-source').textContent = 'Demo'; $('brick-note').textContent = 'The circle marks where the defect is.'; }
+	if (source === 'live') { pause(); $('brick-source').textContent = 'Live'; $('brick-note').textContent = 'Left: what the model scored.'; }
 	if (source === 'replay') { pause(); startReplay(); }
 	updateBadges(); renderRunConfig(); render();
 }
 document.querySelectorAll('[data-source]').forEach(b => b.addEventListener('click', () => setSource(b.dataset.source)));
 
 function updateBadges() {
-	if (source === 'demo') setBadge('source-badge', 'warn', 'Demo · illustrative playback', true);
-	else if (source === 'replay') setBadge('source-badge', 'warn', 'Replay · recorded, not live', true);
-	else setBadge('source-badge', studio?.reachable ? 'bad' : 'off', studio?.reachable ? 'Live' : 'Live · waiting for Studio', Boolean(studio?.reachable));
+	if (source === 'demo') setBadge('source-badge', 'warn', 'Demo');
+	else if (source === 'replay') setBadge('source-badge', 'warn', 'Replay (recorded)');
+	else setBadge('source-badge', '', studio?.reachable ? 'Live' : 'Waiting for Studio', Boolean(studio?.reachable));
 	const v = studioView(studio);
-	setBadge('studio-badge', v.status === 'connected' ? 'ok' : v.status === 'unreachable' ? 'bad' : 'off', v.status === 'connected' ? v.headline : v.status === 'unreachable' ? 'Studio unreachable' : 'Studio link off');
+	setBadge('studio-badge', v.status === 'connected' ? 'ok' : v.status === 'unreachable' ? 'bad' : '', v.status === 'connected' ? `Studio: ${studio.project?.name ?? 'connected'}` : v.status === 'unreachable' ? 'Studio unreachable' : 'Studio not connected');
 	const ins = studio?.inspector;
-	setBadge('device-badge', ins ? 'ok' : 'off', ins ? `${ins.model ?? 'Inspector'} on ${ins.device ?? '?'}` : 'Inspector not connected');
+	setBadge('device-badge', ins ? 'ok' : '', ins ? `Inspector on ${ins.device ?? '?'}` : 'No inspector');
 	$('live-headline').textContent = v.status === 'off' ? 'Studio link off. Start the dashboard with --studio-url to see the cell’s cameras.' : v.headline;
-	$('control-lock').textContent = studio?.control_enabled ? 'ARM CONTROL ENABLED' : 'ARM CONTROL LOCKED';
+	$('control-lock').textContent = studio?.control_enabled ? 'Arm unlocked' : 'Arm locked';
 	$('control-lock').style.color = studio?.control_enabled ? 'var(--amber)' : '';
 }
 
@@ -208,7 +206,7 @@ function cameraTile(camera) {
 	}
 	return tile;
 }
-const STATE_TEXT = {live: 'LIVE', session: 'LIVE · RUN', stale: 'STALE', held: 'HELD BY STUDIO', error: 'ERROR', waiting: 'CONNECTING'};
+const STATE_TEXT = {live: 'Live', session: 'Live (run)', stale: 'Stale', held: 'In use by Studio', error: 'Error', waiting: 'Connecting'};
 function renderCameras(view, {replayFrames = null} = {}) {
 	const grid = $('camera-grid');
 	if (!view.cameras.length) {
@@ -221,10 +219,10 @@ function renderCameras(view, {replayFrames = null} = {}) {
 		const st = replay ? (replayFrames[camera.id] ? 'live' : 'waiting') : camera.state;
 		tile.el.className = `cam ${st}`;
 		tile.el.querySelector('b').textContent = camera.name;
-		tile.el.querySelector('.state').textContent = replay ? 'REPLAY' : `${STATE_TEXT[st]}${['live', 'stale'].includes(st) ? ' · ' + camera.age : ''}`;
+		tile.el.querySelector('.state').textContent = replay ? 'Replay' : `${STATE_TEXT[st]}${['live', 'stale'].includes(st) ? ' · ' + camera.age : ''}`;
 		const badge = tile.el.querySelector('.badge-live');
 		badge.hidden = !(replay || st === 'live' || st === 'session');
-		badge.className = `badge-live ${replay ? 'replay' : 'live'}`; badge.textContent = replay ? 'REPLAY' : '● LIVE';
+		badge.className = `badge-live ${replay ? 'replay' : 'live'}`; badge.textContent = replay ? 'Replay' : 'Live';
 		const waiting = tile.el.querySelector('.waiting');
 		if (replay) {
 			const url = replayFrames[camera.id];
@@ -235,7 +233,7 @@ function renderCameras(view, {replayFrames = null} = {}) {
 			const showImage = ['live', 'stale', 'session'].includes(st) || camera.sequence !== null;
 			tile.img.hidden = !showImage;
 			waiting.hidden = showImage && st !== 'error';
-			waiting.textContent = st === 'held' ? 'A Studio session is using this camera. Its frames appear here when the run is started from Armigo.' : st === 'error' ? camera.error : 'Connecting to the camera…';
+			waiting.textContent = st === 'held' ? 'Studio is using this camera.' : st === 'error' ? camera.error : 'Connecting…';
 		}
 		return tile.el;
 	});
@@ -279,19 +277,19 @@ async function record() {
 	const dropped = recorder.entries[0];
 	recorder.add(Date.now(), {studio: structuredClone(studio), decision: state && structuredClone(state)}, frames);
 	if (dropped && recorder.entries[0] !== dropped) Object.values(dropped.frames).forEach(u => URL.revokeObjectURL(u));
-	$('rec-status').innerHTML = `<i></i>REC ${ageText(recorder.duration())}`;
+	$('rec-status').innerHTML = `<i></i>Recording ${ageText(recorder.duration())}`;
 	$('replay-play').disabled = false;
 }
 $('rec-toggle').addEventListener('click', () => {
-	if (source !== 'live' && !recording) { reply('refuse', 'Recording needs Live', 'Switch to Live first. Armigo records the camera tiles, the decision and the run status in this browser.'); return; }
+	if (source !== 'live' && !recording) { reply('refuse', 'Recording needs Live', 'Switch to Live first.'); return; }
 	recording = !recording;
 	if (recording) {
 		let busy = false;
 		recordTimer = setInterval(async () => { if (busy || source !== 'live') return; busy = true; try { await record(); } finally { busy = false; } }, 250);
 	} else clearInterval(recordTimer);
 	$('rec-status').className = `rec ${recording ? 'on' : ''}`;
-	$('rec-toggle').textContent = recording ? '■ Stop rec' : '● Record';
-	if (!recording) $('rec-status').innerHTML = `<i></i>${recorder.entries.length ? 'Saved ' + ageText(recorder.duration()) : 'REC off'}`;
+	$('rec-toggle').textContent = recording ? 'Stop' : 'Record';
+	if (!recording) $('rec-status').innerHTML = `<i></i>${recorder.entries.length ? 'Saved ' + ageText(recorder.duration()) : 'Not recording'}`;
 });
 $('replay-play').addEventListener('click', () => setSource('replay'));
 function startReplay() {
@@ -363,15 +361,15 @@ async function execute(parsed) {
 	showPlan(parsed);
 	if (!parsed.action) { reply('refuse', 'Not understood', parsed.reason); return; }
 	const info = ACTIONS[parsed.action];
-	if (source === 'replay') { reply('refuse', 'Replay is read-only', 'Switch to Live or Demo to give commands.'); return; }
+	if (source === 'replay') { reply('refuse', 'Replay is read-only', 'Switch to Live or Demo.'); return; }
 	if (parsed.action === 'STOP') {
 		pause();
-		if (source === 'live' && studio?.reachable) { const r = await post('/api/studio/stop', {}); reply('ok', 'Stop sent', r.data?.stopping ? 'Studio holds the arm where it is.' : 'No run was active.'); }
-		else reply('ok', 'Stopped', 'Demo playback paused.');
+		if (source === 'live' && studio?.reachable) { const r = await post('/api/studio/stop', {}); reply('ok', 'Stopped', r.data?.stopping ? 'The arm holds still.' : 'Nothing was running.'); }
+		else reply('ok', 'Stopped', 'Demo paused.');
 		planSteps.forEach(s => { s.status = 'done'; }); drawPlan(); return;
 	}
 	if (source === 'demo') {
-		reply('ok', `${info.title} · demo`, `${info.summary} This is the illustrative cell; switch to Live to run it on the robot.`);
+		reply('ok', info.title, 'Running in the demo.');
 		if (parsed.action === 'INSPECT') runDemo(pickScenario(), {stopAt: 'reason'});
 		else if (parsed.action === 'INSPECT_AND_SORT') runDemo(pickScenario());
 		else runDemo(parsed.action === 'SORT_GREEN' ? 'normal' : 'defective');
@@ -381,26 +379,26 @@ async function execute(parsed) {
 	if (!studio?.reachable) { reply('error', 'Studio not connected', studioView(studio).headline); return; }
 	const cameraId = $('run-camera').value;
 	if (parsed.action === 'INSPECT' || (parsed.action === 'INSPECT_AND_SORT' && !studio.control_enabled)) {
-		if (!studio.inspector) { reply('error', 'No inspector', 'Start the dashboard with --anomaly-model (or --purity) to score live frames.'); return; }
+		if (!studio.inspector) { reply('error', 'No inspector', 'Start the dashboard with --anomaly-model or --purity.'); return; }
 		planProgress('perceive');
 		const t0 = performance.now();
 		const r = await post('/api/studio/inspect', {camera_id: cameraId});
 		if (r.status !== 200) { reply('error', 'Inspection failed', r.data?.error ?? `HTTP ${r.status}`); planSteps.forEach(s => { if (s.status === 'active') s.status = 'failed'; }); drawPlan(); return; }
 		showInspection(r.data, performance.now() - t0);
-		if (parsed.action === 'INSPECT_AND_SORT') reply('refuse', `Scored · ${r.data.label}`, 'Arm control is locked, so Armigo inspected without moving. Restart the dashboard with --studio-control to allow runs.');
+		if (parsed.action === 'INSPECT_AND_SORT') reply('refuse', `Scored: ${r.data.label}`, 'The arm is locked, so nothing moved.');
 		return;
 	}
-	if (!studio.control_enabled) { reply('refuse', 'Arm control locked', 'This dashboard was started without --studio-control, so it cannot move the arm.'); return; }
-	if (!$('operator-present').checked) { reply('refuse', 'Confirm the operator', 'Tick “Operator is at the cell” first. Someone must be able to reach the robot’s power.'); return; }
+	if (!studio.control_enabled) { reply('refuse', 'Arm locked', 'Start the dashboard with --studio-control to allow runs.'); return; }
+	if (!$('operator-present').checked) { reply('refuse', 'Confirm someone is at the robot', 'Tick the box first.'); return; }
 	const model = studio.models.find(m => m.id === $('run-model').value);
 	const body = {action: parsed.action, camera_id: cameraId, environment_id: $('run-environment').value, model_id: model?.id, backend: model?.backends[0], device: $('run-device').value};
 	planProgress(parsed.action === 'INSPECT_AND_SORT' ? 'perceive' : 'act');
 	const t0 = performance.now();
 	const r = await post('/api/studio/run', body);
 	if (r.data?.inspection) showInspection(r.data.inspection, performance.now() - t0);
-	if (r.status === 200 && r.data?.decision === 'review') { reply('refuse', 'Held for a person', 'The score is in the uncertain band, so the arm stays still. Check the part and sort it by hand or re-inspect.'); planProgress('review'); return; }
+	if (r.status === 200 && r.data?.decision === 'review') { reply('refuse', 'Needs a person', 'The score is unsure, so the arm stays still.'); planProgress('review'); return; }
 	if (r.status !== 202) { reply('error', 'Run refused', r.data?.error ?? `HTTP ${r.status}`); return; }
-	reply('ok', `Running · ${r.data.decision} bowl`, `Studio is running “${r.data.task}”. Press STOP at any time; the run also stops itself after ${studio.max_run_s} s.`);
+	reply('ok', `Sorting to the ${r.data.decision} plate`, `Stops by itself after ${studio.max_run_s} s.`);
 	planProgress('act');
 }
 
@@ -416,8 +414,8 @@ function showInspection(result, roundTripMs) {
 	$('crop-image').src = `/api/studio/inspection/crop.jpg?n=${liveSeq}`;
 	brickViews.show({label: result.label, colour: BRICK_COLOURS[0], defect: result.label === 'normal' ? null : {face: 'top', u: 0.1, v: 0.1, kind: 'tape'}});
 	render();
-	reply(result.label === 'uncertain' ? 'refuse' : 'ok', `${{normal: 'Pass', defective: 'Reject', uncertain: 'Review'}[result.label]} · score ${Number.isFinite(result.score) ? result.score.toFixed(2) : '—'}`,
-		result.reason ?? `Inference ${result.timings_ms?.inference?.toFixed(1) ?? '—'} ms on ${result.device ?? 'an unverified device'} · frame was ${ageText(result.frame_age_ms)} old.`);
+	reply(result.label === 'uncertain' ? 'refuse' : 'ok', `${{normal: 'Pass', defective: 'Reject', uncertain: 'Review'}[result.label]}, score ${Number.isFinite(result.score) ? result.score.toFixed(2) : '—'}`,
+		result.reason ?? `${result.timings_ms?.inference?.toFixed(1) ?? '—'} ms on ${result.device ?? 'unverified device'}`);
 }
 
 function renderRunConfig() {
@@ -447,7 +445,7 @@ function renderRun() {
 	$('run-progress').style.width = `${(run.progress * 100).toFixed(0)}%`;
 	$('stop-run').disabled = !run.moving && !['starting', 'loading_environment', 'loading_model'].includes(run.phase);
 }
-$('stop-run').addEventListener('click', () => post('/api/studio/stop', {}).then(r => reply('ok', 'Stop sent', r.data?.stopping ? 'Studio holds the arm where it is.' : 'No run was active.')));
+$('stop-run').addEventListener('click', () => post('/api/studio/stop', {}).then(r => reply('ok', 'Stopped', r.data?.stopping ? 'The arm holds still.' : 'Nothing was running.')));
 
 $('command-form').addEventListener('submit', e => { e.preventDefault(); execute(parseCommand($('command-input').value)); });
 $('command-chips').addEventListener('click', e => {
@@ -458,32 +456,32 @@ $('command-chips').addEventListener('click', e => {
 // ------------------------------------------------------------------ guided tour
 const TOUR = [
 	{view: 'home', title: 'One cell, three outcomes', scenario: null,
-		text: 'Parts arrive one by one. Today a person checks each one by eye: slow, tiring, and easy to miss a mark. Armigo checks every part the same way and sorts it.',
+		text: 'Each part is checked the same way and goes to one of three places.',
 		metric: ['Outcomes per part', '3'],
-		notes: [{anchor: 'spot', title: 'Part arrives', text: 'One brick at a time, under the camera.'}, {anchor: 'green', title: 'Pass', text: 'Good parts move on.'}, {anchor: 'pink', title: 'Reject', text: 'Defects are set aside.', tone: 'red'}, {anchor: 'review', title: 'Ask a person', text: 'When unsure, a human decides.', tone: 'amber'}]},
-	{view: 'camera', title: 'Perceive', scenario: 'defective', stage: 'perceive',
-		text: 'A fixed camera takes one frame of the part. Studio owns the cameras; Armigo reads the same feed and never opens a camera behind Studio’s back.',
-		notes: [{anchor: 'camera', title: 'Top camera', text: 'One frame per part, from Physical AI Studio.'}, {anchor: 'spot', title: 'Inspection spot', text: 'The brick is isolated from the table before scoring.'}]},
-	{view: 'laptop', title: 'Detect, on the NPU', scenario: 'defective', stage: 'detect',
-		text: 'An Anomalib model learned what a good brick looks like from good examples only, so it flags any mark it has never seen. It runs with OpenVINO on the laptop’s NPU.',
-		metric: ['Padim on the NPU (benchmark)', '8.5 ms'],
-		notes: [{anchor: 'laptop', title: 'Intel Core Ultra', text: 'Anomalib + OpenVINO. Inference stays on the device.'}]},
-	{view: 'bins', title: 'Reason: clear defect', scenario: 'defective', stage: 'reason',
-		text: 'The score is compared with two thresholds. Above the upper one, the part is rejected. Watch the defect score meter and the decision panel change.',
+		notes: [{anchor: 'spot', title: 'New part'}, {anchor: 'green', title: 'Pass'}, {anchor: 'pink', title: 'Reject', tone: 'red'}, {anchor: 'review', title: 'Review', tone: 'amber'}]},
+	{view: 'camera', title: 'See the part', scenario: 'defective', stage: 'perceive',
+		text: 'The camera takes one picture of the brick.',
+		notes: [{anchor: 'camera', title: 'Camera'}, {anchor: 'spot', title: 'Brick'}]},
+	{view: 'laptop', title: 'Score it on the NPU', scenario: 'defective', stage: 'detect',
+		text: 'Anomalib learned what good bricks look like and flags anything unusual. It runs on the laptop’s NPU.',
+		metric: ['Inference time', '8.5 ms'],
+		notes: [{anchor: 'laptop', title: 'Intel laptop', text: 'NPU'}]},
+	{view: 'bins', title: 'Clear defect', scenario: 'defective', stage: 'reason',
+		text: 'A high score means a defect. The part goes to the pink plate.',
 		metric: ['Defect score', '0.90'],
-		notes: [{anchor: 'pink', title: 'Reject · pink bowl', text: '0.90 is above 0.60.', tone: 'red'}]},
-	{view: 'brick', title: 'When unsure, ask', scenario: 'uncertain', stage: 'review',
-		text: 'Between the thresholds the model is not sure. Armigo does not guess: the arm stays still and a person takes a second look. Fewer false rejects, no silent misses.',
+		notes: [{anchor: 'pink', title: 'Reject', text: '0.90', tone: 'red'}]},
+	{view: 'brick', title: 'Not sure? Ask', scenario: 'uncertain', stage: 'review',
+		text: 'In the middle band the arm stays still and a person decides.',
 		metric: ['Defect score', '0.51'],
-		notes: [{anchor: 'review', title: 'Human review', text: '0.51 is between 0.40 and 0.60.', tone: 'amber'}, {anchor: 'spot', title: 'Part waits', text: 'No movement until a person decides.', tone: 'amber'}]},
-	{view: 'arm', title: 'Act', scenario: 'normal', stage: 'act',
-		text: 'For a clear result the SO-101 arm runs one fixed task its policy was trained on, such as “place it in the green bowl”. A typed command can only choose from that closed set.',
+		notes: [{anchor: 'review', title: 'Review', text: '0.51', tone: 'amber'}]},
+	{view: 'arm', title: 'Sort it', scenario: 'normal', stage: 'act',
+		text: 'For a clear result the arm runs one trained task, like “place it in the green plate”.',
 		metric: ['Defect score', '0.21'],
-		notes: [{anchor: 'arm', title: 'SO-101 policy', text: 'Runs through Physical AI Studio with its speed limits.'}, {anchor: 'green', title: 'Pass · green bowl', text: '0.21 is below 0.40.'}]},
-	{view: 'laptop', title: 'Optimize at the edge', scenario: null,
-		text: 'Everything above runs on one Intel laptop. Below, Edge performance shows live CPU cores, memory, GPU and NPU load, the busiest processes, and measured inference times.',
-		metric: ['Cloud round trips', '0'],
-		notes: [{anchor: 'laptop', title: 'One laptop', text: 'Camera feed, model, decisions and dashboard.'}], scroll: 'resource-title'},
+		notes: [{anchor: 'arm', title: 'SO-101'}, {anchor: 'green', title: 'Pass', text: '0.21'}]},
+	{view: 'laptop', title: 'All on one laptop', scenario: null,
+		text: 'Everything runs locally. Edge performance below shows the live load.',
+		metric: ['Cloud calls', '0'],
+		notes: [{anchor: 'laptop', title: 'Intel laptop'}], scroll: 'resource-title'},
 ];
 function stateAt(scenario, stage) {
 	let s = createDemo(scenario);
@@ -495,13 +493,13 @@ function showTour(i) {
 	const step = TOUR[tourIndex];
 	$('tour-card').hidden = false;
 	$('scene').parentElement.classList.add('touring');
-	$('tour-step').textContent = `STEP ${tourIndex + 1} / ${TOUR.length}`;
+	$('tour-step').textContent = `Step ${tourIndex + 1} of ${TOUR.length}`;
 	$('tour-title').textContent = step.title; $('tour-text').textContent = step.text;
 	$('tour-metric').hidden = !step.metric;
 	if (step.metric) { $('tour-metric-label').textContent = step.metric[0]; $('tour-metric-value').textContent = step.metric[1]; }
 	$('tour-dots').replaceChildren(...TOUR.map((_, k) => Object.assign(document.createElement('i'), {className: k === tourIndex ? 'on' : ''})));
 	$('tour-prev').disabled = tourIndex === 0;
-	$('tour-next').textContent = tourIndex === TOUR.length - 1 ? 'Finish' : 'Next →';
+	$('tour-next').textContent = tourIndex === TOUR.length - 1 ? 'Finish' : 'Next';
 	cell.focus(step.view);
 	cell.annotate(step.notes);
 	if (source === 'demo' && step.scenario) {

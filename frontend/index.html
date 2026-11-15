@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#030504">
+  <meta name="theme-color" content="#0e1110">
   <title>Armigo — Sorting cell</title>
   <link rel="stylesheet" href="styles.css">
   <script type="module" src="app.mjs"></script>
@@ -12,50 +12,49 @@
   <main class="dashboard">
     <header class="masthead">
       <a class="brand" href="./" aria-label="Armigo home">
-        <svg viewBox="0 0 40 40" aria-hidden="true"><rect x="4" y="32" width="14" height="4"/><path d="M11 32V22l13-10 7 6"/><rect class="joint" x="9" y="20" width="4" height="4"/><path d="M31 18v4m-3 3 3-3 3 3"/></svg>
-        <span><strong>ARMIGO</strong><small>Defect inspection that knows when it’s unsure</small></span>
+        <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M5 34h14"/><path d="M12 34V22l12-9 7 6"/><circle class="joint" cx="12" cy="22" r="2.5"/><path d="M31 19v3m-3 3 3-3 3 3"/></svg>
+        <strong>Armigo</strong>
       </a>
       <nav class="mode-switch" aria-label="Data source">
         <button data-source="demo" aria-pressed="true">Demo</button>
         <button data-source="live" aria-pressed="false">Live</button>
         <button data-source="replay" aria-pressed="false">Replay</button>
       </nav>
-      <div class="header-status">
-        <span class="badge" id="source-badge"><i class="blink"></i><span>Demo · illustrative playback</span></span>
-        <span class="badge" id="studio-badge"><i></i><span>Studio link off</span></span>
-        <span class="badge" id="device-badge"><i></i><span>Inspector not connected</span></span>
-      </div>
+      <span class="status warn" id="source-badge"><i></i><span>Demo</span></span>
     </header>
 
-    <section class="pitch" aria-labelledby="pitch-title">
-      <div class="pitch-copy">
-        <span class="eyebrow">// EDGE INTELLIGENCE. HUMAN JUDGMENT.</span>
+    <section class="hero" aria-labelledby="pitch-title">
+      <div>
         <h2 id="pitch-title">Catch defects before your customers do.</h2>
-        <p>One robot cell that inspects every part, sorts it, and asks a person when it isn’t sure. All of the AI runs on an Intel laptop next to the robot.</p>
-        <div class="pitch-actions">
-          <button class="primary" id="watch-intro">▶ Watch the story <small>4 chapters · narrated</small></button>
-          <button class="secondary" id="start-tour">⟶ Guided tour <small>how one part is handled</small></button>
+        <p>A robot arm that checks every part, sorts it, and asks a person when it isn’t sure. The AI runs on an Intel laptop next to the robot.</p>
+        <div class="hero-actions">
+          <button class="btn primary" id="watch-intro">Watch intro</button>
+          <button class="btn" id="start-tour">Take the tour</button>
         </div>
+        <dl class="facts">
+          <div><dt>Outcomes per part</dt><dd>3</dd></div>
+          <div><dt id="fact-npu-note">Inference on the NPU</dt><dd id="fact-npu">8.5 ms</dd></div>
+          <div><dt>Cloud calls</dt><dd>0</dd></div>
+        </dl>
       </div>
-      <dl class="pitch-facts">
-        <div><dt>Every part</dt><dd>3 outcomes</dd><p>Pass, reject, or ask a person. The cell never forces a guess.</p></div>
-        <div><dt>Padim on the NPU</dt><dd id="fact-npu">8.5 ms</dd><p id="fact-npu-note">per inference · workstation benchmark, 14 Nov</p></div>
-        <div><dt>Where it runs</dt><dd>On-device</dd><p>Camera, model and decisions stay on the laptop. No cloud round trip.</p></div>
-      </dl>
+      <figure class="hero-photo">
+        <img src="assets/cell.jpg" alt="Our sorting cell: a blue SO-101 arm, a green and a pink plate, and a blue brick on a white table">
+        <figcaption>Our cell at Junction 2026</figcaption>
+      </figure>
     </section>
 
     <section class="workspace" aria-label="Sorting workspace">
-      <section class="panel scene-panel" aria-label="Illustrative sorting cell">
-        <canvas id="scene" tabindex="0" aria-label="Illustrative 3D sorting cell. Drag or use arrow keys to rotate, scroll to zoom."></canvas>
+      <section class="panel scene-panel" aria-label="3D sorting cell">
+        <canvas id="scene" tabindex="0" aria-label="3D sorting cell. Drag or use arrow keys to rotate, scroll to zoom."></canvas>
         <div class="annotations" id="annotations" aria-live="polite"></div>
-        <div class="legend"><span><i class="led green"></i>Green bowl: pass</span><span><i class="led red"></i>Pink bowl: reject</span><span><i class="stripe"></i>Striped mark: human review</span></div>
-        <div class="scene-tools"><span>Drag · scroll · arrows</span><button id="reset-view" aria-label="Reset view" title="Reset view">↺</button></div>
+        <div class="legend"><span><i class="led green"></i>Green plate: pass</span><span><i class="led pink"></i>Pink plate: reject</span><span><i class="stripe"></i>Striped mark: review</span></div>
+        <div class="scene-tools"><button id="reset-view" aria-label="Reset view" title="Reset view">↺</button></div>
         <div class="tour-card" id="tour-card" hidden>
-          <div class="tour-head"><span id="tour-step">STEP 1 / 7</span><button id="tour-close" aria-label="End tour">✕</button></div>
+          <div class="tour-head"><span id="tour-step">Step 1 of 7</span><button id="tour-close" aria-label="End tour">✕</button></div>
           <h3 id="tour-title"></h3>
           <p id="tour-text"></p>
           <div class="tour-metric" id="tour-metric" hidden><span id="tour-metric-label"></span><strong id="tour-metric-value"></strong></div>
-          <div class="tour-nav"><button class="secondary" id="tour-prev">← Back</button><div class="tour-dots" id="tour-dots"></div><button class="primary" id="tour-next">Next →</button></div>
+          <div class="tour-nav"><button class="btn" id="tour-prev">Back</button><div class="tour-dots" id="tour-dots"></div><button class="btn primary" id="tour-next">Next</button></div>
         </div>
         <ol class="pipeline" aria-label="Sorting stages">
           <li data-stage="perceive"><b>Perceive <i></i></b><small>Camera</small></li>
@@ -66,39 +65,39 @@
         </ol>
       </section>
 
-      <section class="panel decision-panel" id="decision-panel" aria-labelledby="decision-title">
-        <div class="eyebrow">// DECISION <span id="episode-tag">PART 001</span></div>
-        <h1 id="decision-title">Ready_</h1>
-        <div class="destination"><i class="led" id="destination-dot"></i><span id="destination">No part loaded</span></div>
-        <p id="explanation">Press “Inspect next part” to send a part through the cell.</p>
+      <section class="panel decision-panel idle" id="decision-panel" aria-labelledby="decision-title">
+        <div class="label"><span>Decision</span><span id="episode-tag"></span></div>
+        <h1 id="decision-title">Ready</h1>
+        <div class="destination"><i class="led" id="destination-dot"></i><span id="destination">No part yet</span></div>
+        <p id="explanation">Inspect a part to see the decision.</p>
         <dl class="kv">
           <div><dt>Defect score</dt><dd id="decision-score">—</dd></div>
           <div><dt>Sent to robot</dt><dd id="task">—</dd></div>
-          <div><dt>Outcome</dt><dd id="outcome">Not yet verified</dd></div>
+          <div><dt>Outcome</dt><dd id="outcome">Not verified</dd></div>
         </dl>
         <div class="decision-actions">
-          <div id="progress-text" role="status" aria-live="polite">Ready to inspect</div>
-          <button class="primary big" id="inspect">&gt; Inspect next part <kbd>Space</kbd></button>
+          <div id="progress-text" role="status" aria-live="polite">Ready</div>
+          <button class="btn primary big" id="inspect">Inspect next part <kbd>Space</kbd></button>
         </div>
       </section>
     </section>
 
     <section class="details" aria-label="Inspection evidence">
       <section class="panel pad brick-panel">
-        <div class="panel-heading"><h2>The part, every side</h2><span class="micro" id="brick-source">ILLUSTRATIVE</span></div>
+        <div class="panel-heading"><h2>The part from every side</h2><span class="micro" id="brick-source">Demo</span></div>
         <div class="brick-views">
           <canvas id="brick-canvas" aria-label="Inspected brick from the top, front, side and a rotating 3D view, with the defect marked"></canvas>
-          <span class="view-tag" style="left:8px;top:8px">TOP</span><span class="view-tag" style="left:calc(50% + 6px);top:8px">FRONT</span>
-          <span class="view-tag" style="left:8px;top:calc(50% + 6px)">SIDE</span><span class="view-tag" style="left:calc(50% + 6px);top:calc(50% + 6px)">3D</span>
+          <span class="view-tag" style="left:8px;top:8px">Top</span><span class="view-tag" style="left:calc(50% + 6px);top:8px">Front</span>
+          <span class="view-tag" style="left:8px;top:calc(50% + 6px)">Side</span><span class="view-tag" style="left:calc(50% + 6px);top:calc(50% + 6px)">3D</span>
         </div>
         <div class="brick-foot">
-          <figure class="crop" id="crop-figure" hidden><img id="crop-image" alt="Brick crop the model scored"><figcaption>MODEL INPUT</figcaption></figure>
-          <p id="brick-note">Defect marked where it sits on the part. Demo parts are illustrative.</p>
+          <figure class="crop" id="crop-figure" hidden><img id="crop-image" alt="Brick crop the model scored"><figcaption>Model input</figcaption></figure>
+          <p id="brick-note">The circle marks where the defect is.</p>
         </div>
       </section>
 
       <section class="panel pad score-panel">
-        <div class="panel-heading"><h2>Defect score</h2><span class="micro">0.00 – 1.00</span></div>
+        <div class="panel-heading"><h2>Defect score</h2></div>
         <div class="meter-num"><span class="big" id="score-value">0.00</span></div>
         <div class="segs" id="segs" role="img" aria-label="Defect score meter"></div>
         <div class="scale" id="scale"></div>
@@ -107,38 +106,42 @@
       </section>
 
       <section class="panel pad timing-panel">
-        <div class="panel-heading"><h2>Where the time goes</h2><span class="micro">PER CYCLE</span></div>
-        <div class="timing-row" data-timing="capture"><div><span>Frame age at capture</span><span class="tag">CAMERA</span><strong>—</strong></div><div class="bar"><i></i></div></div>
-        <div class="timing-row" data-timing="inference"><div><span>Anomalib inference</span><span class="tag" id="inference-device">UNVERIFIED</span><strong>—</strong></div><div class="bar"><i></i></div></div>
-        <div class="timing-row" data-timing="placement"><div><span>Robot places part</span><span class="tag">ARM</span><strong>—</strong></div><div class="bar"><i></i></div></div>
+        <div class="panel-heading"><h2>Where the time goes</h2></div>
+        <div class="timing-row" data-timing="capture"><div><span>Frame age</span><span class="tag">Camera</span><strong>—</strong></div><div class="bar"><i></i></div></div>
+        <div class="timing-row" data-timing="inference"><div><span>Inference</span><span class="tag" id="inference-device">Unverified</span><strong>—</strong></div><div class="bar"><i></i></div></div>
+        <div class="timing-row" data-timing="placement"><div><span>Robot places part</span><span class="tag">Arm</span><strong>—</strong></div><div class="bar"><i></i></div></div>
         <div class="stats"><div><span>Median inference</span><strong id="inference-median">—</strong></div><div><span>p95 inference</span><strong id="inference-p95">—</strong></div></div>
         <p class="note" id="inference-samples">No measured cycles yet.</p>
-        <p class="note timing-note">Bars use a log scale, so millisecond AI steps stay visible next to robot motion.</p>
+        <p class="note timing-note">Log scale, so milliseconds stay visible next to seconds.</p>
       </section>
     </section>
 
     <section class="panel pad live-panel" aria-labelledby="live-title">
       <div class="panel-heading">
-        <div><h2 id="live-title">Live from Physical AI Studio</h2><p class="note" id="live-headline">Studio link off. Start the dashboard with --studio-url to see the cell’s cameras.</p></div>
+        <div>
+          <h2 id="live-title">Cameras</h2>
+          <div class="live-status"><span class="status" id="studio-badge"><i></i><span>Studio not connected</span></span><span class="status" id="device-badge"><i></i><span>No inspector</span></span></div>
+          <p class="note" id="live-headline" hidden></p>
+        </div>
         <div class="replay-controls">
-          <span class="rec" id="rec-status"><i></i>REC off</span>
-          <button class="secondary" id="rec-toggle">● Record</button>
-          <button class="secondary" id="replay-play" disabled>▶ Replay</button>
+          <span class="rec" id="rec-status"><i></i>Not recording</span>
+          <button class="btn" id="rec-toggle">Record</button>
+          <button class="btn" id="replay-play" disabled>Replay</button>
           <input type="range" id="replay-seek" min="0" max="0" value="0" aria-label="Replay position" disabled>
         </div>
       </div>
-      <div class="camera-grid" id="camera-grid"><div class="camera-empty">No cameras yet. In Studio, add cameras to the project, then select Live.</div></div>
+      <div class="camera-grid" id="camera-grid"><div class="camera-empty">Switch to Live to see Studio’s cameras.</div></div>
     </section>
 
     <section class="console-grid">
       <section class="panel pad command-panel" aria-labelledby="command-title">
-        <div class="panel-heading"><h2 id="command-title">Tell Armigo what to do</h2><span class="micro" id="control-lock">ARM CONTROL LOCKED</span></div>
+        <div class="panel-heading"><h2 id="command-title">Tell Armigo what to do</h2><span class="micro" id="control-lock">Arm locked</span></div>
         <form id="command-form" autocomplete="off">
-          <label class="prompt"><span>&gt;</span><input id="command-input" placeholder="sort this brick" aria-label="Command"><button class="primary" type="submit">Run</button></label>
+          <div class="prompt"><input id="command-input" placeholder="Sort this brick" aria-label="Command"><button class="btn primary" type="submit">Run</button></div>
           <div class="chips" id="command-chips">
             <button type="button" data-prompt="Sort this brick">Sort this brick</button>
             <button type="button" data-prompt="Is this brick defective?">Is it defective?</button>
-            <button type="button" data-prompt="Put it in the green bowl">Green bowl</button>
+            <button type="button" data-prompt="Put it in the green bowl">Green plate</button>
             <button type="button" data-prompt="Reject this one">Reject it</button>
           </div>
         </form>
@@ -146,87 +149,87 @@
           <label>Environment<select id="run-environment"></select></label>
           <label>Policy<select id="run-model"></select></label>
           <label>Device<select id="run-device"><option>auto</option><option>CPU</option><option>GPU</option><option>NPU</option></select></label>
-          <label>Inspect camera<select id="run-camera"></select></label>
-          <label class="check"><input type="checkbox" id="operator-present"> Operator is at the cell</label>
+          <label>Camera<select id="run-camera"></select></label>
+          <label class="check"><input type="checkbox" id="operator-present"> Someone is at the robot</label>
         </div>
         <div class="command-out" id="command-out" aria-live="polite">
-          <p class="note">Armigo understands a small, safe set of actions: inspect, sort, send to a named bowl, and stop. Anything else is refused, never guessed.</p>
+          <p class="note">Inspect, sort, send to a plate, or stop.</p>
         </div>
         <ol class="plan" id="plan"></ol>
-        <div class="run-bar" id="run-bar" hidden><div class="run-text" id="run-text"></div><div class="bar"><i id="run-progress"></i></div><button class="stop" id="stop-run">■ STOP</button></div>
+        <div class="run-bar" id="run-bar" hidden><div class="run-text" id="run-text"></div><div class="bar"><i id="run-progress"></i></div><button class="btn danger" id="stop-run">Stop</button></div>
       </section>
 
       <section class="panel pad resource-panel" aria-labelledby="resource-title">
-        <div class="panel-heading"><div><h2 id="resource-title">Edge performance</h2><p class="note" id="resource-host">Start the dashboard server to see this computer’s resources.</p></div><span class="badge" id="resource-status" role="status">Monitor not connected</span></div>
+        <div class="panel-heading"><div><h2 id="resource-title">Edge performance</h2><p class="note" id="resource-host">Waiting for the dashboard server.</p></div><span id="resource-status" role="status">Not connected</span></div>
         <div class="resource-grid">
           <article class="resource-card" data-resource="cpu"><div><h3>CPU</h3><strong>—</strong></div><svg viewBox="0 0 280 60" preserveAspectRatio="none" role="img" aria-label="CPU utilization history"><path/></svg><p>All cores</p></article>
-          <article class="resource-card" data-resource="memory"><div><h3>Memory</h3><strong>—</strong></div><svg viewBox="0 0 280 60" preserveAspectRatio="none" role="img" aria-label="Memory utilization history"><path/></svg><p id="resource-memory">Used / total RAM</p></article>
-          <article class="resource-card" data-resource="gpu"><div><h3>GPU</h3><strong>—</strong></div><svg viewBox="0 0 280 60" preserveAspectRatio="none" role="img" aria-label="GPU utilization history"><path/></svg><p>Available platform counters</p></article>
-          <article class="resource-card" data-resource="npu"><div><h3>NPU</h3><strong>—</strong></div><svg viewBox="0 0 280 60" preserveAspectRatio="none" role="img" aria-label="NPU utilization history"><path/></svg><p>Available platform counters</p></article>
+          <article class="resource-card" data-resource="memory"><div><h3>Memory</h3><strong>—</strong></div><svg viewBox="0 0 280 60" preserveAspectRatio="none" role="img" aria-label="Memory utilization history"><path/></svg><p id="resource-memory">Used / total</p></article>
+          <article class="resource-card" data-resource="gpu"><div><h3>GPU</h3><strong>—</strong></div><svg viewBox="0 0 280 60" preserveAspectRatio="none" role="img" aria-label="GPU utilization history"><path/></svg><p>Platform counters</p></article>
+          <article class="resource-card" data-resource="npu"><div><h3>NPU</h3><strong>—</strong></div><svg viewBox="0 0 280 60" preserveAspectRatio="none" role="img" aria-label="NPU utilization history"><path/></svg><p>Platform counters</p></article>
         </div>
-        <div class="cores-wrap"><h3>Per core</h3><div class="cores" id="cpu-cores"><span class="note">Per-core counters appear on Linux.</span></div></div>
+        <div class="cores-wrap"><h3>Per core</h3><div class="cores" id="cpu-cores"><span class="note">Shown on Linux.</span></div></div>
         <div class="proc-wrap"><h3>Busiest processes</h3>
-          <table class="proc" id="process-table"><thead><tr><th>Process</th><th>PID</th><th>CPU</th><th>Memory</th></tr></thead><tbody><tr><td colspan="4" class="note">Process counters appear on Linux.</td></tr></tbody></table>
+          <table class="proc" id="process-table"><thead><tr><th>Process</th><th>PID</th><th>CPU</th><th>Memory</th></tr></thead><tbody><tr><td colspan="4" class="note">Shown on Linux.</td></tr></tbody></table>
         </div>
-        <div class="resource-foot"><span id="resource-power">CPU package power: —</span><span>1 s sampling · 60 samples</span></div>
-        <p class="note" id="resource-note">Host counters include other workloads. Model device and latency come from inspection timings.</p>
+        <div class="resource-foot"><span id="resource-power">Package power: —</span><span>Updated every second</span></div>
+        <p class="note" id="resource-note"></p>
       </section>
     </section>
 
     <footer class="toolbar">
-      <div class="scenario-control"><label for="scenario">Demo part</label><select id="scenario"><option value="defective">Defective part</option><option value="normal">Perfect part</option><option value="uncertain">Needs review</option><option value="fault">Arm fault</option></select><button id="play" class="secondary">Play demo</button></div>
-      <span class="footer-note">PERCEIVE → DETECT → REASON → ACT → OPTIMIZE <span>Intel Physical AI Challenge · Junction 2026</span></span>
+      <div class="scenario-control"><label for="scenario">Demo part</label><select id="scenario"><option value="defective">Defective</option><option value="normal">Good</option><option value="uncertain">Unsure</option><option value="fault">Arm fault</option></select><button id="play" class="btn">Play demo</button></div>
+      <span>Junction 2026 · Intel Physical AI Challenge</span>
     </footer>
     <noscript>This dashboard needs JavaScript.</noscript>
   </main>
   <dialog id="intro-dialog" class="intro-dialog" aria-labelledby="intro-title" data-chapter="problem">
-    <div class="intro-top"><span>ARMIGO <span>/</span> A SECOND LOOK, BUILT IN.</span><button id="intro-close" aria-label="Close introduction">✕</button></div>
+    <div class="intro-top"><span>Armigo</span><button id="intro-close" aria-label="Close introduction">✕</button></div>
     <div class="intro-film">
-      <div class="intro-copy"><span id="intro-label">01 / THE PROBLEM</span><h2 id="intro-title">Small defects. Expensive consequences.</h2><p id="intro-caption">Catch the problem before it becomes a return.</p></div>
+      <div class="intro-copy"><span id="intro-label">The problem</span><h2 id="intro-title">Small defects. Expensive consequences.</h2><p id="intro-caption">Catch the problem before it becomes a return.</p></div>
       <svg class="intro-art" viewBox="0 0 900 350" role="img" aria-label="Animated concept illustration of inspection, robotic sorting, human review and local laptop inference">
-        <defs><pattern id="intro-grid" width="35" height="35" patternUnits="userSpaceOnUse"><path d="M35 0H0V35" fill="none" stroke="#39ff6a10"/></pattern><linearGradient id="belt-gradient"><stop stop-color="#0f2a17"/><stop offset="1" stop-color="#07150b"/></linearGradient></defs>
+        <defs><pattern id="intro-grid" width="35" height="35" patternUnits="userSpaceOnUse"><path d="M35 0H0V35" fill="none" stroke="#4cc77710"/></pattern><linearGradient id="belt-gradient"><stop stop-color="#0f2a17"/><stop offset="1" stop-color="#07150b"/></linearGradient></defs>
         <rect width="900" height="350" fill="url(#intro-grid)"/>
         <g class="story-scene story-problem">
           <text x="70" y="65" class="art-small">THE SAME CHECK. AGAIN. AND AGAIN.</text>
           <rect x="50" y="220" width="800" height="50" rx="25" fill="url(#belt-gradient)" stroke="#1f5c2e"/>
-          <path d="M80 245H820" stroke="#22b84a" stroke-dasharray="7 12"/>
-          <g class="conveyor-parts" fill="#7fbf8f" stroke="#a9f5bd" stroke-width="2"><rect x="120" y="160" width="85" height="60" rx="7"/><rect x="290" y="160" width="85" height="60" rx="7"/><rect x="460" y="160" width="85" height="60" rx="7"/><rect x="630" y="160" width="85" height="60" rx="7"/></g>
-          <g class="defect-callout"><circle cx="503" cy="190" r="46" fill="none" stroke="#ff4136" stroke-width="2"/><path d="m493 170 14 15-12 13 16 9" stroke="#ff4136" stroke-width="4" fill="none"/><path d="M540 158 585 110H750" stroke="#ff4136" fill="none"/><text x="595" y="100" class="art-label" fill="#ff4136">ONE MISSED DEFECT</text></g>
+          <path d="M80 245H820" stroke="#5f8f72" stroke-dasharray="7 12"/>
+          <g class="conveyor-parts" fill="#a9b8ae" stroke="#d6e3db" stroke-width="2"><rect x="120" y="160" width="85" height="60" rx="7"/><rect x="290" y="160" width="85" height="60" rx="7"/><rect x="460" y="160" width="85" height="60" rx="7"/><rect x="630" y="160" width="85" height="60" rx="7"/></g>
+          <g class="defect-callout"><circle cx="503" cy="190" r="46" fill="none" stroke="#e5574d" stroke-width="2"/><path d="m493 170 14 15-12 13 16 9" stroke="#e5574d" stroke-width="4" fill="none"/><path d="M540 158 585 110H750" stroke="#e5574d" fill="none"/><text x="595" y="100" class="art-label" fill="#e5574d">ONE MISSED DEFECT</text></g>
           <text x="70" y="315" class="art-small">RETURNS</text><text x="365" y="315" class="art-small">REWORK</text><text x="660" y="315" class="art-small">WASTED MATERIAL</text>
         </g>
         <g class="story-scene story-inspect">
           <rect x="60" y="225" width="540" height="40" rx="20" fill="url(#belt-gradient)" stroke="#1f5c2e"/>
           <path d="M240 225V65H430V225" fill="none" stroke="#2d6b3d" stroke-width="8"/>
-          <rect x="290" y="52" width="90" height="35" rx="8" fill="#a9f5bd"/><circle cx="335" cy="85" r="9" fill="#39ff6a"/>
-          <path class="scan-cone" d="m335 97-80 125h160Z" fill="#39ff6a16" stroke="#39ff6a55"/>
-          <rect x="296" y="175" width="78" height="50" rx="6" fill="#7fbf8f"/>
-          <rect class="scan-line" x="270" y="135" width="130" height="3" fill="#39ff6a"/>
+          <rect x="290" y="52" width="90" height="35" rx="8" fill="#d6e3db"/><circle cx="335" cy="85" r="9" fill="#4cc777"/>
+          <path class="scan-cone" d="m335 97-80 125h160Z" fill="#4cc77716" stroke="#4cc77755"/>
+          <rect x="296" y="175" width="78" height="50" rx="6" fill="#a9b8ae"/>
+          <rect class="scan-line" x="270" y="135" width="130" height="3" fill="#4cc777"/>
           <g fill="none" stroke="#4f8a5e" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"><path d="M700 260v-55l55-105-95-45-48 105"/><path d="m598 158 14 17 15-17" stroke-width="5"/></g>
-          <circle cx="755" cy="100" r="15" fill="#39ff6a"/><rect x="650" y="260" width="105" height="16" rx="5" fill="#2d6b3d"/>
+          <circle cx="755" cy="100" r="15" fill="#4cc777"/><rect x="650" y="260" width="105" height="16" rx="5" fill="#2d6b3d"/>
           <text x="280" y="315" class="art-small">PERCEIVE → DETECT → REASON → ACT</text>
         </g>
         <g class="story-scene story-human">
-          <path d="M450 65V135M450 135 220 225M450 135 680 225" stroke="#22b84a" stroke-width="2" fill="none"/>
-          <rect x="415" y="40" width="70" height="55" rx="8" fill="#7fbf8f"/>
-          <g class="human-route"><path d="M450 135V245" stroke="#ffb52e" stroke-width="3" stroke-dasharray="6 7"/><circle cx="450" cy="248" r="38" fill="#2a1f08" stroke="#ffb52e"/><circle cx="450" cy="237" r="10" fill="none" stroke="#ffb52e" stroke-width="3"/><path d="M433 266v-5a17 17 0 0 1 34 0v5" fill="none" stroke="#ffb52e" stroke-width="3"/></g>
-          <path d="M165 230q55 80 110 0Z" fill="#39ff6a"/><path d="M625 230q55 80 110 0Z" fill="#ff4136"/>
-          <text x="177" y="315" class="art-label" fill="#39ff6a">GOOD PART</text><text x="390" y="315" class="art-label" fill="#ffb52e">HUMAN REVIEW</text><text x="650" y="315" class="art-label" fill="#ff4136">DEFECT</text>
+          <path d="M450 65V135M450 135 220 225M450 135 680 225" stroke="#5f8f72" stroke-width="2" fill="none"/>
+          <rect x="415" y="40" width="70" height="55" rx="8" fill="#a9b8ae"/>
+          <g class="human-route"><path d="M450 135V245" stroke="#e2a336" stroke-width="3" stroke-dasharray="6 7"/><circle cx="450" cy="248" r="38" fill="#2a1f08" stroke="#e2a336"/><circle cx="450" cy="237" r="10" fill="none" stroke="#e2a336" stroke-width="3"/><path d="M433 266v-5a17 17 0 0 1 34 0v5" fill="none" stroke="#e2a336" stroke-width="3"/></g>
+          <path d="M165 230q55 80 110 0Z" fill="#4cc777"/><path d="M625 230q55 80 110 0Z" fill="#e5574d"/>
+          <text x="177" y="315" class="art-label" fill="#4cc777">GOOD PART</text><text x="390" y="315" class="art-label" fill="#e2a336">HUMAN REVIEW</text><text x="650" y="315" class="art-label" fill="#e5574d">DEFECT</text>
           <text x="525" y="173" class="art-small">UNSURE? PAUSE.</text>
         </g>
         <g class="story-scene story-edge">
-          <rect x="240" y="35" width="420" height="230" rx="16" fill="#06120a" stroke="#22b84a" stroke-width="3"/><path d="M240 265h420l65 35H175Z" fill="#0f2a17" stroke="#22b84a" stroke-width="2"/>
+          <rect x="240" y="35" width="420" height="230" rx="16" fill="#06120a" stroke="#5f8f72" stroke-width="3"/><path d="M240 265h420l65 35H175Z" fill="#0f2a17" stroke="#5f8f72" stroke-width="2"/>
           <text x="280" y="78" class="art-small">LOCAL INFERENCE / INTEL LAPTOP</text>
-          <g fill="#0b2412" stroke="#39ff6a"><rect x="280" y="110" width="95" height="95" rx="10"/><rect x="402" y="110" width="95" height="95" rx="10"/><rect x="524" y="110" width="95" height="95" rx="10"/></g>
+          <g fill="#0b2412" stroke="#4cc777"><rect x="280" y="110" width="95" height="95" rx="10"/><rect x="402" y="110" width="95" height="95" rx="10"/><rect x="524" y="110" width="95" height="95" rx="10"/></g>
           <g class="chip-label" text-anchor="middle"><text x="328" y="165">CPU</text><text x="450" y="165">GPU</text><text x="572" y="165">NPU</text></g>
-          <path class="edge-pulse" d="M280 235h45l12-15 12 26 12-11h88l12-15 12 26 12-11h132" stroke="#39ff6a" fill="none" stroke-width="3"/>
+          <path class="edge-pulse" d="M280 235h45l12-15 12 26 12-11h88l12-15 12 26 12-11h132" stroke="#4cc777" fill="none" stroke-width="3"/>
           <text x="300" y="335" class="art-small">MEASURE THE WORK. SEE THE HEADROOM.</text>
         </g>
       </svg>
-      <span class="concept-label">CONCEPT ANIMATION</span>
+      <span class="concept-label">Concept animation</span>
     </div>
-    <nav class="intro-chapters" aria-label="Introduction chapters"><button data-chapter-index="0">01 <span>The problem</span></button><button data-chapter-index="1">02 <span>The solution</span></button><button data-chapter-index="2">03 <span>The human</span></button><button data-chapter-index="3">04 <span>The edge</span></button></nav>
+    <nav class="intro-chapters" aria-label="Introduction chapters"><button data-chapter-index="0">1. <span>The problem</span></button><button data-chapter-index="1">2. <span>The solution</span></button><button data-chapter-index="2">3. <span>The human</span></button><button data-chapter-index="3">4. <span>The edge</span></button></nav>
     <audio id="intro-audio" preload="metadata"></audio>
-    <div class="intro-controls"><button id="intro-play" class="secondary">Play intro</button><label><input type="checkbox" id="intro-narration" checked> Narration</label><button id="intro-enter" class="intro-enter">Explore the cell →</button></div>
+    <div class="intro-controls"><button id="intro-play" class="btn primary">Play intro</button><label><input type="checkbox" id="intro-narration" checked> Narration</label><button id="intro-enter" class="btn intro-enter">Take the tour</button></div>
     <p id="intro-audio-status" class="audio-note" role="status">Press Play to begin</p>
     <details class="intro-transcript"><summary>Read this chapter</summary><p id="intro-transcript"></p></details>
   </dialog>

@@ -4,9 +4,9 @@
  */
 import * as THREE from './vendor/three.module.min.mjs';
 
-const W = 1.6, H = 0.96, D = 0.8;
-const TONES = {normal: 0x39ff6a, defective: 0xff4136, uncertain: 0xffb52e, none: 0x22b84a};
-export const BRICK_COLOURS = [0xd8402f, 0xf2c230, 0x2f7fd8, 0x2fa84f];
+const W = 1.1, H = 0.8, D = 1.1;
+const TONES = {normal: 0x4cc777, defective: 0xe5574d, uncertain: 0xe2a336, none: 0x5d6862};
+export const BRICK_COLOURS = [0x37b6e9];
 
 /** Where a defect sits: face, position on that face and kind (grey tape or black marker). */
 const FACES = {
@@ -24,8 +24,8 @@ export class BrickViews {
 		this.scene = new THREE.Scene();
 		this.scene.add(new THREE.HemisphereLight(0xffffff, 0x0a120c, 0.75 * Math.PI));
 		const key = new THREE.DirectionalLight(0xffffff, 0.8 * Math.PI); key.position.set(2, 4, 3); this.scene.add(key);
-		const fill = new THREE.DirectionalLight(0x9fffbf, 0.25 * Math.PI); fill.position.set(-3, 1, -2); this.scene.add(fill);
-		const grid = new THREE.GridHelper(6, 24, 0x1f5c2e, 0x0d2614); grid.position.y = -H / 2 - 0.001; this.scene.add(grid);
+		const fill = new THREE.DirectionalLight(0xffffff, 0.25 * Math.PI); fill.position.set(-3, 1, -2); this.scene.add(fill);
+		const grid = new THREE.GridHelper(6, 24, 0x343b37, 0x232826); grid.position.y = -H / 2 - 0.001; this.scene.add(grid);
 		this.brick = new THREE.Group(); this.scene.add(this.brick);
 		const ortho = () => new THREE.OrthographicCamera(-1.4, 1.4, 1, -1, 0.1, 20);
 		this.views = [
@@ -51,9 +51,9 @@ export class BrickViews {
 		this.brick.add(body);
 		const tone = TONES[label] ?? TONES.none;
 		this.brick.add(new THREE.LineSegments(new THREE.EdgesGeometry(body.geometry), new THREE.LineBasicMaterial({color: tone})));
-		const stud = new THREE.CylinderGeometry(0.15, 0.15, 0.17, 24);
-		for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) {
-			const s = new THREE.Mesh(stud, material); s.position.set(-0.6 + i * 0.4, H / 2 + 0.085, -0.2 + j * 0.4); this.brick.add(s);
+		const stud = new THREE.CylinderGeometry(0.17, 0.17, 0.17, 24);
+		for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
+			const s = new THREE.Mesh(stud, material); s.position.set(-0.27 + i * 0.54, H / 2 + 0.085, -0.27 + j * 0.54); this.brick.add(s);
 		}
 		this.defect = null;
 		if (defect && FACES[defect.face]) {
@@ -65,7 +65,7 @@ export class BrickViews {
 			mark.position.set(...face.at(defect.u ?? 0.2, defect.v ?? 0.1));
 			mark.rotation.set(...face.rot); mark.rotateZ(defect.kind === 'marker' ? 0.5 : -0.25);
 			this.brick.add(mark);
-			const ring = new THREE.Mesh(new THREE.RingGeometry(0.34, 0.38, 48), new THREE.MeshBasicMaterial({color: tone, side: THREE.DoubleSide, transparent: true, opacity: 0.95}));
+			const ring = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.34, 48), new THREE.MeshBasicMaterial({color: tone, side: THREE.DoubleSide, transparent: true, opacity: 0.95}));
 			ring.position.copy(mark.position).addScaledVector(new THREE.Vector3(...face.normal), 0.004);
 			ring.rotation.set(...face.rot);
 			this.brick.add(ring);
@@ -88,10 +88,10 @@ export class BrickViews {
 			const x = (i % 2) * halfW, y = (i < 2 ? halfH : 0);
 			const w = halfW - gap, h = halfH - gap;
 			this.renderer.setViewport(x, y, w, h); this.renderer.setScissor(x, y, w, h);
-			this.renderer.setClearColor(i === 3 ? 0x050b07 : 0x030604);
+			this.renderer.setClearColor(i === 3 ? 0x151917 : 0x111413);
 			const c = view.camera;
 			if (c.isOrthographicCamera) {
-				const aspect = w / h, span = 1.25;
+				const aspect = w / h, span = 1.0;
 				c.left = -span * aspect; c.right = span * aspect; c.top = span; c.bottom = -span; c.updateProjectionMatrix();
 			} else { c.aspect = w / h; c.updateProjectionMatrix(); }
 			view.place(c, now);

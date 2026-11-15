@@ -1,6 +1,6 @@
 # PhysicAI sorting dashboard
 
-The standalone UI in [`frontend/`](../../frontend/) is **Armigo**: a black/green LED-style dashboard with a product pitch, a narrated intro, a guided tour over a 3D sorting cell, the inspected brick from four viewpoints, live Physical AI Studio cameras, a typed command console, recording and replay, and an edge-performance monitor. It uses browser-native HTML, CSS and ES modules, plus a vendored three.js r160 build (`frontend/vendor/`, MIT) and two bundled OFL fonts (`frontend/assets/fonts/`); there is no package installation, build step or runtime CDN dependency. It leaves the pinned Studio submodule unchanged.
+The standalone UI in [`frontend/`](../../frontend/) is **Armigo**: a plain dark dashboard with a short pitch and a photo of our cell (`frontend/assets/cell.jpg`, cropped to the robot and table, no people), a narrated intro, a guided tour over a 3D model of the cell (white table, blue SO-101, green and pink plates, light-blue 2×2 brick), the inspected brick from four viewpoints, live Physical AI Studio cameras, a typed command console, recording and replay, and an edge-performance monitor. It uses browser-native HTML, CSS and ES modules with system fonts, plus a vendored three.js r160 build (`frontend/vendor/`, MIT); there is no package installation, build step or runtime CDN dependency. It leaves the pinned Studio submodule unchanged.
 
 ## Armigo: sources, live Studio link and replay
 

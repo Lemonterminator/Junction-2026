@@ -34,11 +34,11 @@ Branch `feat/async-inference-pipeline`; full report in [ASYNC_PIPELINE_BENCHMARK
 
 ## Update 2026-11-15 — Armigo dashboard and live Studio link
 
-- The dashboard is now **Armigo** (black/green LED theme): product pitch, narrated intro (narration
+- The dashboard is now **Armigo** (plain dark style with system fonts and a cropped photo of the cell; the 3D model mirrors the real table, arm, plates and brick): product pitch, narrated intro (narration
   regenerated for the new name), a 7-step guided tour that drives the 3D cell, the decision panel and the
   score meter with pinned annotations, the brick from four viewpoints with the defect marked, live Studio
   camera tiles, a typed command console, in-browser recording/replay, and an edge monitor with per-core
-  load and the busiest processes. three.js r160 and two OFL fonts are vendored; no CDN at runtime.
+  load and the busiest processes. three.js r160 is vendored; no CDN at runtime.
 - `sorter-dashboard --studio-url` links Physical AI Studio (`studio_link.py`): camera previews through
   Studio's own socket, live inspection of the newest frame (`live_inspection.py`, `--anomaly-model` on a
   chosen OpenVINO device or `--purity`) with separately measured decode/isolate/inference times.

@@ -5,13 +5,13 @@
  */
 import * as THREE from './vendor/three.module.min.mjs';
 
-const C = {g: 0x39ff6a, red: 0xff4136, amber: 0xffb52e, bg: 0x030504};
+const C = {g: 0x4cc777, red: 0xe5574d, amber: 0xe2a336, bg: 0x161918, plateGreen: 0x2fc25b, platePink: 0xf27fb3, arm: 0x3346d6, servo: 0x141414};
 const POS = {
 	robot: new THREE.Vector3(1.0, 0, -0.9), spot: new THREE.Vector3(0, 0, 0.7),
 	green: new THREE.Vector3(-1.9, 0, -1.1), pink: new THREE.Vector3(2.5, 0, 1.0),
 	review: new THREE.Vector3(-1.9, 0, 1.4), laptop: new THREE.Vector3(3.0, 0, -1.6),
 };
-const BRICK = {w: 0.8, h: 0.36, d: 0.5};
+const BRICK = {w: 0.5, h: 0.36, d: 0.5};
 const L1 = 2.2, L2 = 2.1, SH = 1.05, G = 0.5;
 const VIEWS = {
 	home: {az: -0.32, el: 0.62, dist: 11.8, target: [0.3, 0.4, 0.1]},
@@ -33,7 +33,7 @@ export class Cell3D {
 		this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 		this.scene = new THREE.Scene();
 		this.scene.background = new THREE.Color(C.bg);
-		this.scene.fog = new THREE.Fog(C.bg, 15, 32);
+		this.scene.fog = new THREE.Fog(C.bg, 18, 36);
 		this.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
 		this.view = {...VIEWS.home, target: new THREE.Vector3(...VIEWS.home.target)};
 		this.anchors = {};
@@ -61,23 +61,24 @@ export class Cell3D {
 
 	#build() {
 		const s = this.scene;
-		s.add(new THREE.HemisphereLight(0xcfe8d6, 0x0a120c, 0.7 * Math.PI));
-		const sun = new THREE.DirectionalLight(0xffffff, 0.9 * Math.PI);
+		s.add(new THREE.HemisphereLight(0xffffff, 0x2a2d2c, 0.8 * Math.PI));
+		const sun = new THREE.DirectionalLight(0xfff6ea, 0.85 * Math.PI);
 		sun.position.set(-4, 10, 6); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
 		Object.assign(sun.shadow.camera, {left: -7, right: 7, top: 7, bottom: -7});
 		s.add(sun);
-		this.spotLight = new THREE.PointLight(C.g, 0, 6, 0); this.spotLight.position.set(0, 3.4, 0.7); s.add(this.spotLight);
+		this.spotLight = new THREE.PointLight(0xffffff, 0, 6, 0); this.spotLight.position.set(0, 3.4, 0.7); s.add(this.spotLight);
 
-		const floor = this.#mesh(new THREE.PlaneGeometry(60, 60), this.#mat(0x050806, {metalness: 0}), false);
+		const floor = this.#mesh(new THREE.PlaneGeometry(60, 60), this.#mat(0x1c1f1e, {metalness: 0}), false);
 		floor.rotation.x = -Math.PI / 2; floor.position.y = -0.9; s.add(floor);
-		const grid = new THREE.GridHelper(40, 40, 0x1f5c2e, 0x0e2a15); grid.position.y = -0.89; s.add(grid);
-		const table = this.#edges(this.#mesh(new THREE.BoxGeometry(8.6, 0.25, 5.6), this.#mat(0x0b110d, {roughness: 0.85}), false), C.g, 0.7);
-		table.position.y = -0.125; s.add(table);
-		const tgrid = new THREE.GridHelper(5.6, 14, 0x154a23, 0x0d2614); tgrid.scale.x = 8.6 / 5.6; tgrid.position.y = 0.004; s.add(tgrid);
+		const wood = this.#mesh(new THREE.BoxGeometry(8.6, 0.24, 5.6), this.#mat(0x8a6a48, {roughness: 0.8, metalness: 0}), false);
+		wood.position.y = -0.13; s.add(wood);
+		const top = this.#mesh(new THREE.BoxGeometry(8.4, 0.02, 5.4), this.#mat(0xeeece6, {roughness: 0.9, metalness: 0}), false);
+		top.position.y = 0; s.add(top);
+		this.#tableDetails();
 		for (const [x, z] of [[-4, -2.5], [4, -2.5], [-4, 2.5], [4, 2.5]]) {
-			const leg = this.#mesh(new THREE.BoxGeometry(0.2, 0.65, 0.2), this.#mat(0x111713)); leg.position.set(x, -0.57, z); s.add(leg);
+			const leg = this.#mesh(new THREE.BoxGeometry(0.2, 0.65, 0.2), this.#mat(0x5a4632)); leg.position.set(x, -0.57, z); s.add(leg);
 		}
-		this.bins = {green: this.#bin(C.g, POS.green), pink: this.#bin(C.red, POS.pink)};
+		this.bins = {green: this.#bin(C.plateGreen, POS.green), pink: this.#bin(C.platePink, POS.pink)};
 		this.#reviewMark();
 		this.#spotMarker();
 		this.#cameraMast();
@@ -90,15 +91,39 @@ export class Cell3D {
 		});
 	}
 
+	/** Paper sheets, printed markers and tape, like the real table. */
+	#tableDetails() {
+		const paper = this.#mat(0xf8f7f3, {roughness: 0.95, metalness: 0});
+		for (const [x, z, w, d, r] of [[-1.2, -0.4, 3.0, 2.1, 0.03], [1.6, 0.8, 2.8, 2.2, -0.04], [0.3, -1.6, 2.6, 1.5, 0.02]]) {
+			const sheet = this.#mesh(new THREE.BoxGeometry(w, 0.004, d), paper, false); sheet.position.set(x, 0.013, z); sheet.rotation.y = r; this.scene.add(sheet);
+		}
+		const marker = seed => {
+			const c = document.createElement('canvas'); c.width = c.height = 60;
+			const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 60, 60); x.fillStyle = '#111'; x.fillRect(5, 5, 50, 50); x.fillStyle = '#fff';
+			for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) if (Math.sin(seed * 31 + i * 7 + j * 13) > 0.1) x.fillRect(12 + i * 9, 12 + j * 9, 9, 9);
+			const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; return t;
+		};
+		[[2.0, -0.2, 1], [-2.8, 1.9, 2], [3.4, 1.9, 3], [-0.6, -2.2, 4], [2.55, 1.05, 5]].forEach(([x, z, seed]) => {
+			const m = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.42), new THREE.MeshStandardMaterial({map: marker(seed), roughness: 0.9}));
+			m.rotation.x = -Math.PI / 2; m.rotation.z = seed * 0.2; m.position.set(x, 0.018, z); m.receiveShadow = true; this.scene.add(m);
+		});
+		const tape = this.#mat(0x9a9d9c, {roughness: 0.4, metalness: 0.4});
+		[[1.4, -0.9], [2.7, -0.6], [3.6, 0.2], [-0.4, 1.7], [0.9, 2.3], [-3.2, -1.6]].forEach(([x, z], i) => {
+			const t = this.#mesh(new THREE.BoxGeometry(0.34, 0.006, 0.1), tape, false); t.position.set(x, 0.02, z); t.rotation.y = i * 0.7; this.scene.add(t);
+		});
+	}
+
 	#bin(color, at) {
-		const pts = [], R = 0.95, H = 0.45;
-		for (let i = 0; i <= 12; i++) { const t = i / 12; pts.push(new THREE.Vector2(0.45 + (R - 0.45) * Math.sin(t * Math.PI / 2), H * (1 - Math.cos(t * Math.PI / 2)))); }
-		for (let i = 12; i >= 0; i--) { const t = i / 12; pts.push(new THREE.Vector2(0.40 + (R - 0.47) * Math.sin(t * Math.PI / 2), 0.05 + (H - 0.02) * (1 - Math.cos(t * Math.PI / 2)))); }
+		const pts = [], R = 1.0, H = 0.16;
+		pts.push(new THREE.Vector2(0, 0.02));
+		for (let i = 0; i <= 10; i++) { const t = i / 10; pts.push(new THREE.Vector2(0.62 + (R - 0.62) * t, 0.02 + H * t * t)); }
+		pts.push(new THREE.Vector2(R + 0.03, H + 0.02));
+		for (let i = 10; i >= 0; i--) { const t = i / 10; pts.push(new THREE.Vector2(0.6 + (R - 0.63) * t, 0.05 + (H - 0.02) * t * t)); }
+		pts.push(new THREE.Vector2(0, 0.05));
 		const g = new THREE.Group();
-		g.add(this.#mesh(new THREE.LatheGeometry(pts, 48), this.#mat(0x1a201c, {roughness: 0.4, metalness: 0.5, side: THREE.DoubleSide})));
-		const rim = new THREE.Mesh(new THREE.TorusGeometry(R - 0.035, 0.03, 8, 64), this.#glow(color));
-		rim.rotation.x = Math.PI / 2; rim.position.y = H; g.add(rim);
-		const light = new THREE.PointLight(color, 0.6, 2.4, 0); light.position.y = 0.6; g.add(light);
+		g.add(this.#mesh(new THREE.LatheGeometry(pts, 56), this.#mat(color, {roughness: 0.35, metalness: 0, side: THREE.DoubleSide})));
+		const rim = new THREE.Object3D();
+		const light = new THREE.PointLight(color, 0, 2.4, 0); light.position.y = 0.6; g.add(light);
 		g.position.copy(at); this.scene.add(g);
 		return {group: g, rim, light};
 	}
@@ -106,16 +131,16 @@ export class Cell3D {
 	#reviewMark() {
 		const c = document.createElement('canvas'); c.width = c.height = 256;
 		const x = c.getContext('2d');
-		x.fillStyle = '#0b0b0b'; x.fillRect(0, 0, 256, 256);
-		x.strokeStyle = '#ffb52e'; x.lineWidth = 22;
+		x.fillStyle = '#1a1a1a'; x.fillRect(0, 0, 256, 256);
+		x.strokeStyle = '#e2a336'; x.lineWidth = 22;
 		for (let i = -256; i < 512; i += 52) { x.beginPath(); x.moveTo(i, 256); x.lineTo(i + 256, 0); x.stroke(); }
 		const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-		const p = this.#mesh(new THREE.PlaneGeometry(1.5, 1.2), new THREE.MeshStandardMaterial({map: tex, roughness: 0.8, emissive: 0x2a1c00, emissiveMap: tex}), false);
-		p.rotation.x = -Math.PI / 2; p.position.copy(POS.review); p.position.y = 0.007; this.scene.add(p);
+		const p = this.#mesh(new THREE.PlaneGeometry(1.5, 1.2), new THREE.MeshStandardMaterial({map: tex, roughness: 0.8}), false);
+		p.rotation.x = -Math.PI / 2; p.position.copy(POS.review); p.position.y = 0.024; this.scene.add(p);
 	}
 
 	#spotMarker() {
-		const g = new THREE.Group(), m = this.#glow(C.g), s = 0.95, dash = 0.17, gap = 0.12;
+		const g = new THREE.Group(), m = this.#glow(0x6c716e), s = 0.95, dash = 0.17, gap = 0.12;
 		for (let side = 0; side < 4; side++) {
 			for (let d = -s / 2; d < s / 2 - 0.02; d += dash + gap) {
 				const len = Math.min(dash, s / 2 - d), mid = d + len / 2;
@@ -125,20 +150,24 @@ export class Cell3D {
 				g.add(b);
 			}
 		}
-		g.position.copy(POS.spot); g.position.y = 0.008; this.scene.add(g);
+		g.position.copy(POS.spot); g.position.y = 0.022; this.scene.add(g);
 	}
 
 	#cameraMast() {
-		const black = this.#mat(0x151a17, {metalness: 0.5});
-		const pole = this.#mesh(new THREE.CylinderGeometry(0.07, 0.07, 4.2, 16), black); pole.position.set(-2.6, 2.1, -1.9); this.scene.add(pole);
+		const black = this.#mat(0x1b1d1c, {metalness: 0.5, roughness: 0.5});
+		const pole = this.#mesh(new THREE.CylinderGeometry(0.06, 0.06, 4.2, 16), black); pole.position.set(-2.6, 2.1, -1.9); this.scene.add(pole);
+		for (let k = 0; k < 3; k++) {
+			const a = k * 2.09 + 0.4, leg = this.#mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.6, 8), black);
+			leg.position.set(-2.6 + Math.cos(a) * 0.38, 0.72, -1.9 + Math.sin(a) * 0.38); leg.rotation.set(Math.sin(a) * 0.5, 0, -Math.cos(a) * 0.5); this.scene.add(leg);
+		}
 		const len = Math.hypot(POS.spot.x + 2.6, POS.spot.z + 1.9);
 		const boom = this.#mesh(new THREE.CylinderGeometry(0.05, 0.05, len, 12), black); boom.rotation.z = Math.PI / 2; boom.position.x = len / 2;
 		const arm = new THREE.Group(); arm.position.set(-2.6, 4.1, -1.9); arm.rotation.y = -Math.atan2(POS.spot.z + 1.9, POS.spot.x + 2.6); arm.add(boom); this.scene.add(arm);
-		const body = this.#edges(this.#mesh(new THREE.BoxGeometry(0.35, 0.25, 0.35), black)); body.position.set(POS.spot.x, 3.95, POS.spot.z); this.scene.add(body);
-		this.lens = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.12, 16), this.#glow(0x0f3d1b));
+		const body = this.#mesh(new THREE.BoxGeometry(0.35, 0.25, 0.35), black); body.position.set(POS.spot.x, 3.95, POS.spot.z); this.scene.add(body);
+		this.lens = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.12, 16), this.#glow(0x222624));
 		this.lens.position.set(POS.spot.x, 3.78, POS.spot.z); this.scene.add(this.lens);
 		this.cone = new THREE.Mesh(new THREE.ConeGeometry(0.75, 3.6, 32, 1, true),
-			new THREE.MeshBasicMaterial({color: C.g, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false}));
+			new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false}));
 		this.cone.position.set(POS.spot.x, 1.95, POS.spot.z); this.scene.add(this.cone);
 		this.scan = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), new THREE.MeshBasicMaterial({color: C.g, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false}));
 		this.scan.rotation.x = -Math.PI / 2; this.scan.position.copy(POS.spot); this.scene.add(this.scan);
@@ -146,10 +175,10 @@ export class Cell3D {
 
 	#laptop() {
 		const g = new THREE.Group();
-		const base = this.#edges(this.#mesh(new THREE.BoxGeometry(1.5, 0.06, 1.0), this.#mat(0x1b2220, {metalness: 0.6})), C.g, 0.35);
+		const base = this.#mesh(new THREE.BoxGeometry(1.5, 0.06, 1.0), this.#mat(0x3a3e3d, {metalness: 0.6, roughness: 0.4}));
 		base.position.y = 0.03; g.add(base);
 		const lid = new THREE.Group(); lid.position.set(0, 0.06, -0.5); lid.rotation.x = -0.32; g.add(lid);
-		const screen = this.#edges(this.#mesh(new THREE.BoxGeometry(1.5, 0.95, 0.04), this.#mat(0x1b2220, {metalness: 0.6})), C.g, 0.35);
+		const screen = this.#mesh(new THREE.BoxGeometry(1.5, 0.95, 0.04), this.#mat(0x3a3e3d, {metalness: 0.6, roughness: 0.4}));
 		screen.position.y = 0.475; lid.add(screen);
 		const c = document.createElement('canvas'); c.width = 256; c.height = 160;
 		this.laptopCanvas = c;
@@ -157,7 +186,7 @@ export class Cell3D {
 		const display = new THREE.Mesh(new THREE.PlaneGeometry(1.36, 0.82), new THREE.MeshBasicMaterial({map: this.laptopTex}));
 		display.position.set(0, 0.475, 0.025); lid.add(display);
 		this.chips = ['CPU', 'GPU', 'NPU'].map((name, i) => {
-			const chip = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.02, 0.22), this.#glow(0x0f3d1b));
+			const chip = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.02, 0.22), this.#glow(0x2a2f2c));
 			chip.position.set(-0.4 + i * 0.4, 0.07, 0.15); g.add(chip); return chip;
 		});
 		g.position.copy(POS.laptop); g.rotation.y = -0.5; this.scene.add(g);
@@ -166,35 +195,35 @@ export class Cell3D {
 
 	#drawLaptop(text) {
 		const x = this.laptopCanvas.getContext('2d');
-		x.fillStyle = '#021005'; x.fillRect(0, 0, 256, 160);
-		x.fillStyle = '#39ff6a'; x.font = '18px monospace';
-		x.fillText('ARMIGO EDGE', 16, 30);
-		x.font = '14px monospace'; x.fillStyle = '#22b84a';
-		(text ?? 'idle · local inference').split('\n').forEach((line, i) => x.fillText(line, 16, 62 + i * 22));
+		x.fillStyle = '#16191a'; x.fillRect(0, 0, 256, 160);
+		x.fillStyle = '#e7ebe8'; x.font = '600 18px system-ui, sans-serif';
+		x.fillText('Armigo', 16, 32);
+		x.font = '15px system-ui, sans-serif'; x.fillStyle = '#95a09a';
+		(text ?? 'Ready').split('\n').forEach((line, i) => x.fillText(line, 16, 62 + i * 22));
 		this.laptopTex.needsUpdate = true;
 	}
 
 	#arm() {
-		const metal = this.#mat(0x2c332e, {roughness: 0.35, metalness: 0.7}), black = this.#mat(0x0e120f, {roughness: 0.5, metalness: 0.4});
-		const ring = r => new THREE.Mesh(new THREE.TorusGeometry(r, 0.025, 8, 40), this.#glow(C.g));
+		const metal = this.#mat(C.arm, {roughness: 0.55, metalness: 0}), black = this.#mat(C.servo, {roughness: 0.5, metalness: 0.2});
+		const ring = r => new THREE.Mesh(new THREE.TorusGeometry(r, 0.02, 8, 40), this.#mat(0x222222));
 		const robot = new THREE.Group(); robot.position.copy(POS.robot); this.scene.add(robot);
-		const base = this.#edges(this.#mesh(new THREE.CylinderGeometry(0.62, 0.7, 0.3, 40), black), C.g, 0.25); base.position.y = 0.15; robot.add(base);
-		const baseRing = ring(0.64); baseRing.rotation.x = Math.PI / 2; baseRing.position.y = 0.3; robot.add(baseRing);
+		const base = this.#mesh(new THREE.CylinderGeometry(0.55, 0.6, 0.3, 40), metal); base.position.y = 0.15; robot.add(base);
+		const baseRing = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 12), new THREE.MeshBasicMaterial({color: C.g})); baseRing.position.set(0.45, 0.25, 0.3); robot.add(baseRing);
 		this.yaw = new THREE.Group(); this.yaw.position.y = 0.3; robot.add(this.yaw);
 		const tower = this.#mesh(new THREE.CylinderGeometry(0.38, 0.42, SH - 0.3, 32), metal); tower.position.y = (SH - 0.3) / 2; this.yaw.add(tower);
 		this.shoulder = new THREE.Group(); this.shoulder.position.y = SH - 0.3; this.yaw.add(this.shoulder);
-		this.shoulder.add(this.#edges(this.#mesh(new THREE.BoxGeometry(0.5, 0.5, 0.55), black), C.g, 0.4));
+		this.shoulder.add(this.#mesh(new THREE.BoxGeometry(0.5, 0.5, 0.55), black));
 		const r1 = ring(0.2); r1.position.z = 0.29; this.shoulder.add(r1);
-		this.shoulder.add(this.#edges(this.#mesh(new THREE.BoxGeometry(L1, 0.34, 0.36).translate(L1 / 2, 0, 0), metal), C.g, 0.18));
-		const s1 = new THREE.Mesh(new THREE.BoxGeometry(L1 * 0.6, 0.03, 0.01), this.#glow(C.g)); s1.position.set(L1 / 2, 0, 0.185); this.shoulder.add(s1);
+		this.shoulder.add(this.#mesh(new THREE.BoxGeometry(L1, 0.34, 0.36).translate(L1 / 2, 0, 0), metal));
+		const s1 = this.#mesh(new THREE.BoxGeometry(0.3, 0.3, 0.01), this.#mat(0xffffff)); s1.position.set(L1 * 0.45, 0, 0.185); this.shoulder.add(s1);
 		this.elbow = new THREE.Group(); this.elbow.position.x = L1; this.shoulder.add(this.elbow);
-		this.elbow.add(this.#edges(this.#mesh(new THREE.BoxGeometry(0.46, 0.46, 0.5), black), C.g, 0.4));
+		this.elbow.add(this.#mesh(new THREE.BoxGeometry(0.46, 0.46, 0.5), black));
 		const r2 = ring(0.18); r2.position.z = 0.26; this.elbow.add(r2);
-		this.elbow.add(this.#edges(this.#mesh(new THREE.BoxGeometry(L2, 0.28, 0.3).translate(L2 / 2, 0, 0), metal), C.g, 0.18));
-		const s2 = new THREE.Mesh(new THREE.BoxGeometry(L2 * 0.6, 0.03, 0.01), this.#glow(C.g)); s2.position.set(L2 / 2, 0, 0.155); this.elbow.add(s2);
+		this.elbow.add(this.#mesh(new THREE.BoxGeometry(L2, 0.28, 0.3).translate(L2 / 2, 0, 0), metal));
+		const s2 = new THREE.Object3D();
 		this.wrist = new THREE.Group(); this.wrist.position.x = L2; this.elbow.add(this.wrist);
-		this.wrist.add(this.#edges(this.#mesh(new THREE.BoxGeometry(0.36, 0.36, 0.4), black), C.g, 0.4));
-		const palm = this.#mesh(new THREE.BoxGeometry(0.16, 0.3, 1.05), black); palm.position.x = 0.2; this.wrist.add(palm);
+		this.wrist.add(this.#mesh(new THREE.BoxGeometry(0.36, 0.36, 0.4), black));
+		const palm = this.#mesh(new THREE.BoxGeometry(0.16, 0.3, 0.95), metal); palm.position.x = 0.2; this.wrist.add(palm);
 		const finger = new THREE.BoxGeometry(0.48, 0.12, 0.09).translate(0.24, 0, 0);
 		this.fingers = [this.#mesh(finger, metal), this.#mesh(finger, metal)];
 		this.fingers.forEach(f => { f.position.x = 0.26; this.wrist.add(f); });
@@ -220,11 +249,11 @@ export class Cell3D {
 		const g = new THREE.Group(), material = this.#mat(color, {roughness: 0.35, metalness: 0.1});
 		g.add(this.#mesh(new THREE.BoxGeometry(BRICK.w, BRICK.h, BRICK.d), material));
 		const stud = new THREE.CylinderGeometry(0.075, 0.075, 0.07, 20);
-		for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) {
-			const s = this.#mesh(stud, material); s.position.set(-0.3 + i * 0.2, BRICK.h / 2 + 0.035, -0.1 + j * 0.2); g.add(s);
+		for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
+			const s = this.#mesh(stud, material); s.position.set(-0.12 + i * 0.24, BRICK.h / 2 + 0.035, -0.12 + j * 0.24); g.add(s);
 		}
 		if (defect) {
-			const mark = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.012, 0.09), new THREE.MeshStandardMaterial({color: defect === 'tape' ? 0x9aa09c : 0x111111, roughness: 0.9}));
+			const mark = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.012, 0.08), new THREE.MeshStandardMaterial({color: defect === 'tape' ? 0x9aa09c : 0x111111, roughness: 0.9}));
 			mark.position.set(0.05, BRICK.h / 2 + 0.008, 0.08); mark.rotation.y = -0.5; g.add(mark);
 		}
 		this.scene.add(g);
@@ -260,7 +289,7 @@ export class Cell3D {
 		await this.#gripTo(1, 120);
 		pile.push(brick);
 		if (pile.length > 8) this.scene.remove(pile.shift());
-		this.#flash(this.bins[destination].light, 3);
+		this.#flash(this.bins[destination].light, 1.2);
 		await this.#move(above(target, 1.9), 220);
 		await this.#move(this.home, 480);
 	}
@@ -286,13 +315,13 @@ export class Cell3D {
 		if (state.stage === 'perceive') {
 			this.lens.material.color.setHex(C.g);
 			this.#tween(t => { this.cone.material.opacity = 0.12 * Math.sin(Math.PI * t); this.spotLight.intensity = 2 * Math.sin(Math.PI * t); }, 1000)
-				.then(() => this.lens.material.color.setHex(0x0f3d1b));
+				.then(() => this.lens.material.color.setHex(0x222624));
 		}
 		if (state.stage === 'detect') {
 			this.chips[2].material.color.setHex(C.g);
 			this.#drawLaptop(state.mode === 'demo' ? 'anomaly model\nscoring the crop…' : `anomaly model\n${state.device ?? 'device unverified'}`);
 			this.#tween(t => { this.scan.position.y = 0.05 + 0.5 * t; this.scan.material.opacity = 0.35 * Math.sin(Math.PI * t); }, 900)
-				.then(() => this.chips[2].material.color.setHex(0x0f3d1b));
+				.then(() => this.chips[2].material.color.setHex(0x2a2f2c));
 		}
 		if (state.stage === 'reason' || state.stage === 'review') {
 			this.#drawLaptop(`score ${Number.isFinite(state.score) ? state.score.toFixed(2) : '—'}\n→ ${state.destination ? state.destination + ' bowl' : 'human review'}`);
@@ -357,7 +386,6 @@ export class Cell3D {
 		this.camera.lookAt(target);
 		this.#solve();
 		if (this.carried) this.carried.position.copy(this.tip);
-		if (!reduceMotion()) this.statusRing.scale.setScalar(1 + 0.03 * Math.sin(now / 400));
 		this.renderer.render(this.scene, this.camera);
 		const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
 		for (const a of this.annotations) {

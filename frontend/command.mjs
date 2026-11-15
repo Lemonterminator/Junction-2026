@@ -10,18 +10,18 @@ export const TASKS = {
 
 export const ACTIONS = {
 	INSPECT_AND_SORT: {moves: true, title: 'Inspect, then sort', summary: 'Score the brick, then let the measured result choose the bowl. An uncertain result waits for a person.'},
-	SORT_GREEN: {moves: true, title: 'Sort to the green bowl', summary: 'Run the fixed green-bowl task without inspecting first.'},
-	SORT_PINK: {moves: true, title: 'Sort to the pink bowl', summary: 'Run the fixed pink-bowl task without inspecting first.'},
+	SORT_GREEN: {moves: true, title: 'Sort to the green plate', summary: 'Run the fixed green-bowl task without inspecting first.'},
+	SORT_PINK: {moves: true, title: 'Sort to the pink plate', summary: 'Run the fixed pink-bowl task without inspecting first.'},
 	INSPECT: {moves: false, title: 'Inspect only', summary: 'Score the brick and show the decision. The arm stays still.'},
 	STOP: {moves: false, title: 'Stop', summary: 'Hold the arm where it is and end the run.'},
 };
 
 const PLANS = {
-	INSPECT_AND_SORT: [['capture', 'Capture the newest camera frame'], ['score', 'Score it with Anomalib'], ['decide', 'Compare with the thresholds'], ['act', 'Run the matching fixed task, or hold for review']],
-	SORT_GREEN: [['act', `Run “${TASKS.green}”`]],
-	SORT_PINK: [['act', `Run “${TASKS.pink}”`]],
-	INSPECT: [['capture', 'Capture the newest camera frame'], ['score', 'Score it with Anomalib'], ['decide', 'Compare with the thresholds']],
-	STOP: [['hold', 'Hold the arm and end the run']],
+	INSPECT_AND_SORT: [['capture', 'Take a picture'], ['score', 'Score it'], ['decide', 'Decide'], ['act', 'Sort it, or wait for a person']],
+	SORT_GREEN: [['act', 'Put it on the green plate']],
+	SORT_PINK: [['act', 'Put it on the pink plate']],
+	INSPECT: [['capture', 'Take a picture'], ['score', 'Score it'], ['decide', 'Decide']],
+	STOP: [['hold', 'Hold the arm still']],
 };
 
 const has = (text, words) => words.some(word => new RegExp(`\\b${word}\\b`).test(text));
