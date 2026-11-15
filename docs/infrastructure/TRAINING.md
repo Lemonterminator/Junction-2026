@@ -193,6 +193,12 @@ Source contracts: [training CLI parser](../../external/physical-ai-studio/librar
 [v3 import checks](../../external/physical-ai-studio/application/backend/src/cli/hf/inspection.py),
 [task metadata semantics](../../external/physical-ai-studio/application/backend/src/internal_datasets/lerobot/episode_task.py).
 
+## Overflow GPU on Modal
+
+When the 5090 is busy, the same plan can run on a Modal GPU with the same pinned
+environment; the run directory comes back in the same layout and is logged with
+the tracker below. See [MODAL.md](MODAL.md).
+
 ## Experiment tracking with MLflow
 
 Finished runs are logged to a local MLflow server on the training PC
