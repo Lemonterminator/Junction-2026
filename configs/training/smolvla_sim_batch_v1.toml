@@ -1,0 +1,21 @@
+# SmolVLA action-expert training on the simulated batch dataset (configs/training/dataset.sim_batch_v1.toml),
+# meant as a sim-pretrained starting point for a later fine-tune on sort-depth-v2.
+# 117k frames: one epoch is about 7.3k steps at an effective batch of 16, so 15k steps run two epochs and validation
+# writes best.ckpt. Same model settings as smolvla_sort_depth_v2 so the two runs compare.
+name = "smolvla-sim-batch-v1-15k"
+policy = "smolvla"
+experimental = false
+batch_size = 8
+max_steps = 15000
+val_split = 0.1
+split_seed = 4
+precision = "bf16-mixed"
+accumulate_grad_batches = 2
+
+[model]
+pretrained_name_or_path = "lerobot/smolvla_base"
+optimizer_lr = 0.0001
+freeze_vision_encoder = true
+train_expert_only = true
+train_state_proj = true
+compile_model = false

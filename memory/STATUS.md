@@ -1,5 +1,16 @@
 # Current status
 
+## Update 2026-11-15 — SmolVLA on the simulated batch dataset (Modal)
+
+- `configs/training/dataset.sim_batch_v1.toml` and `smolvla_sim_batch_v1.toml`: SmolVLA
+  action expert on sim-batch-v1 (172 simulated episodes, 117,172 frames, same features
+  as sort-depth-v2), 15k steps at an effective batch of 16, 10 % held-out episodes. The
+  dataset root is `data/sim/lerobot_batch_v1` (Git-ignored). Intended as a sim-pretrained
+  start for a fine-tune on sort-depth-v2; its scores are simulated and never pooled with
+  real ones.
+- The Modal spend limit is now raised (the sim render ran there). The dataset sits in the
+  Volume at `/datasets/sim-batch-v1`; run `smolvla-sim-v1-01` on L40S, capped at 4 h.
+
 ## Update 2026-11-15 — Modal as overflow GPU
 
 - `scripts/modal/train.py` runs the `defect_sorter.training` plan on a Modal GPU in
