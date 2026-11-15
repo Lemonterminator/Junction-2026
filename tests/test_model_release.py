@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from defect_sorter.model_release import release_manifest, verify_download
+from defect_sorter.model_release import anomaly_manifest, release_manifest, verify_download
 
 
 def _setup(tmp_path):
@@ -65,3 +65,69 @@ def test_verify_download_reports_missing_and_corrupt_files(tmp_path):
 	(export / "smolvla.bin").write_bytes(b"\x00")
 	(export / "smolvla.xml").unlink()
 	assert sorted(verify_download(export, manifest)) == ["smolvla.bin: sha256 mismatch", "smolvla.xml: missing"]
+
+
+def _anomaly_setup(tmp_path):
+	base = tmp_path / "real-baseline-v2"
+	fold_export = base / "fold0" / "padim" / "export" / "weights" / "openvino"
+	fold_export.mkdir(parents=True)
+	(fold_export / "model.xml").write_text("<net/>", encoding="utf-8")
+	(fold_export / "model.bin").write_bytes(b"\x07\x08")
+	confusion = {"normal->normal": 11, "normal->defective": 12, "defective->defective": 9, "defective->normal": 3}
+	summary = {
+		"dataset": "data/studio/af9b173a",
+		"camera": "wrist",
+		"frames": 612,
+		"episodes": 35,
+		"padim_score/median": {
+			"episode_confusion": confusion,
+			"thresholds": [0.45],
+			"frame_auroc_test_per_fold": [0.74],
+		},
+		"latency_padim_includes_resize": {"CPU": {"median_ms": 4.0, "p90_ms": 4.4, "runs": 200}},
+	}
+	folds = [
+		{
+			"fold": 0,
+			"val_fold": 1,
+			"train_frames": 200,
+			"padim_score/median": {"threshold": 0.45, "frame_auroc_test": 0.74},
+		}
+	]
+	(base / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+	(base / "folds.json").write_text(json.dumps(folds), encoding="utf-8")
+	release = tmp_path / "release"
+	release.mkdir()
+	for name in ("model.xml", "model.bin"):
+		(release / name).write_bytes((fold_export / name).read_bytes())
+	return release, base
+
+
+def test_anomaly_manifest_records_cpu_threshold_results_and_files(tmp_path):
+	release, base = _anomaly_setup(tmp_path)
+	manifest = anomaly_manifest(release, base, 0, status="baseline", commit="abc")
+	assert manifest["status"] == "baseline"
+	assert manifest["source"] == "real"
+	assert manifest["code_commit"] == "abc"
+	inspection = manifest["inspection"]
+	assert inspection["model"] == "padim"
+	assert inspection["thresholds"] == {"CPU": pytest.approx(0.45)}
+	assert inspection["aggregate"] == "median"
+	assert inspection["fold"] == 0
+	assert inspection["train_frames"] == 200
+	assert inspection["results"]["defects_caught"] == 9
+	assert inspection["results"]["defects_total"] == 12
+	assert inspection["results"]["normals_passed"] == 11
+	assert inspection["results"]["normals_total"] == 23
+	assert inspection["latency_ms"]["CPU"]["median_ms"] == pytest.approx(4.0)
+	files = {f["name"]: f for f in manifest["files"]}
+	assert set(files) == {"model.xml", "model.bin"}
+	assert files["model.bin"]["sha256"] == hashlib.sha256(b"\x07\x08").hexdigest()
+	assert verify_download(release, manifest) == []
+
+
+def test_anomaly_manifest_rejects_a_release_whose_model_differs_from_the_fold_export(tmp_path):
+	release, base = _anomaly_setup(tmp_path)
+	(release / "model.bin").write_bytes(b"other")
+	with pytest.raises(ValueError, match=r"model\.bin"):
+		anomaly_manifest(release, base, 0, status="baseline", commit="abc")

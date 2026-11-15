@@ -10,6 +10,7 @@ steps, final losses), the code commit and a status.
 | Status | Meaning |
 | --- | --- |
 | `smoke-test` | Proves the export and download path. Not for the arm. |
+| `baseline` | First model on real recordings with known data limits (see the manifest's `inspection` block). Not validated for the arm. |
 | `candidate` | Trained on real recordings, under evaluation. |
 | `demo` | Frozen for the judged run. |
 
@@ -69,3 +70,27 @@ tailscale serve --bg 5000
 
 The server is started with `--allowed-hosts` that includes the machine's
 `*.ts.net` name so MLflow accepts proxied requests.
+
+## Anomaly baselines (PatchCore, Padim)
+
+`anomaly-manifest` packages one fold model of `scripts/anomaly/real_baseline.py` (default fold 0) with the threshold
+chosen on that fold's validation episodes, the cross-fold episode results, frame AUROC per fold and the measured
+latency. It refuses a staged `model.xml`/`model.bin` that differs from the fold export. The manifest records the
+**CPU** threshold only:
+
+- Scores differ by device (the NPU scores about 16 % lower than the CPU), so calibrate the threshold on each device
+  before using that device's scores.
+- On Intel integrated GPUs compile with `INFERENCE_PRECISION_HINT=f32`; the default FP16 output is wrong
+  (`OpenVinoScorer` sets it).
+- The PatchCore export has a fixed batch of 2; `OpenVinoScorer` keeps it.
+- Good-brick training data are mostly orange and from one session, so these are baselines, not final models.
+
+```bash
+uv run --extra tracking python -m defect_sorter.tracking anomaly artifacts/anomaly/real-baseline-v2 --fold 0 --uri https://monsterai.tail8cc5dd.ts.net --param backbone=resnet18
+mkdir -p artifacts/release/anomaly-padim-baseline-1 && cp artifacts/anomaly/real-baseline-v2/fold0/padim/export/weights/openvino/model.* artifacts/release/anomaly-padim-baseline-1/
+uv run python -m defect_sorter.model_release anomaly-manifest artifacts/release/anomaly-padim-baseline-1 artifacts/anomaly/real-baseline-v2 --fold 0 --status baseline --out artifacts/release/anomaly-padim-baseline-1/release.json
+gh release create anomaly-padim-baseline-1 artifacts/release/anomaly-padim-baseline-1/* --repo Lemonterminator/Junction-2026 --target main --prerelease --title "Padim baseline 1"
+```
+
+On Windows set `PYTHONIOENCODING=utf-8` for the tracking command: MLflow prints an emoji run link that cp1252 cannot
+encode, which leaves the run in status RUNNING (the files are uploaded; mark it FINISHED).
