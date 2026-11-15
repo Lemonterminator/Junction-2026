@@ -53,6 +53,13 @@ Branch `feat/async-inference-pipeline`; full report in [ASYNC_PIPELINE_BENCHMARK
   commands, and the previews recovered after the session ended. **Not yet run against the real Studio, its
   cameras or the arm**; the Studio message shapes come from the pinned submodule source. Per-core/process
   counters were tested with synthetic procfs only.
+- Review fixes (PR #21, tests written first and seen failing): bounded websocket reads keep STOP and the
+  run time limit effective while only pings or half a frame arrive; the run slot is reserved atomically and
+  STOP cancels a start still preparing; inspection refuses disconnected cameras and frames older than
+  `--max-frame-age-s`; inspect-then-sort scores a fresh session frame after model loading and holds the arm
+  unless that evidence is younger than `--evidence-ttl-s`; relays release a continuously streaming camera
+  when the last viewer leaves; the page routes STOP before view/health checks, keeps the run bar in every
+  view and distinguishes a requested from a confirmed stop; Live never draws an unmeasured defect location.
 - Next: on the workstation, start with `--studio-url` and no `--studio-control`, confirm camera tiles and
   live inspection (camera choice, `IsolateConfig` and threshold for the real wrist view); only then try one
   operator-attended run with a short `--max-run-s`.

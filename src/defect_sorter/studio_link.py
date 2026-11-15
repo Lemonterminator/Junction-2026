@@ -53,9 +53,7 @@ class WebSocketClosedError(ConnectionError):
 class MessageSocket(Protocol):
 	"""What relays and runs need from a websocket; :class:`WebSocket` and test scripts implement it."""
 
-	def poll(self, timeout: float) -> bool: ...
-
-	def recv(self) -> tuple[bool, bytes]: ...
+	def recv(self, timeout: float | None = None) -> tuple[bool, bytes] | None: ...
 
 	def send_text(self, text: str) -> None: ...
 
@@ -76,6 +74,8 @@ class WebSocket:
 	def __init__(self, sock: socket.socket, buffered: bytes = b"") -> None:
 		self._sock = sock
 		self._buffer = bytearray(buffered)
+		self._fragments: bytearray | None = None
+		self._fragment_text = False
 		self._send_lock = threading.Lock()
 
 	@classmethod
@@ -128,22 +128,35 @@ class WebSocket:
 		sock.settimeout(None)
 		return cls(sock, rest)
 
-	def _exact(self, n: int) -> bytes:
-		while len(self._buffer) < n:
-			chunk = self._sock.recv(max(65536, n - len(self._buffer)))
-			if not chunk:
-				raise WebSocketClosedError("connection closed")
-			self._buffer += chunk
-		data = bytes(self._buffer[:n])
-		del self._buffer[:n]
-		return data
-
-	def poll(self, timeout: float) -> bool:
-		"""Whether bytes are ready, waiting at most ``timeout`` seconds."""
-		if self._buffer:
-			return True
-		ready, _, _ = select.select([self._sock], [], [], timeout)
-		return bool(ready)
+	def _parse_frame(self) -> tuple[bool, int, bytes] | None:
+		"""Take one complete frame from the buffer, or None while it is still incomplete (nothing is consumed)."""
+		buf = self._buffer
+		if len(buf) < 2:
+			return None
+		b0, b1 = buf[0], buf[1]
+		length, offset = b1 & 0x7F, 2
+		if length == 126:
+			if len(buf) < 4:
+				return None
+			length, offset = struct.unpack(">H", buf[2:4])[0], 4
+		elif length == 127:
+			if len(buf) < 10:
+				return None
+			length, offset = struct.unpack(">Q", buf[2:10])[0], 10
+		if length > _MAX_MESSAGE:
+			raise WebSocketClosedError("message too large")
+		mask = None
+		if b1 & 0x80:
+			if len(buf) < offset + 4:
+				return None
+			mask, offset = bytes(buf[offset : offset + 4]), offset + 4
+		if len(buf) < offset + length:
+			return None
+		payload = bytes(buf[offset : offset + length])
+		del buf[: offset + length]
+		if mask:
+			payload = bytes(b ^ mask[i % 4] for i, b in enumerate(payload))
+		return bool(b0 & 0x80), b0 & 0x0F, payload
 
 	def _send_frame(self, opcode: int, payload: bytes) -> None:
 		head = bytes([0x80 | opcode])
@@ -163,46 +176,52 @@ class WebSocket:
 		"""Send one text message."""
 		self._send_frame(0x1, text.encode())
 
-	def recv(self) -> tuple[bool, bytes]:
-		"""Return the next whole message as ``(is_text, payload)``.
+	def recv(self, timeout: float | None = None) -> tuple[bool, bytes] | None:
+		"""Return the next whole message as ``(is_text, payload)``, or None when ``timeout`` seconds pass first.
+
+		The wait is bounded as a whole: pings are answered and partial frames or fragmented messages are kept in
+		the buffer for the next call, so a caller can check its own stop conditions between calls without losing
+		data. ``timeout=None`` waits indefinitely.
 
 		Raises
 		------
 		WebSocketClosedError
 			On a close frame or a closed connection.
 		"""
-		message = bytearray()
-		is_text = False
+		deadline = None if timeout is None else time.monotonic() + timeout
 		while True:
-			b0, b1 = self._exact(2)
-			fin, opcode = b0 & 0x80, b0 & 0x0F
-			length = b1 & 0x7F
-			if length == 126:
-				length = struct.unpack(">H", self._exact(2))[0]
-			elif length == 127:
-				length = struct.unpack(">Q", self._exact(8))[0]
-			if length > _MAX_MESSAGE:
-				raise WebSocketClosedError("message too large")
-			mask = self._exact(4) if b1 & 0x80 else None
-			payload = self._exact(length)
-			if mask:
-				payload = bytes(b ^ mask[i % 4] for i, b in enumerate(payload))
-			if opcode == 0x8:
-				raise WebSocketClosedError("closed by server")
-			if opcode == 0x9:
-				self._send_frame(0xA, payload)
-				continue
-			if opcode == 0xA:
-				continue
-			if opcode in (0x1, 0x2):
-				is_text = opcode == 0x1
-				message = bytearray(payload)
-			else:
-				message += payload
-			if len(message) > _MAX_MESSAGE:
-				raise WebSocketClosedError("message too large")
-			if fin:
-				return is_text, bytes(message)
+			while (frame := self._parse_frame()) is not None:
+				fin, opcode, payload = frame
+				if opcode == 0x8:
+					raise WebSocketClosedError("closed by server")
+				if opcode == 0x9:
+					self._send_frame(0xA, payload)
+					continue
+				if opcode == 0xA:
+					continue
+				if opcode in (0x1, 0x2):
+					self._fragments, self._fragment_text = bytearray(payload), opcode == 0x1
+				elif self._fragments is None:
+					raise WebSocketClosedError("continuation frame without a message")
+				else:
+					self._fragments += payload
+				if len(self._fragments) > _MAX_MESSAGE:
+					raise WebSocketClosedError("message too large")
+				if fin:
+					message, self._fragments = bytes(self._fragments), None
+					return self._fragment_text, message
+			remaining = None if deadline is None else deadline - time.monotonic()
+			if remaining is not None and remaining <= 0:
+				return None
+			pending = getattr(self._sock, "pending", None)
+			if not (pending and pending()):
+				ready, _, _ = select.select([self._sock], [], [], remaining)
+				if not ready:
+					return None
+			chunk = self._sock.recv(65536)
+			if not chunk:
+				raise WebSocketClosedError("connection closed")
+			self._buffer += chunk
 
 	def close(self) -> None:
 		"""Send a close frame (best effort) and close the socket."""
@@ -285,6 +304,13 @@ class CameraRelay:
 		"""Whether a viewer asked for frames within ``idle_s``."""
 		return self._clock() - self._requested_at <= self.idle_s
 
+	def receive_frame(self, jpeg: bytes) -> None:
+		"""Keep ``jpeg`` as the newest frame and mark the camera live."""
+		with self._lock:
+			sequence = self._frame.sequence + 1 if self._frame else 1
+			self._frame = Frame(jpeg, self._clock(), sequence)
+		self.status, self.error = "live", None
+
 	def run_once(self) -> None:
 		"""Connect once and receive until the socket closes, an error arrives or nobody is watching."""
 		self.status = "connecting"
@@ -294,12 +320,12 @@ class CameraRelay:
 			self.status, self.error = "error", f"Studio unreachable: {error}"
 			return
 		try:
-			while not self._stop.is_set():
-				if not ws.poll(0.5):
-					if not self.wanted():
-						break
+			# Viewer expiry is checked on every iteration, so a stream that never pauses is still released.
+			while not self._stop.is_set() and self.wanted():
+				message = ws.recv(0.5)
+				if message is None:
 					continue
-				is_text, payload = ws.recv()
+				is_text, payload = message
 				if is_text:
 					try:
 						message = json.loads(payload)
@@ -309,10 +335,7 @@ class CameraRelay:
 						self.status, self.error = "error", str(message.get("message", "camera error"))
 						return
 					continue
-				with self._lock:
-					sequence = self._frame.sequence + 1 if self._frame else 1
-					self._frame = Frame(payload, self._clock(), sequence)
-				self.status, self.error = "live", None
+				self.receive_frame(payload)
 		except WebSocketClosedError:
 			if self.status != "error":
 				self.status = "idle"
@@ -407,14 +430,18 @@ class PolicyRun:
 		``EnvironmentDraft`` to load (see :func:`environment_draft`).
 	model : dict
 		``model_id``, ``backend`` and ``device`` of the export to load.
-	task : str
-		Fixed task text (from :func:`task_for_action`).
+	task : str or None
+		Fixed task text (from :func:`task_for_action`); None when ``before_control`` chooses it.
 	hz : float
 		Action rate Studio takes from the model's queue.
 	max_s : float
 		The run sets control to None after this many seconds of model control.
 	clock : callable
 		Monotonic seconds.
+	before_control : callable or None
+		Called with the run after the model is loaded and right before control is enabled. It may set ``task``
+		(for example from an inspection of a fresh session frame) and returns None to go ahead or a reason to hold
+		the arm still; a hold ends the run without enabling control.
 	"""
 
 	def __init__(
@@ -423,11 +450,12 @@ class PolicyRun:
 		*,
 		environment: dict[str, Any],
 		model: dict[str, Any],
-		task: str,
+		task: str | None,
 		hz: float = 30,
 		max_s: float = 60,
 		clock: Callable[[], float] = time.monotonic,
 		wall_clock: Callable[[], float] = time.time,
+		before_control: Callable[[PolicyRun], str | None] | None = None,
 	) -> None:
 		self._connect = connect
 		self.environment = environment
@@ -437,6 +465,7 @@ class PolicyRun:
 		self.max_s = max_s
 		self._clock = clock
 		self._wall = wall_clock
+		self._before_control = before_control
 		self._ws: MessageSocket | None = None
 		self._stop = threading.Event()
 		self._lock = threading.Lock()
@@ -489,22 +518,44 @@ class PolicyRun:
 			self._fail(str(message.get("message", "session error")))
 		return message
 
-	def _await_ack(self, pending: _Pending, timeout_s: float = 120) -> dict[str, Any] | None:
+	def _await_ack(self, pending: _Pending, timeout_s: float = 120, cancellable: bool = True) -> dict[str, Any] | None:
+		"""Wait for the ack of ``pending``; None on failure, timeout, or (when cancellable) a stop request."""
 		if self._ws is None:
 			raise OSError("runtime session is not connected")
 		while self._clock() - pending.sent_at < timeout_s:
-			if self.phase == "failed":
+			if self.phase == "failed" or (cancellable and self._stop.is_set()):
 				return None
-			if not self._ws.poll(0.2):
+			received = self._ws.recv(0.2)
+			if received is None:
 				continue
-			message = self._handle(*self._ws.recv())
+			message = self._handle(*received)
 			if message and message.get("type") == "ack" and message.get("request_id") == pending.request_id:
 				return message
 		self._fail(f"{pending.command} did not finish in time")
 		return None
 
+	def wait_for_frame(self, key: str, newer_than: float, timeout_s: float) -> Frame | None:
+		"""Receive until camera ``key`` has a frame received after ``newer_than`` (Unix seconds), or give up.
+
+		Returns None on timeout, stop request or failure.
+		"""
+		if self._ws is None:
+			return None
+		deadline = self._clock() + timeout_s
+		while True:
+			with self._lock:
+				frame = self.frames.get(key)
+			if frame is not None and frame.received_at > newer_than:
+				return frame
+			remaining = deadline - self._clock()
+			if remaining <= 0 or self._stop.is_set() or self.phase == "failed":
+				return None
+			received = self._ws.recv(min(0.1, remaining))
+			if received is not None:
+				self._handle(*received)
+
 	def _fail(self, reason: str) -> None:
-		if self.phase not in ("failed", "stopped"):
+		if self.phase not in ("failed", "stopped", "held"):
 			logger.warning("policy run stopping: %s", reason)
 			self.phase, self.reason = "failed", reason
 
@@ -531,14 +582,26 @@ class PolicyRun:
 		try:
 			t = self._clock()
 			if not self._load("load_environment", "loading_environment", environment=self.environment):
-				self._close()
+				self._end_before_motion()
 				return
 			self.timings.environment_ms = (self._clock() - t) * 1000
 			t = self._clock()
 			if not self._load("load_model", "loading_model", **self.model):
-				self._close()
+				self._end_before_motion()
 				return
 			self.timings.model_ms = (self._clock() - t) * 1000
+			if self._before_control is not None:
+				self.phase = "checking"
+				hold = self._before_control(self)
+				if self._stop.is_set() or self.phase == "failed":
+					self._end_before_motion()
+					return
+				if hold is None and not self.task:
+					hold = "no task was chosen"
+				if hold is not None:
+					self.phase, self.reason = "held", hold
+					self._close()
+					return
 			if self._stop.is_set():
 				self._finish("stopped before motion")
 				return
@@ -558,6 +621,13 @@ class PolicyRun:
 			self._fail(str(error))
 			self._release()
 
+	def _end_before_motion(self) -> None:
+		"""End a run whose control was never enabled: stopped on request, else keep the failure reason."""
+		if self._stop.is_set() and self.phase != "failed":
+			self._finish("stopped before motion")
+		else:
+			self._close()
+
 	def pump(self, budget_s: float = 0.0) -> None:
 		"""Receive what is waiting; stop on request, time limit or failure."""
 		if self._ws is None or self.phase not in ("running", "failed"):
@@ -571,11 +641,13 @@ class PolicyRun:
 				if self.running_since is not None and self._clock() - self.running_since >= self.max_s:
 					self._finish(f"time limit of {self.max_s:g} s reached")
 					return
-				if not self._ws.poll(max(0.0, min(0.2, deadline - self._clock()))):
+				# recv is bounded, so pings or a half-received frame cannot delay STOP or the time limit.
+				received = self._ws.recv(max(0.0, min(0.2, deadline - self._clock())))
+				if received is None:
 					if self._clock() >= deadline:
 						return
 					continue
-				self._handle(*self._ws.recv())
+				self._handle(*received)
 		except (OSError, ValueError) as error:
 			self._fail(str(error))
 		if self.phase == "failed":
@@ -592,7 +664,7 @@ class PolicyRun:
 		if self._ws is None:
 			return
 		try:
-			self._await_ack(self._send("set_control", control=None), timeout_s=5)
+			self._await_ack(self._send("set_control", control=None), timeout_s=5, cancellable=False)
 		except (OSError, ValueError):
 			logger.exception("could not release control")
 		self._close()
@@ -685,9 +757,24 @@ class StudioHub:
 		Start relays and runs on threads; tests drive them directly.
 	clock : callable
 		Wall clock in Unix seconds.
+	max_frame_age_s : float
+		Oldest camera frame :meth:`inspect` accepts as evidence.
+	evidence_ttl_s : float
+		Oldest inspection evidence that may enable model control in ``INSPECT_AND_SORT``.
+	frame_wait_s : float
+		How long ``INSPECT_AND_SORT`` waits for a fresh session frame after the model is loaded.
 	"""
 
 	LIST_TTL_S = 5.0
+	ACTIVE_PHASES = (
+		"starting",
+		"loading_environment",
+		"loading_model",
+		"checking",
+		"starting_control",
+		"running",
+		"stopping",
+	)
 
 	def __init__(
 		self,
@@ -701,8 +788,16 @@ class StudioHub:
 		run_factory: Callable[..., Any] = PolicyRun,
 		background: bool = True,
 		clock: Callable[[], float] = time.time,
+		max_frame_age_s: float = 1.0,
+		evidence_ttl_s: float = 2.0,
+		frame_wait_s: float = 3.0,
 	) -> None:
 		self.client = client
+		self.max_frame_age_s = max_frame_age_s
+		self.evidence_ttl_s = evidence_ttl_s
+		self.frame_wait_s = frame_wait_s
+		self._run_lock = threading.Lock()
+		self._pending: threading.Event | None = None
 		self.project_id = project_id
 		self.control_enabled = control_enabled
 		self.inspector = inspector
@@ -758,8 +853,8 @@ class StudioHub:
 				if self._background:
 					relay.start()
 
-	def _camera_key(self, camera_id: str) -> str | None:
-		session = getattr(self.run, "session", None) or {}
+	def _camera_key(self, camera_id: str, run: Any = None) -> str | None:
+		session = getattr(run if run is not None else self.run, "session", None) or {}
 		for camera in (session.get("environment") or {}).get("cameras", []):
 			if str(camera.get("camera_id")) == camera_id:
 				return camera.get("key")
@@ -768,7 +863,7 @@ class StudioHub:
 	def frame(self, camera_id: str) -> Frame | None:
 		"""Newest frame of a camera: from the active run's session when it holds the camera, else the relay."""
 		run = self.run
-		if run is not None and getattr(run, "phase", None) == "running":
+		if run is not None and getattr(run, "phase", None) in ("checking", "running"):
 			key = self._camera_key(camera_id)
 			if key and key in run.frames:
 				return run.frames[key]
@@ -825,13 +920,7 @@ class StudioHub:
 			"timestamp": now * 1000,
 		}
 
-	def inspect(self, camera_id: str) -> tuple[int, dict[str, Any]]:
-		"""Score the newest frame of ``camera_id``; 409 when no inspector or no frame is available."""
-		if self.inspector is None:
-			return 409, {"error": "no inspector configured; start the dashboard with --anomaly-model or --purity"}
-		frame = self.frame(camera_id)
-		if frame is None:
-			return 409, {"error": f"no frame from camera {camera_id} yet"}
+	def _score(self, frame: Frame, camera_id: str) -> dict[str, Any]:
 		result = dict(self.inspector.inspect_jpeg(frame.jpeg))
 		self.crop_jpeg = result.pop("crop_jpeg", None)
 		result.update(
@@ -840,35 +929,91 @@ class StudioHub:
 			timestamp=self._clock() * 1000,
 		)
 		self.inspection = result
-		return 200, result
+		return result
+
+	def inspect(self, camera_id: str) -> tuple[int, dict[str, Any]]:
+		"""Score the newest frame of ``camera_id``.
+
+		409 when there is no inspector, no frame, the camera is not live, or the frame is older than
+		``max_frame_age_s``: an old or disconnected camera is never scored as current evidence.
+		"""
+		if self.inspector is None:
+			return 409, {"error": "no inspector configured; start the dashboard with --anomaly-model or --purity"}
+		run = self.run
+		key = self._camera_key(camera_id) if getattr(run, "phase", None) in ("checking", "running") else None
+		if key is not None:
+			frame = run.frames.get(key)
+		else:
+			relay = self.relays.get(camera_id)
+			frame = relay.latest() if relay else None
+			if frame is not None and relay.status != "live":
+				detail = f": {relay.error}" if relay.error else ""
+				return 409, {"error": f"camera {camera_id} is not live ({relay.status}{detail})"}
+		if frame is None:
+			return 409, {"error": f"no frame from camera {camera_id} yet"}
+		age = self._clock() - frame.received_at
+		if age > self.max_frame_age_s:
+			return 409, {"error": f"the newest frame from camera {camera_id} is {age:.1f} s old"}
+		return 200, self._score(frame, camera_id)
+
+	def _inspect_in_session(self, camera_id: str) -> Callable[[Any], str | None]:
+		"""Hook for :class:`PolicyRun`: score a session frame newer than the loaded model, then choose the task."""
+
+		def check(run: Any) -> str | None:
+			key = self._camera_key(camera_id, run)
+			if key is None:
+				return f"camera {camera_id} is not part of this environment; holding still"
+			frame = run.wait_for_frame(key, self._clock(), self.frame_wait_s)
+			if frame is None:
+				return "no fresh frame from the camera; holding still"
+			result = self._score(frame, camera_id)
+			age = self._clock() - frame.received_at
+			if age > self.evidence_ttl_s:
+				return f"inspection evidence expired ({age:.1f} s old); holding still"
+			if result["label"] not in ("normal", "defective"):
+				detail = result.get("reason") or f"score {result.get('score')}"
+				return f"held for review: {detail}"
+			_bowl, run.task = task_for_action("SORT_GREEN" if result["label"] == "normal" else "SORT_PINK")
+			return None
+
+		return check
+
+	def _active(self) -> bool:
+		return self.run is not None and getattr(self.run, "phase", "running") in self.ACTIVE_PHASES
 
 	def start_run(self, request: dict[str, Any]) -> tuple[int, dict[str, Any]]:
-		"""Start one fixed-task run; ``INSPECT_AND_SORT`` inspects first and holds on an uncertain label."""
+		"""Start one run: a fixed sort, or ``INSPECT_AND_SORT``, which scores a fresh session frame after loading.
+
+		The run slot is reserved before any slow work, so concurrent starts get 409, and :meth:`stop_run` cancels
+		a start that is still preparing.
+		"""
 		if not self.control_enabled:
 			return 403, {"error": "arm control is off; restart the dashboard with --studio-control to allow runs"}
-		if self.run is not None and getattr(self.run, "phase", "running") in (
-			"starting",
-			"loading_environment",
-			"loading_model",
-			"starting_control",
-			"running",
-			"stopping",
-		):
-			return 409, {"error": "a run is already active"}
-		action = request.get("action")
-		inspection = None
-		if action == "INSPECT_AND_SORT":
-			status, inspection = self.inspect(str(request.get("camera_id")))
-			if status != 200:
-				return status, inspection
-			label = inspection["label"]
-			if label not in ("normal", "defective"):
-				return 200, {"decision": "review", "inspection": inspection}
-			action = "SORT_GREEN" if label == "normal" else "SORT_PINK"
+		with self._run_lock:
+			if self._pending is not None or self._active():
+				return 409, {"error": "a run is already active"}
+			cancelled = threading.Event()
+			self._pending = cancelled
 		try:
-			bowl, task = task_for_action(str(action))
-		except ValueError as error:
-			return 400, {"error": str(error)}
+			return self._prepare_run(request, cancelled)
+		finally:
+			with self._run_lock:
+				if self._pending is cancelled:
+					self._pending = None
+
+	def _prepare_run(self, request: dict[str, Any], cancelled: threading.Event) -> tuple[int, dict[str, Any]]:
+		action = request.get("action")
+		hook = None
+		if action == "INSPECT_AND_SORT":
+			if self.inspector is None:
+				return 409, {"error": "no inspector configured; start the dashboard with --anomaly-model or --purity"}
+			bowl, task = "pending", None
+			hook = self._inspect_in_session(str(request.get("camera_id")))
+		else:
+			try:
+				bowl, task = task_for_action(str(action))
+			except ValueError as error:
+				return 400, {"error": str(error)}
 		try:
 			environment = environment_draft(
 				self.client.get_json(f"/api/projects/{self.project_id}/environments/{request['environment_id']}")
@@ -881,21 +1026,33 @@ class StudioHub:
 			"device": str(request.get("device") or "auto"),
 		}
 		project_id = self.project_id
-		self.run = self._run_factory(
-			lambda: self.client.runtime_socket(project_id, hz=10),
-			environment=environment,
-			model=model,
-			task=task,
-			hz=self.hz,
-			max_s=self.max_run_s,
-		)
+		options: dict[str, Any] = {"before_control": hook} if hook is not None else {}
+		with self._run_lock:
+			if cancelled.is_set():
+				return 409, {"error": "stopped before the run started"}
+			self.run = self._run_factory(
+				lambda: self.client.runtime_socket(project_id, hz=10),
+				environment=environment,
+				model=model,
+				task=task,
+				hz=self.hz,
+				max_s=self.max_run_s,
+				**options,
+			)
+			run = self.run
 		if self._background:
-			threading.Thread(target=self.run.run, name="studio-policy-run", daemon=True).start()
-		return 202, {"decision": bowl, "task": task, "inspection": inspection}
+			threading.Thread(target=run.run, name="studio-policy-run", daemon=True).start()
+		return 202, {"decision": bowl, "task": task}
 
 	def stop_run(self) -> dict[str, Any]:
-		"""Ask the active run to hold the arm; always allowed."""
-		if self.run is None:
-			return {"stopping": False}
-		self.run.request_stop()
-		return {"stopping": True}
+		"""Hold the arm: cancel a start that is still preparing and ask an existing run to stop; always allowed."""
+		with self._run_lock:
+			pending, run = self._pending, self.run
+			if pending is not None:
+				pending.set()
+			if run is not None:
+				run.request_stop()
+		return {
+			"stopping": pending is not None
+			or (run is not None and getattr(run, "phase", "running") in self.ACTIVE_PHASES)
+		}

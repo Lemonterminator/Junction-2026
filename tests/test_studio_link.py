@@ -1,14 +1,17 @@
 import base64
 import hashlib
 import json
+import select
 import socket
 import struct
 import threading
+import time
 
 import pytest
 
 from defect_sorter.studio_link import (
 	CameraRelay,
+	Frame,
 	PolicyRun,
 	WebSocket,
 	WebSocketClosedError,
@@ -168,12 +171,11 @@ class FakeSocket:
 		self.closed = False
 		self.on_send = on_send
 
-	def poll(self, timeout):
-		return bool(self.messages) or self.close_when_empty
-
-	def recv(self):
+	def recv(self, timeout=None):
 		if not self.messages:
-			raise WebSocketClosedError("end of script")
+			if self.close_when_empty:
+				raise WebSocketClosedError("end of script")
+			return None
 		item = self.messages.pop(0)
 		return (True, json.dumps(item).encode()) if isinstance(item, dict) else (False, item)
 
@@ -194,6 +196,7 @@ def test_camera_relay_keeps_the_latest_frame_and_reports_studio_errors():
 		FakeSocket([{"event": "error", "message": "Camera 'top' is in use", "error_code": "device_in_use"}]),
 	]
 	relay = CameraRelay(lambda: sockets.pop(0), clock=lambda: clock[0])
+	relay.latest()  # a viewer; the relay only reads while someone is watching
 	relay.run_once()
 	frame = relay.latest()
 	assert frame.jpeg == b"two"
@@ -499,30 +502,147 @@ def test_hub_runs_only_fixed_tasks_and_one_run_at_a_time():
 	assert runs[0].stopped
 
 
-def test_inspect_and_sort_maps_the_measured_label_and_holds_on_uncertain():
-	inspector = FakeInspector("uncertain", 0.52)
-	hub, client, runs = _hub(inspector=inspector)
-	client.camera_sockets.append(FakeSocket([b"\xff\xd8frame"], close_when_empty=True))
+class SessionRun:
+	"""The parts of a PolicyRun that the inspect-in-session hook uses."""
+
+	def __init__(self, frame):
+		self.task = None
+		self.session = {"environment": {"cameras": [{"camera_id": "c1", "key": "top"}]}}
+		self.frame = frame
+		self.asked = []
+
+	def wait_for_frame(self, key, newer_than, timeout_s):
+		self.asked.append((key, newer_than))
+		return self.frame
+
+
+INSPECT_AND_SORT = {
+	"action": "INSPECT_AND_SORT",
+	"camera_id": "c1",
+	"environment_id": "e1",
+	"model_id": "m1",
+	"backend": "openvino",
+}
+
+
+def test_inspect_and_sort_scores_a_fresh_session_frame_right_before_control():
+	clock = [1000.0]
+	inspector = FakeInspector("defective", 0.9)
+	hub, _client, runs = _hub(inspector=inspector, clock=lambda: clock[0])
 	hub.state()
-	hub.frame("c1")
-	hub.relays["c1"].run_once()
-	request = {
-		"action": "INSPECT_AND_SORT",
-		"camera_id": "c1",
-		"environment_id": "e1",
-		"model_id": "m1",
-		"backend": "openvino",
-	}
-	status, body = hub.start_run(request)
-	assert status == 200
-	assert body["decision"] == "review"
-	assert runs == []
-	assert inspector.seen == [b"\xff\xd8frame"]
-	inspector.label, inspector.score = "defective", 0.9
-	status, body = hub.start_run(request)
+	status, body = hub.start_run(INSPECT_AND_SORT)
 	assert status == 202
-	assert body["inspection"]["label"] == "defective"
-	assert runs[0].kwargs["task"].endswith("pink bowl.")
+	assert body["decision"] == "pending"
+	kwargs = runs[0].kwargs
+	assert kwargs["task"] is None, "no task is chosen before the part is scored"
+	session = SessionRun(Frame(b"\xff\xd8fresh", 1000.0, 1))
+	assert kwargs["before_control"](session) is None
+	assert session.asked == [("top", 1000.0)], "only a frame newer than the end of model loading counts"
+	assert session.task.endswith("pink bowl.")
+	assert inspector.seen == [b"\xff\xd8fresh"]
+	assert hub.inspection["label"] == "defective"
+
+
+def test_inspect_and_sort_holds_still_on_uncertain_or_missing_evidence():
+	clock = [1000.0]
+	inspector = FakeInspector("uncertain", 0.52)
+	hub, _client, runs = _hub(inspector=inspector, clock=lambda: clock[0])
+	hub.state()
+	hub.start_run(INSPECT_AND_SORT)
+	hook = runs[0].kwargs["before_control"]
+	session = SessionRun(Frame(b"\xff\xd8f", 1000.0, 1))
+	assert "review" in hook(session)
+	assert session.task is None
+	assert "no fresh frame" in hook(SessionRun(None))
+
+
+def test_evidence_that_expires_while_scoring_leaves_motion_disabled():
+	clock = [1000.0]
+
+	class SlowInspector(FakeInspector):
+		def inspect_jpeg(self, jpeg):
+			clock[0] += 10
+			return super().inspect_jpeg(jpeg)
+
+	hub, _client, runs = _hub(inspector=SlowInspector("normal", 0.1), clock=lambda: clock[0])
+	hub.state()
+	hub.start_run(INSPECT_AND_SORT)
+	session = SessionRun(Frame(b"\xff\xd8f", 1000.0, 1))
+	reason = runs[0].kwargs["before_control"](session)
+	assert "expired" in reason
+	assert session.task is None
+
+
+def test_inspect_rejects_frames_from_a_disconnected_or_stale_camera():
+	clock = [1000.0]
+	inspector = FakeInspector("normal", 0.1)
+	hub, _client, _runs = _hub(inspector=inspector, clock=lambda: clock[0])
+	hub.state()
+	relay = hub.relays["c1"]
+	relay.receive_frame(b"\xff\xd8old")
+	relay.status, relay.error = "error", "camera disconnected"
+	status, body = hub.inspect("c1")
+	assert status == 409
+	assert "not live" in body["error"]
+	relay.status, relay.error = "live", None
+	clock[0] += 3600
+	status, body = hub.inspect("c1")
+	assert status == 409
+	assert "old" in body["error"]
+	assert inspector.seen == [], "stale or unhealthy evidence is never scored"
+	relay.receive_frame(b"\xff\xd8new")
+	assert hub.inspect("c1")[0] == 200
+	assert inspector.seen == [b"\xff\xd8new"]
+
+
+def _blocking_environment(client):
+	gate, entered = threading.Event(), threading.Event()
+	read = client.get_json
+
+	def get_json(path):
+		if path.endswith("/environments/e1"):
+			entered.set()
+			gate.wait(5)
+		return read(path)
+
+	client.get_json = get_json
+	return gate, entered
+
+
+def test_concurrent_starts_reserve_one_run_slot():
+	hub, client, runs = _hub()
+	hub.state()
+	gate, entered = _blocking_environment(client)
+	request = {"action": "SORT_GREEN", "environment_id": "e1", "model_id": "m1", "backend": "openvino"}
+	results = []
+	first = threading.Thread(target=lambda: results.append(hub.start_run(request)))
+	first.start()
+	assert entered.wait(2)
+	assert hub.start_run(request)[0] == 409, "the slot is reserved while the first start is still preparing"
+	gate.set()
+	first.join(2)
+	assert results[0][0] == 202
+	assert len(runs) == 1
+	assert hub.stop_run()["stopping"] is True
+	assert runs[0].stopped
+
+
+def test_stop_during_preparation_cancels_the_pending_run():
+	hub, client, runs = _hub()
+	hub.state()
+	gate, entered = _blocking_environment(client)
+	request = {"action": "SORT_GREEN", "environment_id": "e1", "model_id": "m1", "backend": "openvino"}
+	results = []
+	first = threading.Thread(target=lambda: results.append(hub.start_run(request)))
+	first.start()
+	assert entered.wait(2)
+	assert hub.stop_run()["stopping"] is True
+	gate.set()
+	first.join(2)
+	assert results[0][0] == 409
+	assert "stopped" in results[0][1]["error"]
+	assert runs == []
+	assert hub.start_run(request)[0] == 202, "the slot is free again after the cancelled start"
 
 
 def test_inspect_without_a_frame_or_inspector_is_an_explicit_failure():
@@ -534,3 +654,156 @@ def test_inspect_without_a_frame_or_inspector_is_an_explicit_failure():
 	status, body = hub2.inspect("c1")
 	assert status == 409
 	assert "no frame" in body["error"]
+
+
+class EndlessStream:
+	"""A camera that always has the next frame ready."""
+
+	def __init__(self, clock):
+		self.clock, self.frames, self.closed = clock, 0, False
+
+	def poll(self, timeout):
+		return True
+
+	def recv(self, timeout=None):
+		self.frames += 1
+		self.clock[0] += 0.1
+		return False, b"\xff\xd8frame"
+
+	def send_text(self, text):
+		pass
+
+	def close(self):
+		self.closed = True
+
+
+def test_relay_detaches_when_the_last_viewer_expires_even_while_frames_keep_arriving():
+	clock = [0.0]
+	stream = EndlessStream(clock)
+	relay = CameraRelay(lambda: stream, clock=lambda: clock[0], idle_s=2)
+	relay.latest()
+	relay.run_once()
+	assert stream.closed
+	assert stream.frames <= 22, "about idle_s / 0.1 s of frames, then the camera is released"
+
+
+def _socket_pair():
+	client, peer = socket.socketpair()
+	return WebSocket(client), peer
+
+
+def test_recv_returns_at_its_deadline_while_only_pings_arrive():
+	ws, peer = _socket_pair()
+	peer.sendall(_server_frame(0x9, b"p"))
+	started = time.monotonic()
+	assert ws.recv(timeout=0.15) is None
+	assert time.monotonic() - started < 1
+	assert _read_client_frame(peer) == (0xA, b"p")
+
+
+def test_partial_frames_and_fragments_survive_a_receive_timeout():
+	ws, peer = _socket_pair()
+	frame = _server_frame(0x2, b"x" * 1000)
+	peer.sendall(frame[:300])
+	assert ws.recv(timeout=0.05) is None
+	peer.sendall(frame[300:])
+	assert ws.recv(timeout=1) == (False, b"x" * 1000)
+	peer.sendall(bytes([0x01, 3]) + b'{"a')
+	assert ws.recv(timeout=0.05) is None
+	peer.sendall(bytes([0x80, 4]) + b'":1}')
+	assert ws.recv(timeout=1) == (True, b'{"a":1}')
+
+
+def _studio_peer(peer, noise, received, done):
+	"""Ack every command; once control is set, send only pings or half of an observation."""
+	observation = _server_frame(0x2, _observation({"gripper.pos": 1.0}, [("top", b"J" * 2000)]))
+	half = len(observation) // 2
+	noisy = False
+	while not done.is_set():
+		ready, _, _ = select.select([peer], [], [], 0.01)
+		if ready:
+			opcode, data = _read_client_frame(peer)
+			if opcode == 0x8:
+				return
+			if opcode != 0x1:
+				continue
+			message = json.loads(data)
+			received.append(message)
+			releasing = message["command"] == "set_control" and message["control"] is None
+			if releasing:
+				noisy = False
+				if noise == "partial":
+					peer.sendall(observation[half:])
+			ack = {"type": "ack", "request_id": message["request_id"], "ok": True, "result": None}
+			peer.sendall(_server_frame(0x1, json.dumps(ack).encode()))
+			if message["command"] == "set_control" and message["control"]:
+				noisy = True
+				if noise == "partial":
+					peer.sendall(observation[:half])
+		elif noisy and noise == "ping":
+			peer.sendall(_server_frame(0x9, b"k"))
+
+
+def _run_against_peer(noise, max_s):
+	ws, peer = _socket_pair()
+	received, done = [], threading.Event()
+	threading.Thread(target=_studio_peer, args=(peer, noise, received, done), daemon=True).start()
+	run = PolicyRun(
+		lambda: ws,
+		environment={"id": "e", "name": "cell", "robots": [], "cameras": []},
+		model={"model_id": "m", "backend": "openvino", "device": "NPU"},
+		task="Pick up the brick and place it in the green bowl.",
+		max_s=max_s,
+	)
+	run.step_until_running()
+	assert run.phase == "running"
+	pumping = threading.Thread(target=run.pump, args=(30,), daemon=True)
+	pumping.start()
+	return run, received, done, pumping
+
+
+def test_operator_stop_works_while_only_pings_arrive():
+	run, received, done, pumping = _run_against_peer("ping", max_s=60)
+	time.sleep(0.2)
+	run.request_stop()
+	pumping.join(2)
+	done.set()
+	assert not pumping.is_alive(), "STOP must not wait for the next application message"
+	assert run.phase == "stopped"
+	assert received[-1]["command"] == "set_control"
+	assert received[-1]["control"] is None
+
+
+def test_run_deadline_works_while_a_message_is_half_received():
+	run, received, done, pumping = _run_against_peer("partial", max_s=0.2)
+	pumping.join(3)
+	done.set()
+	assert not pumping.is_alive(), "the time limit must not wait for the rest of a frame"
+	assert run.phase == "stopped"
+	assert "time limit" in run.reason
+	assert received[-1]["control"] is None
+	assert run.frames["top"].jpeg == b"J" * 2000, "the half-received frame is completed, not dropped"
+
+
+def test_policy_run_holds_still_when_the_pre_control_check_refuses():
+	clock = [0.0]
+	sock = FakeSocket([], _acking)
+	run = _run(sock, clock, task=None, before_control=lambda run: "held for review: score 0.52")
+	run.step_until_running()
+	assert [m["command"] for m in sock.sends] == ["load_environment", "load_model"]
+	assert run.phase == "held"
+	assert run.reason == "held for review: score 0.52"
+	assert sock.closed
+
+
+def test_policy_run_uses_the_task_chosen_by_the_pre_control_check():
+	clock = [0.0]
+	sock = FakeSocket([], _acking)
+
+	def choose(run):
+		run.task = "Pick up the brick and place it in the pink bowl."
+
+	run = _run(sock, clock, task=None, before_control=choose)
+	run.step_until_running()
+	assert sock.sends[-1]["control"]["task"] == "Pick up the brick and place it in the pink bowl."
+	assert run.phase == "running"

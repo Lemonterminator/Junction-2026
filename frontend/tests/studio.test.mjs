@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { studioView, inspectionSnapshot, SessionRecorder, ageText } from '../studio.mjs';
+import { studioView, inspectionSnapshot, SessionRecorder, ageText, stopPlan, stopStatus, leavingLiveStops, liveBrickModel } from '../studio.mjs';
 
 const NOW = 1_000_000;
 const base = (extra = {}) => ({
@@ -82,4 +82,66 @@ test('age text', () => {
 	assert.equal(ageText(null), '—');
 	assert.equal(ageText(999), '999 ms');
 	assert.equal(ageText(65_000), '65 s');
+});
+
+test('STOP reaches the backend from every view whenever a Studio link exists, even with REST failing', () => {
+	for (const source of ['live', 'demo', 'replay']) {
+		assert.equal(stopPlan({source, linked: true, demoRunning: false}).backend, true, source);
+	}
+	assert.deepEqual(stopPlan({source: 'demo', linked: false, demoRunning: true}), {backend: false, demo: true});
+	assert.deepEqual(stopPlan({source: 'replay', linked: true, demoRunning: true}), {backend: true, demo: true});
+});
+
+test('an unreachable Studio keeps the last known run visible and stoppable', () => {
+	const view = studioView(base({reachable: false, error: 'timeout', run: {phase: 'running', running_s: 5, max_s: 60}}), NOW);
+	assert.equal(view.status, 'unreachable');
+	assert.ok(view.run, 'the run bar must not disappear while the arm may still be moving');
+	assert.equal(view.run.stoppable, true);
+	assert.match(view.run.text, /not answering/);
+	const ended = studioView(base({reachable: false, error: 'timeout', run: {phase: 'stopped', reason: 'stopped by operator'}}), NOW);
+	assert.equal(ended.run.stoppable, false);
+});
+
+test('preparing and checking phases can be stopped; held and stopped cannot move', () => {
+	for (const phase of ['starting', 'loading_environment', 'loading_model', 'checking', 'starting_control', 'running', 'stopping']) {
+		assert.equal(studioView(base({run: {phase, max_s: 60}}), NOW).run.stoppable, true, phase);
+	}
+	for (const phase of ['stopped', 'failed', 'held']) {
+		assert.equal(studioView(base({run: {phase, max_s: 60}}), NOW).run.stoppable, false, phase);
+	}
+});
+
+test('a stop request stays "requested" until Studio reports the arm held', () => {
+	assert.equal(stopStatus({phase: 'running'}, true), 'requested');
+	assert.equal(stopStatus({phase: 'stopping'}, true), 'requested');
+	assert.equal(stopStatus(null, true), 'requested', 'no run state yet is not a confirmation');
+	assert.equal(stopStatus({phase: 'stopped'}, true), 'confirmed');
+	assert.equal(stopStatus({phase: 'held'}, true), 'confirmed');
+	assert.equal(stopStatus({phase: 'failed'}, true), 'confirmed');
+	assert.equal(stopStatus({phase: 'running'}, false), 'none');
+});
+
+test('leaving Live while a run may be moving stops it', () => {
+	assert.equal(leavingLiveStops('live', 'demo', {phase: 'running'}), true);
+	assert.equal(leavingLiveStops('live', 'replay', {phase: 'loading_model'}), true);
+	assert.equal(leavingLiveStops('live', 'demo', {phase: 'stopped'}), false);
+	assert.equal(leavingLiveStops('live', 'demo', null), false);
+	assert.equal(leavingLiveStops('demo', 'live', {phase: 'running'}), false);
+});
+
+test('live evidence never invents a defect location', () => {
+	const results = [
+		{label: 'uncertain', score: null, reason: 'no brick found in the frame'},
+		{label: 'uncertain', score: null, reason: 'scorer failed: device lost'},
+		{label: 'defective', score: 0.9, reason: null},
+		{label: 'normal', score: 0.1, reason: null},
+	];
+	for (const result of results) {
+		const model = liveBrickModel(result);
+		assert.equal(model.defect, null, JSON.stringify(result));
+		assert.equal(model.illustrative, true);
+	}
+	assert.match(liveBrickModel(results[0]).note, /no brick found/);
+	assert.match(liveBrickModel(results[2]).note, /does not locate/);
+	assert.equal(liveBrickModel(results[0]).label, 'none', 'nothing scored, no verdict colour');
 });

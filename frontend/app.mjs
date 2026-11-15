@@ -5,7 +5,7 @@ import { LatestImageLoader } from './image-loader.mjs';
 import { InferenceWindow, mountPerformance } from './performance.mjs';
 import { mountIntro } from './intro.mjs';
 import { parseCommand, ACTIONS } from './command.mjs';
-import { studioView, inspectionSnapshot, SessionRecorder, ageText } from './studio.mjs';
+import { studioView, inspectionSnapshot, SessionRecorder, ageText, stopPlan, stopStatus, leavingLiveStops, liveBrickModel } from './studio.mjs';
 
 const $ = id => document.getElementById(id);
 const cell = new Cell3D($('scene'), $('annotations'));
@@ -14,6 +14,9 @@ const inferenceWindow = new InferenceWindow();
 const recorder = new SessionRecorder({maxSeconds: 90});
 
 let source = 'demo';          // demo | live | replay
+let studioLinked = false;     // the server answered /api/studio/state once: a backend run may exist
+let stopRequested = false;    // a stop was sent and the server has not yet reported the arm held
+let lastInspectionAt = null;
 let state = null;             // current v1 snapshot shown in the panels (null = idle)
 let part = 0;
 let timer = null;             // demo stepper
@@ -168,6 +171,8 @@ function setBadge(id, tone, text, blink = false) {
 }
 function setSource(next) {
 	if (next === 'replay' && !recorder.entries.length) { reply('refuse', 'Nothing recorded yet', 'Record something in Live first.'); return; }
+	// Leaving Live hides the cameras, so a run that may still move is stopped first.
+	if (leavingLiveStops(source, next, studio?.run)) stopEverything();
 	source = next;
 	document.querySelectorAll('[data-source]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.source === source)));
 	stopReplay();
@@ -257,12 +262,16 @@ async function pollStudio() {
 	try {
 		const response = await fetch('/api/studio/state', {cache: 'no-store', signal: AbortSignal.timeout(4000)});
 		studio = response.status === 204 ? null : await response.json();
+		if (studio) studioLinked = true;
 	} catch { studio = studio ? {...studio, reachable: false, error: 'dashboard server not responding'} : null; }
 	updateBadges();
 	if (source !== 'replay') renderCameras(studioView(studio));
 	renderRunConfig();
 	renderRun();
-	setTimeout(pollStudio, source === 'live' ? 700 : 2500);
+	const inspection = studio?.inspection;
+	if (source === 'live' && inspection && inspection.timestamp !== lastInspectionAt) showInspection(inspection, inspection.frame_age_ms ?? 0);
+	const busy = source === 'live' || stopRequested || Boolean(studioView(studio).run?.stoppable);
+	setTimeout(pollStudio, busy ? 700 : 2500);
 }
 
 // ------------------------------------------------------------------ recording + replay
@@ -360,14 +369,10 @@ async function post(path, body) {
 async function execute(parsed) {
 	showPlan(parsed);
 	if (!parsed.action) { reply('refuse', 'Not understood', parsed.reason); return; }
+	// STOP is handled before any view or health check: it must work from Demo, Replay and with Studio unreachable.
+	if (parsed.action === 'STOP') { await stopEverything(); return; }
 	const info = ACTIONS[parsed.action];
 	if (source === 'replay') { reply('refuse', 'Replay is read-only', 'Switch to Live or Demo.'); return; }
-	if (parsed.action === 'STOP') {
-		pause();
-		if (source === 'live' && studio?.reachable) { const r = await post('/api/studio/stop', {}); reply('ok', 'Stopped', r.data?.stopping ? 'The arm holds still.' : 'Nothing was running.'); }
-		else reply('ok', 'Stopped', 'Demo paused.');
-		planSteps.forEach(s => { s.status = 'done'; }); drawPlan(); return;
-	}
 	if (source === 'demo') {
 		reply('ok', info.title, 'Running in the demo.');
 		if (parsed.action === 'INSPECT') runDemo(pickScenario(), {stopAt: 'reason'});
@@ -393,13 +398,29 @@ async function execute(parsed) {
 	const model = studio.models.find(m => m.id === $('run-model').value);
 	const body = {action: parsed.action, camera_id: cameraId, environment_id: $('run-environment').value, model_id: model?.id, backend: model?.backends[0], device: $('run-device').value};
 	planProgress(parsed.action === 'INSPECT_AND_SORT' ? 'perceive' : 'act');
-	const t0 = performance.now();
 	const r = await post('/api/studio/run', body);
-	if (r.data?.inspection) showInspection(r.data.inspection, performance.now() - t0);
-	if (r.status === 200 && r.data?.decision === 'review') { reply('refuse', 'Needs a person', 'The score is unsure, so the arm stays still.'); planProgress('review'); return; }
 	if (r.status !== 202) { reply('error', 'Run refused', r.data?.error ?? `HTTP ${r.status}`); return; }
-	reply('ok', `Sorting to the ${r.data.decision} plate`, `Stops by itself after ${studio.max_run_s} s.`);
-	planProgress('act');
+	stopRequested = false;
+	if (r.data.decision === 'pending') reply('ok', 'Inspecting in the session', 'The arm moves only if the fresh result is pass or reject.');
+	else { reply('ok', `Sorting to the ${r.data.decision} plate`, `Stops by itself after ${studio.max_run_s} s.`); planProgress('act'); }
+}
+
+async function stopEverything() {
+	const plan = stopPlan({linked: studioLinked, demoRunning: Boolean(timer)});
+	if (plan.demo) pause();
+	planSteps.forEach(s => { if (s.status === 'active') s.status = 'held'; }); drawPlan();
+	if (!plan.backend) { reply('ok', 'Stopped', 'Demo paused.'); return; }
+	stopRequested = true;
+	renderRun();
+	try {
+		const r = await post('/api/studio/stop', {});
+		if (r.status !== 200) throw new Error(r.data?.error ?? `HTTP ${r.status}`);
+		if (r.data?.stopping) reply('ok', 'Stop requested', 'Waiting for Studio to confirm the arm is held.');
+		else { stopRequested = false; reply('ok', 'Nothing was running', 'No run to stop.'); }
+	} catch (error) {
+		reply('error', 'Stop not delivered', `${error.message}. Use Studio’s stop or the robot’s power switch.`);
+	}
+	renderRun();
 }
 
 function showInspection(result, roundTripMs) {
@@ -412,7 +433,12 @@ function showInspection(result, roundTripMs) {
 	drawPlan();
 	$('crop-figure').hidden = false;
 	$('crop-image').src = `/api/studio/inspection/crop.jpg?n=${liveSeq}`;
-	brickViews.show({label: result.label, colour: BRICK_COLOURS[0], defect: result.label === 'normal' ? null : {face: 'top', u: 0.1, v: 0.1, kind: 'tape'}});
+	lastInspectionAt = result.timestamp;
+	const model = liveBrickModel(result);
+	brickViews.show({label: model.label, colour: BRICK_COLOURS[0], defect: model.defect});
+	$('brick-source').textContent = 'Illustrative';
+	$('brick-note').textContent = model.note;
+	$('brick-canvas').setAttribute('aria-label', 'Illustrative brick model. The live inspection does not locate defects; the crop shows what was scored.');
 	render();
 	reply(result.label === 'uncertain' ? 'refuse' : 'ok', `${{normal: 'Pass', defective: 'Reject', uncertain: 'Review'}[result.label]}, score ${Number.isFinite(result.score) ? result.score.toFixed(2) : '—'}`,
 		result.reason ?? `${result.timings_ms?.inference?.toFixed(1) ?? '—'} ms on ${result.device ?? 'unverified device'}`);
@@ -437,15 +463,20 @@ function renderRunConfig() {
 	$('operator-present').disabled = !studio.control_enabled;
 }
 
+/** The run bar shows in every view while a run may exist, so STOP is always one click away. */
 function renderRun() {
 	const run = studioView(studio).run;
-	$('run-bar').hidden = !run || source !== 'live';
-	if (!run) return;
-	$('run-text').textContent = `${run.text} · ${run.observations ?? 0} observations${run.timings_ms?.model ? ` · policy loaded in ${(run.timings_ms.model / 1000).toFixed(1)} s` : ''}`;
-	$('run-progress').style.width = `${(run.progress * 100).toFixed(0)}%`;
-	$('stop-run').disabled = !run.moving && !['starting', 'loading_environment', 'loading_model'].includes(run.phase);
+	const stop = stopStatus(studio?.run ?? null, stopRequested);
+	$('run-bar').hidden = !run && stop !== 'requested';
+	if ($('run-bar').hidden) return;
+	let text = run ? `${run.text}${run.stoppable ? ` · ${run.observations ?? 0} observations` : ''}` : 'Run state unknown';
+	if (stop === 'requested') text = `Stop requested · waiting for Studio to confirm. ${text}`;
+	if (stop === 'confirmed') { stopRequested = false; text = `Stopped · the arm holds still (${run.reason ?? run.phase})`; }
+	$('run-text').textContent = text;
+	$('run-progress').style.width = `${((run?.progress ?? 0) * 100).toFixed(0)}%`;
+	$('stop-run').disabled = !(run?.stoppable) && stop !== 'requested';
 }
-$('stop-run').addEventListener('click', () => post('/api/studio/stop', {}).then(r => reply('ok', 'Stopped', r.data?.stopping ? 'The arm holds still.' : 'Nothing was running.')));
+$('stop-run').addEventListener('click', () => stopEverything());
 
 $('command-form').addEventListener('submit', e => { e.preventDefault(); execute(parseCommand($('command-input').value)); });
 $('command-chips').addEventListener('click', e => {

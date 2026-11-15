@@ -240,6 +240,8 @@ def _studio_hub(args: argparse.Namespace) -> StudioHub | None:
 		inspector=inspector,
 		max_run_s=args.max_run_s,
 		hz=args.run_hz,
+		max_frame_age_s=args.max_frame_age_s,
+		evidence_ttl_s=args.evidence_ttl_s,
 	)
 
 
@@ -260,6 +262,15 @@ def main() -> None:
 	)
 	studio.add_argument("--max-run-s", type=float, default=60, help="Each run holds the arm after this many seconds")
 	studio.add_argument("--run-hz", type=float, default=30, help="Action rate of a run")
+	studio.add_argument(
+		"--max-frame-age-s", type=float, default=1.0, help="Oldest camera frame accepted as inspection evidence"
+	)
+	studio.add_argument(
+		"--evidence-ttl-s",
+		type=float,
+		default=2.0,
+		help="Inspect-then-sort holds the arm if its session frame is older than this when control would start",
+	)
 	inspect = parser.add_argument_group("Live inspection")
 	inspect.add_argument("--anomaly-model", type=Path, help="Anomalib OpenVINO export (model.xml)")
 	inspect.add_argument("--anomaly-device", default="CPU", help="OpenVINO device: CPU, GPU or NPU")
