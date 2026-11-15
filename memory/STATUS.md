@@ -1,5 +1,18 @@
 # Current status
 
+## Update 2026-11-15 — Modal as overflow GPU
+
+- `scripts/modal/train.py` runs the `defect_sorter.training` plan on a Modal GPU in
+  an image built from the pinned Studio lock (`uv sync --frozen --extra cuda`).
+  Recordings and runs live in the Volume `junction-training`; runs are downloaded
+  and logged to MLflow locally. `defect_sorter.modal_training` holds the pure
+  Volume layout and cost ceiling; guide in `docs/infrastructure/MODAL.md`.
+- The Modal CLI on the training PC is authenticated (workspace `jianglinan1030`).
+  The first T4 check failed with `workspace has exceeded its spend limit` at $0
+  spent: the workspace spend limit must be raised before any remote call. No image
+  build, upload, remote plan or GPU run has happened; only the local dry run ran.
+- Tests: `tests/test_modal_training.py` (15 tests) written first and seen failing.
+
 ## Update 2026-11-15 — inspect-then-sort implementation plan
 
 - Added the detailed [three-skill plan](../docs/plans/INSPECT_THEN_SORT_PLAN.md):

@@ -94,6 +94,7 @@ Test ownership:
 - `tests/test_offline_pipeline.py` owns `defect_sorter.offline_pipeline` and the pure part of `defect_sorter.lerobot_export` (demo recording, anomaly crops, twin evaluation, LeRobot features).
 - `tests/test_tracking.py` owns `defect_sorter.tracking` (reading run and evaluation directories into MLflow records).
 - `tests/test_model_release.py` owns `defect_sorter.model_release` (release manifest and download verification).
+- `tests/test_modal_training.py` owns `defect_sorter.modal_training` (Modal Volume layout, recording root on the Volume, GPU cost ceiling).
 - `tests/test_studio_preview_patch.py` owns `docker/studio-patches` (Studio live-preview rate, JPEG quality and skipped cameras).
 - `tests/test_system_metrics.py` owns `defect_sorter.system_metrics` (cross-platform CPU/RAM with fake native counters, plus Linux Intel DRM/NPU and package power with synthetic procfs/sysfs fixtures).
 - `tests/test_dashboard.py` owns `defect_sorter.dashboard` (static files, audio byte ranges, cached host resources, read-only snapshot file and path isolation).
@@ -135,6 +136,7 @@ Extend the owning module by default. Add a new test file only for a new stable m
 - `offline_pipeline.py`: hardware-free CLI (record demos, write anomaly crops, evaluate the loop); `lerobot_export.py`: demos → LeRobot v3, run in the Studio backend environment.
 - `tracking.py`: logs finished training runs and twin evaluations to MLflow (`tracking` extra), tagged by data source.
 - `model_release.py`: manifest (file hashes, training run, status) for private GitHub model releases and verification of a download against it.
+- `modal_training.py`: Volume layout and cost bound for training on Modal, without importing the Modal SDK; the Modal app is `scripts/modal/train.py` (dry run unless `--go`, GPU time capped by `--max-hours`). Guide in `docs/infrastructure/MODAL.md`.
 
 Keep modules deep: callers use `detect_scene(...)` and `D415Camera`, not the internals. Do not fabricate detections, scores or latencies; when data is missing, return an empty or explicit failure result rather than a guess. A dependency that "supports OpenVINO" is not proof of GPU/NPU deployment; report configuration, build, runtime and hardware checks separately.
 
