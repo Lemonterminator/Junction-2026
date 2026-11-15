@@ -12,8 +12,8 @@ Three steps, each cheaper than the next is expensive (see docs/infrastructure/MO
 	modal run scripts/modal/train.py --recipe ... --dataset ... --dataset-name sort-depth-v2 --run-name modal-smoke-01
 
 3. Real GPU training, bounded by ``--max-hours``. A recipe with ``devices = N`` runs data parallel on N GPUs of one
-   container (``--gpu`` names the type, or a comma-separated fallback order such as ``L40S,A100-80GB,H100``) and the
-   cost ceiling counts all N at the most expensive listed rate::
+   container (``--gpu`` names the type; ``Function.with_options`` takes a single type, so there is no fallback list)
+   and the cost ceiling counts all N::
 
 	modal run scripts/modal/train.py ... --gpu L40S --max-hours 4 --go
 
@@ -126,11 +126,9 @@ def _local_summary(recipe_path: str, dataset_path: str, dataset_name: str, run_n
 	recipe = load_recipe(Path(recipe_path))
 	dataset = load_dataset(Path(dataset_path))
 	layout = VolumeLayout(dataset_name, run_name)
-	types = gpu.split(",")
-	if any(t not in GPU_RATES for t in types):
-		raise ValueError(f"gpu must be one or more comma-separated of {sorted(GPU_RATES)}")
-	# A list is a fallback order; the ceiling assumes the most expensive type is the one Modal grants.
-	rate = max(GPU_RATES[t] for t in types)
+	if gpu not in GPU_RATES:
+		raise ValueError(f"gpu must be one of {sorted(GPU_RATES)}")
+	rate = GPU_RATES[gpu]
 	info_exists = (Path(dataset.root) / "meta" / "info.json").is_file()
 	if info_exists:
 		validate_dataset(dataset)
@@ -144,7 +142,7 @@ def _local_summary(recipe_path: str, dataset_path: str, dataset_name: str, run_n
 		"download": " ".join(layout.download_command()),
 		"gpu": gpu,
 		"gpus": recipe["devices"],
-		"gpu_usd_per_hour_max": rate * recipe["devices"],
+		"gpu_usd_per_hour": rate * recipe["devices"],
 		"max_hours": max_hours,
 		"gpu_cost_ceiling_usd": round(cost_ceiling(rate * recipe["devices"], max_hours), 2),
 		"warm_start": recipe["warm_start"],
@@ -185,7 +183,7 @@ def main(
 	# Data loader workers decode video on CPU: give each GPU's workers their own cores and memory.
 	cpu = max(8, gpus * (recipe_["num_workers"] + 1))
 	result = train.with_options(
-		gpu=[t if gpus == 1 else f"{t}:{gpus}" for t in gpu.split(",")],
+		gpu=gpu if gpus == 1 else f"{gpu}:{gpus}",
 		cpu=cpu,
 		memory=max(32768, cpu * 4096),
 		timeout=int(max_hours * 3600),
