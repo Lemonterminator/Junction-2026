@@ -26,6 +26,16 @@
   (best.ckpt = step 3299) and logged to MLflow `defect-sorter-training` with tag
   `source = sim` (tracking now tags `sim` datasets instead of `real`). Not comparable with
   the real sort-depth-v2 validation loss, and not yet evaluated on the arm or the twin.
+- Copied to the Intel workstation `intel:~/models/smolvla/smolvla-sim-ddp8-01/` (OpenVINO IR
+  with `release.json`, status candidate, source sim; plus `checkpoints/best.ckpt`); hashes
+  verified there. Studio settings untouched, no arm motion.
+- `scripts/sim/policy_eval.py` + `scripts/sim/modal_policy_eval.py`: closed-loop policy
+  evaluation in the MuJoCo cell (four rendered cameras, outcome correct / wrong bowl /
+  dropped / never grasped). Written but not yet run: the evaluation was stopped in favour of
+  the sort-depth-v2 fine-tune before its first container started.
+- Fine-tune on real data: `configs/training/smolvla_sort_depth_v2_from_sim.toml` warm-starts
+  from smolvla-sim-ddp8-01 and uses the sort-depth-v2-10k validation episodes, so its
+  validation loss compares with that run (0.292 best).
 - The Modal spend limit is now raised (the sim render ran there). The Volume holds
   `/datasets/sim-batch-v1` and `/warm-start/sort-depth-v2-10k`.
 
