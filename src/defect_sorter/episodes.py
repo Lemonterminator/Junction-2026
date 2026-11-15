@@ -33,6 +33,13 @@ GREEN_TASK = "Pick up the brick and place it in the green bowl."
 PINK_TASK = "Pick up the brick and place it in the pink bowl."
 TASK_BOWLS: dict[str, str] = {GREEN_TASK: "green", PINK_TASK: "pink"}
 REQUIRED_CAMERAS: tuple[str, ...] = ("top", "wrist", "front")
+"""Required views. ``top`` is the top colour view: ``top`` in sort-v1, ``top_rgb_<version>`` next to the depth stream."""
+
+
+def _has_view(cameras: tuple[str, ...], view: str) -> bool:
+	if view == "top":
+		return any(c == "top" or c.startswith("top_rgb") for c in cameras)
+	return view in cameras
 
 
 @dataclass(frozen=True)
@@ -194,7 +201,7 @@ def review_episode(ep: EpisodeData, cfg: ReviewConfig) -> EpisodeReport:
 	if bowl is None:
 		problems.append(f"unknown task text: {ep.task!r}")
 	for cam in REQUIRED_CAMERAS:
-		if cam not in ep.cameras:
+		if not _has_view(ep.cameras, cam):
 			problems.append(f"missing camera stream: {cam}")
 	grasp = find_grasp(ep, cfg)
 	if grasp is None:

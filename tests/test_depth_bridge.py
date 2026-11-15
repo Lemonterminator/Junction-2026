@@ -7,10 +7,15 @@ import numpy as np
 import pytest
 
 from defect_sorter.depth_bridge import (
+	RawFrame,
 	colorize_depth,
 	crop,
+	decode_raw,
 	encode_jpeg,
+	encode_raw,
+	fetch_raw,
 	fit_plane,
+	fresh_frames,
 	height_image,
 	layered_height_image,
 	load_plane,
@@ -176,7 +181,7 @@ def _jpeg(value: int) -> bytes:
 
 @pytest.fixture
 def served():
-	buffers = {"top": FrameBuffer(), "top_depth": FrameBuffer()}
+	buffers = {"top": FrameBuffer(), "top_depth": FrameBuffer(), "raw": FrameBuffer()}
 	server = ThreadingHTTPServer(("127.0.0.1", 0), make_stream_handler(buffers))
 	server.daemon_threads = True
 	thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -318,3 +323,84 @@ def test_bridge_crops_colour_and_depth_to_the_same_box():
 
 	assert _decode(buffers["top"]).shape == (32, 40, 3)
 	assert _decode(buffers["top_depth"]).shape == (32, 40, 3)
+
+
+def _raw_frame(frame_id: int = 7) -> RawFrame:
+	rng = np.random.default_rng(1)
+	depth = np.full((48, 64), 0.8125, np.float32)
+	depth[10:20, 10:30] = 0.79
+	depth[0, :5] = 0.0
+	depth[1, :5] = np.nan
+	return RawFrame(rng.integers(0, 256, (48, 64, 3), dtype=np.uint8), depth, INTR, frame_id)
+
+
+class TestRawFrame:
+	def test_round_trip_keeps_colour_intrinsics_and_millimetre_depth(self):
+		sent = _raw_frame()
+
+		got = decode_raw(encode_raw(sent))
+
+		np.testing.assert_array_equal(got.color_bgr, sent.color_bgr)
+		assert got.intrinsics == INTR
+		assert got.frame_id == 7
+		assert got.depth_m.dtype == np.float32
+		valid = np.isfinite(sent.depth_m) & (sent.depth_m > 0)
+		np.testing.assert_allclose(got.depth_m[valid], sent.depth_m[valid], atol=0.0005)
+
+	def test_missing_depth_stays_missing(self):
+		got = decode_raw(encode_raw(_raw_frame()))
+		assert (got.depth_m[0, :5] == 0).all()
+		assert (got.depth_m[1, :5] == 0).all()
+
+	def test_served_uncropped_next_to_the_streams(self, served):
+		buffers, port = served
+		conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+		conn.request("GET", "/raw.npz")
+		assert conn.getresponse().status == 503  # nothing published yet
+		conn.close()
+		buffers["raw"].publish(None, {"frame": _raw_frame(3)})
+
+		got = fetch_raw(f"http://127.0.0.1:{port}", timeout_s=5)
+
+		assert got.frame_id == 3
+		assert got.color_bgr.shape == (48, 64, 3)
+
+	def test_only_plain_http_bridge_urls(self):
+		with pytest.raises(ValueError, match="http://host:port"):
+			fetch_raw("file:///etc/passwd")
+
+	def test_an_empty_bridge_is_an_error_not_a_frame(self, served):
+		_, port = served
+		with pytest.raises(ConnectionError, match="503"):
+			fetch_raw(f"http://127.0.0.1:{port}")
+
+	def test_bridge_publishes_the_full_frame_even_when_streams_are_cropped(self):
+		from defect_sorter.depth_bridge import run_bridge
+
+		buffers = {"top": FrameBuffer(), "top_depth": FrameBuffer(), "raw": FrameBuffer()}
+
+		def read():
+			return np.zeros((48, 64, 3), np.uint8), _flat_depth(0.8), INTR
+
+		run_bridge(
+			read, buffers, mode="layers", crop_box=(8, 4, 40, 32), stop=lambda: buffers["top"].latest().frame_id >= 2
+		)
+
+		raw = buffers["raw"].latest().state["frame"]
+		assert raw.color_bgr.shape == (48, 64, 3)
+		assert raw.depth_m.shape == (48, 64)
+		assert raw.intrinsics == INTR
+		assert raw.frame_id == 2
+
+
+class TestFreshFrames:
+	def test_each_camera_frame_is_used_once(self):
+		ids = iter([1, 1, 2, 2, 2, 3, 4])
+
+		got = list(fresh_frames(lambda: _raw_frame(next(ids)), 3, timeout_s=1.0, poll_s=0.0))
+
+		assert [f.frame_id for f in got] == [1, 2, 3]
+
+	def test_a_stalled_bridge_times_out(self):
+		with pytest.raises(TimeoutError, match="no new frame"):
+			list(fresh_frames(lambda: _raw_frame(5), 2, timeout_s=0.05, poll_s=0.01))

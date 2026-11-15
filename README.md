@@ -211,11 +211,12 @@ Authenticated collaborators can follow that guide to download release assets int
 | `src/defect_sorter/geometry.py`, `scene.py` | Camera geometry, table plane, objects and colour bowls |
 | `src/defect_sorter/realsense.py` | Aligned RealSense colour/depth adapter |
 | `src/defect_sorter/uvc_controls.py`, `config/camera_controls.json` | Fixed USB camera-control profiles (`sorter-camera-lock`) |
-| `src/defect_sorter/depth_bridge.py` | Studio colour and layered-height MJPEG camera bridge (`sorter-depth-bridge`) |
+| `src/defect_sorter/depth_bridge.py` | Studio colour and layered-height MJPEG camera bridge (`sorter-depth-bridge`), raw frames on `/raw.npz` for measurements |
 | `src/defect_sorter/webview.py`, `live_demo.py` | Latest-frame JPEG polling and JSON state for debug pages |
 | `src/defect_sorter/markers.py`, `alignment.py` | Printed markers, depth-refined poses, table frame and drift |
-| `src/defect_sorter/kinematics.py`, `joint_calibration.py`, `calibration_capture.py` | SO-101 kinematics and measure-only calibration |
-| `src/defect_sorter/motion.py`, `robot_pose.py`, `targeting.py` | Checked scripted moves, measured robot/model mapping and top-camera brick hover targets |
+| `src/defect_sorter/kinematics.py`, `joint_calibration.py`, `calibration_capture.py`, `episode_calibration.py` | SO-101 kinematics, measure-only calibration and base pose/joint zeros from recorded jaw-tip touches ([guide](docs/infrastructure/SCRIPTED_HOVER.md)) |
+| `src/defect_sorter/motion.py`, `robot_pose.py`, `targeting.py` | Checked scripted moves, measured robot/model mapping and top-camera brick targets (steepest passing approach, grasp roll for long and square bricks) |
+| `src/defect_sorter/hybrid.py` | Hybrid sort cycle, dry run unless `--go` (`sorter-hybrid`): scripted hover, learned grasp through Studio, scripted show to the front camera, scripted or policy place |
 | `packages/armkit/` | Workspace library: kinematics, collision model, guarded motion/calibration and servo adapters |
 | `src/defect_sorter/inspection.py`, `closed_loop.py`, `async_pipeline.py` | Anomaly decisions, observe/inspect/plan/execute/verify loop, async OpenVINO camera-to-policy pipeline & `DryRunCell` |
 | `src/defect_sorter/twin.py`, `offline_pipeline.py`, `lerobot_export.py` | Twin, synthetic demonstrations/evaluation and LeRobot export |

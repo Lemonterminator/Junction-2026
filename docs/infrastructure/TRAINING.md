@@ -166,6 +166,44 @@ CPU/GPU/NPU compilation, latency, numerical parity or physical task success. Run
 those checks on the Intel deployment host with the selected model and preserve its
 joint/camera/instruction contract. This wrapper never connects to a camera or arm.
 
+## 5. Train on Modal from Studio
+
+Studio's Modal training (Settings → Training Targets → Modal Provider) exists only on the pinned `junction2026`
+submodule commit `17714488`. The published `physical-ai-studio-xpu:main` image is built from upstream `main`
+(`8f13241`) and has neither the Modal SDK nor the Modal provider, so the workstation runs a locally built image:
+
+```bash
+# clean source of the pinned commit (the checkout may carry local edits), built under a local tag
+B=~/studio-build/junction2026-17714488 && mkdir -p "$B"
+git -C ~/junction/external/physical-ai-studio archive 17714488 | tar -x -C "$B"
+cd "$B" && docker buildx build --load -f application/docker/Dockerfile --target physical-ai-studio-xpu \
+  --build-context libs=library --build-arg APP_UID=1000 --build-arg APP_GID=1000 \
+  --cache-from type=registry,ref=ghcr.io/open-edge-platform/physical-ai-studio-xpu:buildcache \
+  -t junction/physical-ai-studio-xpu:junction2026-17714488 .
+```
+
+`APP_UID`/`APP_GID` must be 1000 like the published image, because the storage volume is owned by uid 1000. Pass
+the proxy variables from the compose `.env` as build args when the network needs them. The build took about an hour
+on venue Wi-Fi.
+
+The image is selected in the Studio compose `.env` with `REGISTRY=junction/` and
+`IMAGE_TAG=junction2026-17714488` (back to `ghcr.io/open-edge-platform/` and `main` to roll back), and
+`docker/studio-modal.override.yaml` is added to `COMPOSE_FILE` after the tailnet and preview overrides. The storage
+volume `docker_physical-ai-studio-storage` (projects, datasets, robots, cameras) is reused. The preview patch still
+applies: `runtime_ws.py` is identical in both revisions. The startup log line "SSH remote-trainer feature disabled"
+is expected (the backend listens beyond loopback) and does not affect Modal.
+
+Credentials: the backend container reads `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` from the Git-ignored
+`~/junction/docker/secrets.env` on the workstation (mode 600). A `modal setup` login on a laptop does not reach the
+container. After editing the file, recreate the container (`docker compose -p docker up -d`; this ends open Studio
+sessions, so check nobody is recording).
+
+Then in Studio: Settings → Training Targets → Modal Provider, enter a name, **Deploy and connect** (creates a Modal
+app and Volume and builds the CUDA trainer image; several minutes). Train model → Run on: the Modal target → NVIDIA
+GPU. A10G is enough for ACT and the SmolVLA expert fine-tune; H100 only for Pi0.5. The Modal workspace usage limit must be above $0 even when credit is available, or the deploy fails with "exceeded its spend limit" (Studio hides that message; see `.local`). Each job is one GPU for at most
+24 h and keeps billing while Studio is closed; cancel from Studio or the Modal dashboard. Deleting the target deletes
+its Volume. Upstream reference: `external/physical-ai-studio/application/modal/README.md`.
+
 ## Verification scope and sources
 
 `tests/test_training.py` uses synthetic metadata and task arrays to cover three

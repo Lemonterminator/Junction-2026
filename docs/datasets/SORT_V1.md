@@ -40,13 +40,29 @@ The first depth setup (environment "Sorting cell + depth", IP cameras `top_rgb`/
 sort-depth-v1) was deleted from Studio on 2026-11-14 with no episodes recorded. Its encoding was one grey channel,
 height above the table on a fixed 0–10 cm scale, plane refitted every 10 s; v2 replaces it.
 
-### sort-depth-v2 (record here)
+### sort-depth-v3 (record here, from 2026-11-14 evening)
+
+The top camera moved after sort-depth-v2 was recorded (about 2° of tilt, the image shifted by up to 60 px), so the
+held plane and the view changed and v2 is closed. Everything else is as in v2 below (same environment, cameras,
+crop and encoding); only the plane and the dataset are new.
 
 | Item | Value |
 | --- | --- |
-| Environment | Sorting cell + depth v2 `f0ad6d59-9baf-4e8f-9915-8d5370ba8346`: `front`, `wrist`, `top_rgb_v2`, `top_depth_v2` |
+| Dataset | sort-depth-v3, to be created in Studio before the first episode |
+| Bridge | `sorter-depth-bridge --host 100.76.18.70 --port 8092 --plane data/depth/plane-v3.json --crop 96 0 512 416`, running from `~/depth-v3/src`; also serves `/raw.npz` |
+| Table plane | `data/depth/plane-v3.json` on the workstation: 85 % inliers, camera 509 mm above the table |
+| Markers in view | 16 and 17 (table anchors), 14 (corner), 10 and 11 (on the bowls) |
+
+Record every v3 episode with the one-second hover pause (step 2 below): it is what the hybrid's grasp clips are cut
+from, and only 3 of the 35 v2 episodes have it.
+
+### sort-depth-v2 (closed: 35 episodes, 23 green / 12 pink)
+
+| Item | Value |
+| --- | --- |
+| Environment | Sorting cell + depth `82b8829f-799a-4457-bba0-4d64a3ff302d`: `front`, `wrist`, `top_rgb_v2`, `top_depth_v2`; follower `76ad5f89-975e-4a88-9239-60e3691ed840` teleoperated by leader `ac3b6374-c317-490d-b5e1-f00ad60b0c0e` |
 | Cameras | `top_rgb_v2` `5a8f2704-5fd7-41e6-9a3f-c3444fc71962` → `/top.mjpg`; `top_depth_v2` `ccf35db6-3ada-4aa9-ad88-d1b441f8c8fb` → `/top_depth.mjpg`; both IP cameras at 512×416, 30 fps |
-| Dataset | sort-depth-v2 `a3b5452e-0693-47e6-8902-5f1efdc82515` |
+| Dataset | sort-depth-v2 `af9b173a-ee59-4e24-97c8-be71dba701ce` (recreated 2026-11-14 after the robots were recalibrated) |
 | Bridge | `sorter-depth-bridge --host 100.76.18.70 --port 8092 --plane data/depth/plane-v2.json --crop 96 0 512 416` (defaults: `layers`, R 0–4 cm, G 0–30 cm, `motion` filters, camera preset) |
 | Table plane | `data/depth/plane-v2.json` on the workstation: 92 % inliers, camera 508 mm above the table |
 

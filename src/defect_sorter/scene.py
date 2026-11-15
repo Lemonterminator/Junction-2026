@@ -2,6 +2,11 @@
 
 Objects are found by height above the table (depth), so a cluttered, textured table does not matter.
 Bowls are found by colour, because shallow plates barely rise above the table in depth.
+
+The default :class:`SceneConfig` suits a bare wooden table: wood hues are never bowls. :data:`PAPER_CELL` suits the
+cell covered in white paper: the colour is first balanced on the table pixels (the camera's white balance is fixed,
+so a change of room light tints the whole image), and each bowl colour gets its own hue band, so two bowls that
+touch in the image stay two bowls.
 """
 
 from __future__ import annotations
@@ -45,6 +50,14 @@ class SceneConfig:
 		ignored while objects inside the bowl are still found.
 	in_bowl_radius_px : float
 		An object whose centre is this close to a bowl centre is reported as in that bowl.
+	neutral_table : bool
+		Balance the colour so the table pixels (within ``table_tol_m`` of the plane) are grey before looking for
+		bowls. Right for a white table under tinted light; wrong for a coloured (wooden) table.
+	table_tol_m : float
+		Height band around the plane that counts as table for ``neutral_table``.
+	bowl_hue_bands : tuple of (int, int) or None
+		OpenCV hue ranges [low, high) searched for bowls one at a time. ``None``: one search over every hue that is
+		not wood.
 	"""
 
 	roi_margin: tuple[float, float, float, float] = (0.15, 0.10, 0.03, 0.03)
@@ -60,6 +73,17 @@ class SceneConfig:
 	bowl_tall_fraction_max: float = 0.3
 	bowl_rim_margin_px: int = 12
 	in_bowl_radius_px: float = 80.0
+	neutral_table: bool = False
+	table_tol_m: float = 0.003
+	bowl_hue_bands: tuple[tuple[int, int], ...] | None = None
+
+
+PAPER_CELL = SceneConfig(
+	roi_margin=(0.15, 0.0, 0.03, 0.03),
+	neutral_table=True,
+	bowl_hue_bands=((35, 100), (130, 180)),
+)
+"""The sorting cell as built: white paper on the table, a green and a pink bowl, the green one near the image top."""
 
 
 @dataclass(frozen=True)
@@ -129,28 +153,46 @@ def _centre_xyz(
 	return ((u - intr.ppx) * z / intr.fx, (v - intr.ppy) * z / intr.fy, z)
 
 
+def neutralise(color_bgr: np.ndarray, table: np.ndarray) -> np.ndarray:
+	"""``color_bgr`` scaled per channel so the median table pixel is grey at its own brightness.
+
+	Returns the image unchanged when ``table`` selects no pixels.
+	"""
+	if not table.any():
+		return color_bgr
+	median = np.median(color_bgr[table].astype(np.float64), axis=0)
+	gain = median.mean() / np.maximum(median, 1.0)
+	return np.clip(color_bgr.astype(np.float64) * gain, 0, 255).astype(np.uint8)
+
+
 def _detect_bowls(
 	color_bgr: np.ndarray, depth_m: np.ndarray, height: np.ndarray, roi: np.ndarray, intr: Intrinsics, cfg: SceneConfig
 ) -> tuple[list[Bowl], np.ndarray]:
 	hsv = cv2.cvtColor(cv2.GaussianBlur(color_bgr, (7, 7), 0), cv2.COLOR_BGR2HSV)
 	hue = hsv[..., 0]
-	wood = (hue <= cfg.wood_hue_max) | (hue >= cfg.wood_hue_min_wrap)
-	coloured = (hsv[..., 1] > cfg.saturation_min) & (hsv[..., 2] > cfg.value_min) & roi & ~wood
-	mask = coloured.astype(np.uint8) * 255
-	mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((7, 7), np.uint8))
-	mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((15, 15), np.uint8))
+	coloured = (hsv[..., 1] > cfg.saturation_min) & (hsv[..., 2] > cfg.value_min) & roi
+	if cfg.bowl_hue_bands is None:
+		bands = [coloured & ~((hue <= cfg.wood_hue_max) | (hue >= cfg.wood_hue_min_wrap))]
+	else:
+		bands = [coloured & (hue >= lo) & (hue < hi) for lo, hi in cfg.bowl_hue_bands]
+	contours = []
+	for band in bands:
+		mask = band.astype(np.uint8) * 255
+		mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((7, 7), np.uint8))
+		mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((15, 15), np.uint8))
+		contours += cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
 
 	bowls: list[Bowl] = []
-	rim_mask = np.zeros(mask.shape, bool)
+	rim_mask = np.zeros(hue.shape, bool)
 	ring = np.ones((2 * cfg.bowl_rim_margin_px + 1, 2 * cfg.bowl_rim_margin_px + 1), np.uint8)
-	for contour in cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]:
+	for contour in contours:
 		area = cv2.contourArea(contour)
 		if area < cfg.bowl_min_area_px or len(contour) < 5:
 			continue
 		(u, v), (axis_a, axis_b), angle = cv2.fitEllipse(contour)
 		if area / (np.pi * axis_a * axis_b / 4) < cfg.bowl_min_ellipse_fill:
 			continue
-		region_u8 = np.zeros(mask.shape, np.uint8)
+		region_u8 = np.zeros(hue.shape, np.uint8)
 		cv2.drawContours(region_u8, [contour], -1, 255, -1)
 		region = region_u8 > 0
 		if (height[region] > 0.03).mean() > cfg.bowl_tall_fraction_max:
@@ -248,6 +290,9 @@ def detect_scene(
 		plane = fit_table_plane(points[valid])
 		logger.debug("table plane offset %.3f m, inliers %.2f", plane.offset, plane.inlier_fraction)
 	height = np.where(valid, height_above(points, plane), 0.0)
-	bowls, rim_mask = _detect_bowls(color_bgr, depth_m, height, roi, intrinsics, cfg)
+	bowl_color = color_bgr
+	if cfg.neutral_table:
+		bowl_color = neutralise(color_bgr, valid & (np.abs(height) < cfg.table_tol_m))
+	bowls, rim_mask = _detect_bowls(bowl_color, depth_m, height, roi, intrinsics, cfg)
 	objects = _detect_objects(depth_m, height, valid, bowls, rim_mask, intrinsics, cfg)
 	return Scene(plane=plane, bowls=bowls, objects=objects, height_m=height, valid=valid, rim_mask=rim_mask)

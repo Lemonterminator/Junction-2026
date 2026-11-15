@@ -27,16 +27,22 @@ JPEGs use 4:4:4 chroma so detail that differs between the depth channels is not 
 
 Then add two IP cameras in Studio: ``http://<host>:8092/top.mjpg`` and ``http://<host>:8092/top_depth.mjpg``.
 ``/top.jpg`` and ``/top_depth.jpg`` return a single frame for a quick look.
+
+``/raw.npz`` returns the latest camera frame itself, uncropped: colour, depth in whole millimetres (the D415's own
+unit) and the intrinsics (:func:`encode_raw`, read with :func:`fetch_raw`). Measurements such as the brick target
+of ``sorter-move --bridge`` use it, so they run while Studio records and see the same frames.
 """
 
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import logging
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -55,6 +61,96 @@ MODES = ("layers", "height", "distance")
 PLANE_TILT_TOL_DEG = 1.0
 PLANE_OFFSET_TOL_M = 0.01
 MIN_PLANE_INLIERS = 0.5
+
+
+@dataclass(frozen=True)
+class RawFrame:
+	"""One camera frame as the bridge read it: colour (BGR), depth in metres (0 = missing), intrinsics, frame number."""
+
+	color_bgr: np.ndarray
+	depth_m: np.ndarray
+	intrinsics: Intrinsics
+	frame_id: int
+
+
+def encode_raw(frame: RawFrame) -> bytes:
+	"""``frame`` as an ``.npz``: colour, depth as uint16 millimetres (missing = 0), intrinsics, frame number."""
+	d = np.asarray(frame.depth_m, dtype=np.float64)
+	mm = np.where(np.isfinite(d) & (d > 0), np.rint(d * 1000.0), 0.0)
+	i = frame.intrinsics
+	out = io.BytesIO()
+	np.savez_compressed(
+		out,
+		color_bgr=np.asarray(frame.color_bgr, dtype=np.uint8),
+		depth_mm=np.clip(mm, 0, np.iinfo(np.uint16).max).astype(np.uint16),
+		intrinsics=np.array([i.fx, i.fy, i.ppx, i.ppy]),
+		frame_id=np.array(frame.frame_id),
+	)
+	return out.getvalue()
+
+
+def decode_raw(data: bytes) -> RawFrame:
+	"""Read a frame written by :func:`encode_raw`."""
+	with np.load(io.BytesIO(data)) as z:
+		fx, fy, ppx, ppy = (float(v) for v in z["intrinsics"])
+		return RawFrame(
+			color_bgr=z["color_bgr"],
+			depth_m=z["depth_mm"].astype(np.float32) / 1000.0,
+			intrinsics=Intrinsics(fx=fx, fy=fy, ppx=ppx, ppy=ppy),
+			frame_id=int(z["frame_id"]),
+		)
+
+
+def fetch_raw(base_url: str, *, timeout_s: float = 5.0) -> RawFrame:
+	"""Latest raw frame from a running bridge at ``base_url`` (``http://host:port``).
+
+	Raises
+	------
+	ValueError
+		For a URL that is not ``http://host:port``.
+	ConnectionError
+		When the bridge answers with an error (e.g. 503 before its first frame).
+	"""
+	import http.client
+	from urllib.parse import urlsplit
+
+	url = urlsplit(base_url)
+	if url.scheme != "http" or not url.hostname:
+		raise ValueError(f"bridge URL must be http://host:port, got {base_url!r}")
+	conn = http.client.HTTPConnection(url.hostname, url.port or 80, timeout=timeout_s)
+	try:
+		conn.request("GET", "/raw.npz")
+		resp = conn.getresponse()
+		body = resp.read()
+		if resp.status != 200:
+			raise ConnectionError(f"bridge answered {resp.status} {resp.reason}")
+		return decode_raw(body)
+	finally:
+		conn.close()
+
+
+def fresh_frames(
+	fetch: Callable[[], RawFrame], count: int, *, timeout_s: float = 5.0, poll_s: float = 0.02
+) -> Iterator[RawFrame]:
+	"""``count`` distinct camera frames from ``fetch`` (e.g. :func:`fetch_raw`), skipping repeats of the last one.
+
+	Raises
+	------
+	TimeoutError
+		When no new frame arrives within ``timeout_s`` (the bridge stopped or lost the camera).
+	"""
+	last = None
+	for _ in range(count):
+		deadline = time.monotonic() + timeout_s
+		while True:
+			frame = fetch()
+			if frame.frame_id != last:
+				break
+			if time.monotonic() > deadline:
+				raise TimeoutError(f"no new frame from the bridge in {timeout_s:.1f} s (stuck at frame {last})")
+			time.sleep(poll_s)
+		last = frame.frame_id
+		yield frame
 
 
 def colorize_depth(depth_m: np.ndarray, *, near_m: float, far_m: float) -> np.ndarray:
@@ -183,13 +279,19 @@ def crop(image: np.ndarray, box: tuple[int, int, int, int]) -> np.ndarray:
 
 
 def make_stream_handler(buffers: dict[str, FrameBuffer]) -> type[BaseHTTPRequestHandler]:
-	"""HTTP handler serving each buffer as ``/<name>.mjpg`` (multipart stream) and ``/<name>.jpg`` (one frame)."""
+	"""HTTP handler serving each buffer as ``/<name>.mjpg`` (multipart stream) and ``/<name>.jpg`` (one frame).
+
+	A buffer named ``raw`` holds :class:`RawFrame` objects in its state and is served as ``/raw.npz`` instead.
+	"""
 
 	class Handler(BaseHTTPRequestHandler):
 		def log_message(self, format: str, *args: object) -> None:
 			logger.debug(format, *args)
 
 		def do_GET(self) -> None:
+			if self.path.split("?", 1)[0] == "/raw.npz" and "raw" in buffers:
+				self._raw(buffers["raw"])
+				return
 			match = _PATH.match(self.path.split("?", 1)[0])
 			if not match or match.group(1) not in buffers:
 				self.send_error(404)
@@ -208,6 +310,19 @@ def make_stream_handler(buffers: dict[str, FrameBuffer]) -> type[BaseHTTPRequest
 				self.wfile.write(frame.jpeg)
 				return
 			self._stream(buffer)
+
+		def _raw(self, buffer: FrameBuffer) -> None:
+			frame = buffer.latest().state.get("frame")
+			if frame is None:
+				self.send_error(503, "no frame yet")
+				return
+			body = encode_raw(frame)
+			self.send_response(200)
+			self.send_header("Content-Type", "application/octet-stream")
+			self.send_header("Content-Length", str(len(body)))
+			self.send_header("Cache-Control", "no-store")
+			self.end_headers()
+			self.wfile.write(body)
 
 		def _stream(self, buffer: FrameBuffer) -> None:
 			self.send_response(200)
@@ -263,7 +378,8 @@ def run_bridge(
 ) -> None:
 	"""Publish colour and the depth image from ``read_frame`` (``(color_bgr, depth_m, intrinsics)``) until ``stop()``.
 
-	The height modes use ``plane``, or the plane fitted on the first frame, for the whole run.
+	The height modes use ``plane``, or the plane fitted on the first frame, for the whole run. With a ``raw`` buffer
+	the uncropped frame is kept there too (encoded only when someone asks for it).
 	"""
 	if mode not in MODES:
 		raise ValueError(f"mode must be one of {MODES}")
@@ -272,6 +388,9 @@ def run_bridge(
 	while not stop():
 		t0 = time.perf_counter()
 		color, depth, intrinsics = read_frame()
+		if "raw" in buffers and intrinsics is not None:
+			raw_id = buffers["raw"].latest().frame_id + 1
+			buffers["raw"].publish(None, {"frame": RawFrame(color, depth, intrinsics, raw_id)})
 		t1 = time.perf_counter()
 		if mode == "distance":
 			depth_img = colorize_depth(depth, near_m=near_m, far_m=far_m)
@@ -367,11 +486,13 @@ def main(argv: list[str] | None = None) -> None:
 			args.filters,
 			args.preset,
 		)
-		buffers = {"top": FrameBuffer(), "top_depth": FrameBuffer()}
+		buffers = {"top": FrameBuffer(), "top_depth": FrameBuffer(), "raw": FrameBuffer()}
 		server = ThreadingHTTPServer((args.host, args.port), make_stream_handler(buffers))
 		server.daemon_threads = True
 		threading.Thread(target=server.serve_forever, daemon=True).start()
-		logger.info("streams on http://%s:%d/top.mjpg and /top_depth.mjpg", args.host, args.port)
+		logger.info(
+			"streams on http://%s:%d/top.mjpg and /top_depth.mjpg, raw frames on /raw.npz", args.host, args.port
+		)
 		try:
 			run_bridge(
 				read,

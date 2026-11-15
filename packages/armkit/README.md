@@ -48,6 +48,12 @@ armkit-calibrate frame --port ... --pose so101-zero --release --go     # release
 
 `measure`, `move` and the body-joint `check` take `--frame frame.json` and refuse to plan without it.
 
+A hand-held pose is only as good as the operator's reading of the description: on one SO-101 it came out 27° off on
+the shoulder lift although the forearm was right. Prefer offsets measured independently (a camera fit of a marker on
+the gripper, or the range midpoints of a URDF built around them), write them as a frame file, and keep the hand-held
+direction check for the signs. The sweep check covers everything the search may reach, including angles past the URDF's
+joint limits (real arms often travel a few degrees further).
+
 ## Measuring the whole arm (the pipeline)
 
 ```
