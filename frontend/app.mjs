@@ -1,6 +1,8 @@
 import { createDemo, advanceDemo, displayState, validateTelemetry, stageProgress, explanation } from './telemetry.mjs';
 import { CellScene, drawDemoCrop } from './scene.mjs';
 import { LatestImageLoader } from './image-loader.mjs';
+import { InferenceWindow, mountPerformance } from './performance.mjs';
+import { mountIntro } from './intro.mjs';
 
 const $ = id => document.getElementById(id);
 const scene = new CellScene($('scene'));
@@ -11,6 +13,7 @@ let state = createDemo('defective');
 for (let i = 0; i < 5; i++) state = advanceDemo(state);
 let timer = null;
 let part = 1;
+const inferenceWindow = new InferenceWindow();
 const terminal = () => ['complete','review','fault'].includes(state.stage);
 
 function arc(start, end) {
@@ -22,6 +25,14 @@ function arc(start, end) {
 function render() {
 	const view = displayState(state);
 	const demo = state.mode === 'demo';
+	inferenceWindow.add(state);
+	const timings = inferenceWindow.summary();
+	const duration = value => value === null ? '—' : `${value.toFixed(1)} ms`;
+	$('inference-median').textContent = duration(timings.median);
+	$('inference-p95').textContent = duration(timings.p95);
+	$('inference-samples').textContent = timings.count
+		? `${timings.count} measured completed ${timings.mode} cycles · ${timings.device ?? 'device unverified'} · latest ${duration(timings.latest)} · last 60 cycles, nearest-rank percentiles`
+		: 'No measured completed cycles yet.';
 	const fault = state.stage === 'fault';
 	const isDecision = ['reason','act','verify','complete','review','fault'].includes(state.stage);
 	const color = fault ? 'fault' : state.label;
@@ -103,7 +114,7 @@ $('play').addEventListener('click', () => { if(timer) { pause(); render(); } els
 $('scenario').addEventListener('change', () => { pause(); state = createDemo($('scenario').value); render(); });
 $('reset-view').addEventListener('click', () => scene.reset());
 document.addEventListener('keydown', e => {
-	if(e.code !== 'Space' || e.repeat || /^(INPUT|SELECT|TEXTAREA|BUTTON|A|CANVAS)$/.test(e.target.tagName) || e.target.isContentEditable) return;
+	if($('intro-dialog').open || e.code !== 'Space' || e.repeat || /^(INPUT|SELECT|TEXTAREA|BUTTON|A|CANVAS)$/.test(e.target.tagName) || e.target.isContentEditable) return;
 	e.preventDefault(); if(!$('inspect').disabled) $('inspect').click();
 });
 
@@ -125,3 +136,5 @@ setInterval(() => {
 	}
 },1000);
 render();
+mountIntro();
+mountPerformance();

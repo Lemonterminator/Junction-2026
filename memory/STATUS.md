@@ -576,3 +576,58 @@ No hardware was touched.
 - Run `sort-depth-v2-10k` started 20:24 UTC with `configs/training/smolvla_sort_depth_v2.toml` (validation episodes
   6, 15, 19, 25, 30). Handoff and what to do when it finishes:
   [handoff](handoffs/2026-11-14-camera-latency-and-sort-depth-training.md).
+
+## Update 2026-11-15 — dashboard host performance and product intro
+
+Prepared on the existing `feat/sorting-dashboard` branch at the user's request. No commit or push requested.
+
+- Added `sorter-dashboard`, a loopback-by-default server for frontend assets, one-second cached
+  `/api/system` samples and optional read-only `/api/telemetry` from `--telemetry-file`.
+- Linux resource cards show CPU, RAM, visible Intel GPU clients (i915 nanoseconds and Xe busy/total cycles),
+  NPU job activity and CPU package watts where readable. Counters use procfs/sysfs only, with null values for
+  unavailable/reset/restricted data. Charts retain 60 samples; stale readings clear. GPU client coverage and
+  server-host scope are explicit. Monitoring does not prove model execution or correctness.
+- Inference median/p95 use up to 60 measured completed episodes per source/device, deduplicated by episode id;
+  demo values never contribute. Actual timings/device reporting still require backend instrumentation and a
+  v1 snapshot producer. The file bridge is transport, not a real-cell adapter or frame proxy.
+- Added **Meet PhysicAI**, an optional four-chapter animated SVG introduction: missed-defect business costs,
+  inspection/sorting, human review and local Intel inference. Browser narration has an English voice selector,
+  captions, transcripts, silent/error fallback, cancellation on close and reduced-motion support. No recorded
+  narration/video file is bundled; voice quality depends on the browser/OS. The local voiceover app service
+  was unreachable, so no external voice asset was produced.
+- Updated README, dashboard guide and AGENTS architecture/test ownership. New deterministic regression tests
+  were run red then green for resource math, duplicate handles/cycle counters/counter dips, HTTP path isolation,
+  snapshot reads, stale data, timing provenance and intro playback/cancellation/error fallback.
+
+Validation: `uv run pytest -q` **583 passed, 1 skipped (47.76 s)**; `node --test frontend/tests/*.test.mjs`
+**22 passed**; `uv run ruff check src tests packages` passed; `uv run ruff format --check src tests packages`
+reported **93 files already formatted**. Module syntax/whitespace checks and local HTTP smoke checks passed.
+Firefox could not open its temporary profile, so browser visual/interaction and voice-quality QA remain
+unverified. No shared workstation, cameras, arm or inference workload was touched; Linux hardware sampling
+remains to be verified on the inference laptop. Launch from the checkout root with `uv run sorter-dashboard`.
+
+## Update 2026-11-15 — intro playback fix and portable system resources
+
+Supersedes the intro voice-selector and non-Linux resource limitations in the previous entry.
+
+- Reproduced Chromium's `Illegal invocation` on Play: default browser timers were called with the player
+  as their receiver. Added a failing receiver regression and fixed timer wrappers.
+- Replaced speech synthesis with four bundled English PCM narration clips and one fixed default voice.
+  **Meet PhysicAI** opens paused; **Play intro** starts audio. Removed the voice selector. Pause/resume,
+  chapter navigation, replay, close/Escape and silent captions have explicit handling. The server now
+  serves WAV and byte ranges; browser end-seeking initially exposed the missing range support, covered
+  by a failing HTTP regression before implementation. Transcript-driven regeneration is in
+  `scripts/build_intro_audio.mjs` (macOS-only build tooling; playback is portable).
+- Added small `psutil` dependency/lock update for native CPU/RAM on macOS/Windows and other supported OSes,
+  with OS/CPU/core identity. Linux retains procfs/sysfs accelerator readings. Unsupported non-Linux
+  GPU/NPU/power stay null and are not labeled Intel. Native counter failures preserve other available data.
+- Updated README, dashboard guide and AGENTS test/architecture notes.
+
+Validation: new failures observed before fixes; **27 frontend tests passed**; full `uv run pytest -q`
+**587 passed, 1 skipped (47.94 s)**; Ruff check passed; Ruff format check reported **93 files already formatted**.
+Module syntax and four non-silent PCM asset checks passed. Actual Chromium checks (speech synthesis disabled)
+passed for live macOS CPU/RAM, all chapters/audio, pause/resume, seeking/completion, replay, Escape, reopening,
+silent mode and mobile width with no page errors. Desktop/mobile screenshots reviewed. Windows counters have
+synthetic coverage only; real Intel Linux accelerator readings remain unverified here. No robot, cameras,
+Studio service or inference workload was touched. The user requested an additional commit and publication
+to the existing dashboard pull request on 2026-11-15; use Git and the PR to check synchronization state.

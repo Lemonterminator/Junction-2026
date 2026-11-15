@@ -17,13 +17,13 @@ This repository contains the Python pipeline, a standalone dashboard, the `armki
 | Review recordings | [Recorded datasets](#review-recorded-datasets) | Exported LeRobot v3 data; optional `dataset` extra |
 | Inspect calibration planning | [armkit library](#armkit-library) | Default workspace environment; plan opens no device |
 | Share trained models | [Tracking and model releases](#tracking-and-model-releases) | Optional `tracking` extra or authenticated release access |
-| Connect dashboard data | [Backend handoff](docs/infrastructure/DASHBOARD.md) | Replay/live adapter, still to be implemented |
+| Connect dashboard data | [Backend handoff](docs/infrastructure/DASHBOARD.md) | Read-only snapshot JSON; controller adapter still needed |
 
 ## Current capabilities
 
 The Python package includes scene detection, marker/table alignment, camera-based joint calibration, guarded scripted motion, camera-control profiles, a Studio colour/depth bridge, anomaly inspection, a closed-loop controller over replaceable interfaces, and a kinematic twin with a scripted expert. `armkit` supplies reusable kinematics, collision checks and guarded calibration. Team notes record physical calibration and teleoperation, scripted hover and guarded calibration checks, Intel inference profiling, a twin-data training smoke run and a first Studio-recording SmolVLA export. These are separate pieces of evidence, not a demonstrated autonomous real-cell sorting loop.
 
-The dashboard currently runs **illustrative demo playback**. Its camera crop is synthetic, its arm is a stylized illustration, and missing timings/device fields stay empty. Missing thresholds and joint readings can be represented without invented values, and completion without a verified outcome does not claim placement. Live transport, calibrated joint rendering, Studio dataset replay and hardware commands are not connected. Real-cell and runtime-policy adapters also remain integration work. See [current status](memory/STATUS.md) for dated evidence and limitations.
+The dashboard starts with **illustrative demo playback** and an optional captioned product intro with a fixed narrator. Its resource monitor reads CPU/RAM on Linux, macOS and Windows; accessible Intel GPU/NPU counters and CPU package power are additionally supported on Linux. Missing counters and inference timings stay empty. Backend-written snapshot JSON can supply sorting telemetry and measured inference median/p95; controller instrumentation, calibrated joint rendering, Studio replay and physical actions remain integration work. See [current status](memory/STATUS.md) for dated evidence and limitations.
 
 ## Set up a checkout
 
@@ -65,10 +65,16 @@ Pytest includes both `tests/` and `packages/armkit/tests/`. Tests use synthetic 
 **Run this from the repository root**, where `frontend/index.html` exists:
 
 ```bash
-uv run python -m http.server 8080 --bind 127.0.0.1 --directory frontend
+uv run sorter-dashboard
 ```
 
 Open **http://127.0.0.1:8080/**. Choose a scenario and use **Play demo** or **Inspect next part**. Cases cover perfect, defective, human review and arm fault. Drag the cell to rotate it, use arrow keys while the canvas is focused, or use the reset-view button. Ctrl+C stops the server.
+
+Use **Meet PhysicAI**, then **Play intro**, for the animated business intro: problem, solution, human review and local inference. One fixed English narrator is bundled with the UI; playback needs no installed browser voice or voice service. Pause/resume, replay and a narration on/off toggle are available. Captions and chapter transcripts remain available. Closing the intro stops its audio.
+
+Run the server **on the computer you want to monitor**. CPU, memory, processor identity and core count are supported on Linux, macOS and Windows. These show the server host, including other workloads. Linux GPU coverage is limited to readable Intel DRM clients; NPU and package-power counters depend on kernel support and permissions. GPU/NPU/power counters on macOS/Windows remain unavailable. Monitoring never opens a camera or commands the arm. CPU/GPU/NPU load does not prove model deployment or accuracy.
+
+To display backend-written sorting snapshots and timings, use `uv run sorter-dashboard --telemetry-file /path/to/snapshot.json`. The backend must publish snapshot v1 atomically; see the [dashboard guide](docs/infrastructure/DASHBOARD.md). A static-only preview still works with `uv run python -m http.server 8080 --bind 127.0.0.1 --directory frontend`, with the resource monitor unavailable.
 
 For example, if the checkout is under your Documents folder, change into it first:
 
@@ -82,11 +88,12 @@ Use your own checkout path on another machine. No frontend installation, build, 
 
 | Symptom | Fix |
 | --- | --- |
-| `404 File not found` at `/` | Stop the server, change into the repository root, and rerun. From `~`, `--directory frontend` points to the wrong folder. If already inside `frontend/`, omit `--directory frontend`. |
-| `Address already in use` | Stop your earlier server with Ctrl+C, or use port `8082` in both command and browser URL. |
+| Frontend not found / `404` at `/` | Run from the checkout root, or pass `--frontend /path/to/checkout/frontend`. |
+| `Address already in use` | Stop your earlier server with Ctrl+C, or add `--port 8082` and use that port in the browser URL. |
 | Blocked modules or empty page | Use the HTTP URL, not `file:`, and inspect the browser console. |
 | Changes do not appear | Refresh without cache and confirm the server serves this checkout. |
 | No live feed or real arm movement | Expected: controls operate the demo only. See the [integration guide](docs/infrastructure/DASHBOARD.md). |
+| Missing GPU/NPU or power readings | The driver/counter may be unavailable or restricted. Keep the missing reading; do not run the dashboard as root or change host permissions for the presentation. |
 
 ## Run the hardware-free pipeline
 
