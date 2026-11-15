@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import os
 import platform
 import subprocess
 import time
@@ -50,6 +51,30 @@ def _fields(text: str) -> dict[str, str]:
 	}
 
 
+def _sysconf(name: str, default: int) -> int:
+	try:
+		return int(os.sysconf(name))
+	except (AttributeError, ValueError, OSError):
+		return default
+
+
+def _process_counters(proc: Path) -> dict[int, tuple[str, int, int]]:
+	"""``pid -> (command, user+system ticks, resident pages)`` from readable ``/proc/<pid>/stat`` files."""
+	result: dict[int, tuple[str, int, int]] = {}
+	for path in proc.glob("[0-9]*/stat"):
+		text = _read(path)
+		start, end = text.find("("), text.rfind(")")
+		if start < 0 or end < start:
+			continue
+		rest = text[end + 1 :].split()
+		try:
+			pid = int(text[:start])
+			result[pid] = (text[start + 1 : end], int(rest[11]) + int(rest[12]), int(rest[21]))
+		except (ValueError, IndexError):
+			continue
+	return result
+
+
 @dataclass(frozen=True)
 class _GpuCounter:
 	busy: int
@@ -66,13 +91,27 @@ class SystemMetrics:
 		Linux filesystem roots, replaceable with fixture directories in tests.
 	host_platform : str or None
 		OS identifier, defaults to platform.system(); explicit in synthetic tests.
+	clock_ticks, page_size : int or None
+		Linux ``USER_HZ`` and memory page size for per-process counters; default to the host's values.
+	top_processes : int
+		How many of the busiest processes each Linux sample lists.
 	"""
 
 	def __init__(
-		self, proc: Path = Path("/proc"), sys: Path = Path("/sys"), *, host_platform: str | None = None
+		self,
+		proc: Path = Path("/proc"),
+		sys: Path = Path("/sys"),
+		*,
+		host_platform: str | None = None,
+		clock_ticks: int | None = None,
+		page_size: int | None = None,
+		top_processes: int = 8,
 	) -> None:
 		self.proc = proc
 		self.sys = sys
+		self.clock_ticks = clock_ticks or _sysconf("SC_CLK_TCK", 100)
+		self.page_size = page_size or _sysconf("SC_PAGE_SIZE", 4096)
+		self.top_processes = top_processes
 		self.host_platform = platform.system() if host_platform is None else host_platform
 		self._model = None if self.host_platform == "Linux" else _cpu_model(self.host_platform)
 		self._previous: dict[str, Any] | None = None
@@ -115,6 +154,8 @@ class SystemMetrics:
 			"npu_percent": None,
 			"package_power_w": None,
 			"gpu_scope": "GPU counters unavailable on this platform",
+			"per_cpu_percent": None,
+			"processes": None,
 		}
 		old = self._previous
 		if old and now > old["time"]:
@@ -184,6 +225,20 @@ class SystemMetrics:
 				cpu = (sum(values), values[3] + values[4])
 		except (IndexError, ValueError):
 			pass
+		cores: list[tuple[int, int]] = []
+		for line in stat[1:]:
+			parts = line.split()
+			if not parts or not parts[0].startswith("cpu") or not parts[0][3:].isdigit():
+				continue
+			try:
+				values = [int(v) for v in parts[1:9]]
+			except ValueError:
+				values = []
+			if len(values) != 8:
+				cores = []
+				break
+			cores.append((sum(values), values[3] + values[4]))
+		processes = _process_counters(self.proc)
 		memory = _fields(_read(self.proc / "meminfo"))
 		total = used = None
 		try:
@@ -217,10 +272,35 @@ class SystemMetrics:
 			"gpu_scope": "Intel DRM visible clients · busiest engine",
 			"npu_percent": None,
 			"package_power_w": None,
+			"per_cpu_percent": None,
+			"processes": None,
 		}
 		old = self._previous
 		if old and (elapsed := now - old["time"]) > 0:
 			result["interval_ms"] = elapsed * 1000
+			previous_cores = old.get("cores") or []
+			if cores and len(cores) == len(previous_cores):
+				rates = []
+				for (busy_total, idle), (old_total, old_idle) in zip(cores, previous_cores, strict=True):
+					ticks, idle_ticks = busy_total - old_total, idle - old_idle
+					rates.append(100 * (ticks - idle_ticks) / ticks if ticks > 0 and 0 <= idle_ticks <= ticks else None)
+				result["per_cpu_percent"] = rates
+			previous_processes = old.get("processes") or {}
+			busy = []
+			for pid, (name, ticks, pages) in processes.items():
+				before = previous_processes.get(pid)
+				if before is None or before[0] != name or ticks < before[1]:
+					continue
+				busy.append(
+					{
+						"pid": pid,
+						"name": name,
+						"cpu_percent": (ticks - before[1]) / (elapsed * self.clock_ticks) * 100,
+						"memory_bytes": pages * self.page_size,
+					}
+				)
+			busy.sort(key=lambda entry: (-entry["cpu_percent"], -entry["memory_bytes"], entry["pid"]))
+			result["processes"] = busy[: self.top_processes]
 			if cpu and old["cpu"]:
 				ticks, idle = cpu[0] - old["cpu"][0], cpu[1] - old["cpu"][1]
 				if ticks > 0 and 0 <= idle <= ticks:
@@ -258,5 +338,13 @@ class SystemMetrics:
 					watts.append(((energy - previous) % maximum) / (elapsed * 1e6))
 			if watts:
 				result["package_power_w"] = sum(watts)
-		self._previous = {"time": now, "cpu": cpu, "gpu": gpu, "npu": npu, "power": power}
+		self._previous = {
+			"time": now,
+			"cpu": cpu,
+			"gpu": gpu,
+			"npu": npu,
+			"power": power,
+			"cores": cores,
+			"processes": processes,
+		}
 		return result

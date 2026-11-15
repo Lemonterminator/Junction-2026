@@ -8,7 +8,7 @@ import { STORY } from '../frontend/intro.mjs';
 
 if (process.platform !== 'darwin') throw new Error('Rebuilding narration requires macOS; playback works on every supported platform.');
 const frontend = fileURLToPath(new URL('../frontend/', import.meta.url));
-const temporary = mkdtempSync(join(tmpdir(), 'physicai-narration-'));
+const temporary = mkdtempSync(join(tmpdir(), 'armigo-narration-'));
 try {
 	for (const chapter of STORY) {
 		const intermediate = join(temporary, chapter.key + '.aiff');

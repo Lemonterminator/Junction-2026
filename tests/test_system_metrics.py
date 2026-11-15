@@ -180,3 +180,45 @@ def test_portable_counter_failures_do_not_erase_available_memory(monkeypatch):
 	assert sample["cpu_percent"] is None
 	assert sample["logical_cpus"] == 0
 	assert sample["memory_percent"] == 75
+
+
+def proc_stat(pid: int, comm: str, utime: int, stime: int, rss_pages: int) -> str:
+	# Fields after the command: state ppid pgrp session tty tpgid flags minflt cminflt majflt cmajflt utime stime
+	# cutime cstime priority nice threads itrealvalue starttime vsize rss.
+	rest = ["S", "1", "1", "1", "0", "-1", "0", "0", "0", "0", "0", str(utime), str(stime)]
+	rest += ["0", "0", "20", "0", "1", "0", "100", "1000", str(rss_pages)]
+	return f"{pid} ({comm}) " + " ".join(rest) + "\n"
+
+
+def test_per_core_cpu_and_top_processes_come_from_procfs_deltas(roots):
+	proc, sys = roots
+	write(proc, "stat", "cpu 0 0 0 0 0 0 0 0\ncpu0 0 0 0 100 0 0 0 0\ncpu1 0 0 0 100 0 0 0 0\n")
+	write(proc, "100/stat", proc_stat(100, "python3", 10, 0, 2560))
+	write(proc, "200/stat", proc_stat(200, "Web Content", 0, 0, 256))
+	write(proc, "300/stat", proc_stat(300, "idle thing", 5, 5, 1))
+	metrics = SystemMetrics(proc, sys, clock_ticks=100, page_size=4096)
+	first = metrics.sample(monotonic=10, timestamp=1000)
+	assert first["per_cpu_percent"] is None
+	assert first["processes"] is None
+	write(proc, "stat", "cpu 0 0 0 0 0 0 0 0\ncpu0 75 0 25 200 0 0 0 0\ncpu1 10 0 0 290 0 0 0 0\n")
+	# Over 2 s at 100 ticks/s: python3 used 150 ticks (75 %), Web Content 20 ticks (10 %), the idle one nothing.
+	write(proc, "100/stat", proc_stat(100, "python3", 110, 50, 2560))
+	write(proc, "200/stat", proc_stat(200, "Web Content", 20, 0, 256))
+	write(proc, "300/stat", proc_stat(300, "idle thing", 5, 5, 1))
+	write(proc, "400/stat", proc_stat(400, "new", 999, 0, 1))
+	second = metrics.sample(monotonic=12, timestamp=3000)
+	assert second["per_cpu_percent"] == [50, 5]
+	assert second["processes"] == [
+		{"pid": 100, "name": "python3", "cpu_percent": 75, "memory_bytes": 2560 * 4096},
+		{"pid": 200, "name": "Web Content", "cpu_percent": 10, "memory_bytes": 256 * 4096},
+		{"pid": 300, "name": "idle thing", "cpu_percent": 0, "memory_bytes": 4096},
+	], "a process first seen in this sample has no rate yet and is left out"
+
+
+def test_unreadable_process_entries_are_skipped(roots):
+	proc, sys = roots
+	write(proc, "100/stat", "garbage")
+	write(proc, "200/stat", proc_stat(200, "ok", 0, 0, 1))
+	metrics = SystemMetrics(proc, sys, clock_ticks=100, page_size=4096)
+	metrics.sample(monotonic=1, timestamp=1)
+	assert [p["pid"] for p in metrics.sample(monotonic=2, timestamp=2)["processes"]] == [200]

@@ -5,7 +5,7 @@ export const STORY = [
 		narration:'One small defect can mean a returned order, wasted material, and another inspection. Checking every part by hand takes time. For people doing repetitive work, it’s easy to miss something.'},
 	{key:'inspect', audio:'assets/intro/inspect.wav', label:'02 / THE SOLUTION', title:'Give every part a second look.',
 		caption:'See the part. Inspect it. Choose the next action.', duration:10000,
-		narration:'Physic AI brings inspection and sorting into one cell. Cameras see the part. An anomaly model looks for defects. Then the system chooses the next action and asks the robot to sort it.'},
+		narration:'Armigo brings inspection and sorting into one cell. Cameras see the part. An anomaly model looks for defects. Then the system chooses the next action and asks the robot to sort it.'},
 	{key:'human', audio:'assets/intro/human.wav', label:'03 / THE HUMAN', title:'When it’s unsure, people decide.',
 		caption:'Good parts move on. Defects go aside. Uncertainty gets a human.', duration:9500,
 		narration:'Good parts move on. Defective parts go aside. When the result is uncertain, sorting pauses for a person to take a second look. Your team keeps the judgment. The robot handles the repetition.'},
