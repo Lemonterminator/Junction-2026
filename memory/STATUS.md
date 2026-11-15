@@ -1,5 +1,13 @@
 # Current status
 
+## Update 2026-11-15 — anomaly baselines in MLflow and releases
+
+- `tracking.anomaly_record` and `model_release.anomaly_manifest` (CLIs `tracking anomaly`, `model_release anomaly-manifest`)
+  register one fold model of the real baseline with its CPU threshold, cross-fold results and latency; new release
+  status `baseline`. Tests written first in `tests/test_tracking.py` and `tests/test_model_release.py`.
+- PatchCore 10 % and Padim fold-0 exports are in MLflow experiment `defect-sorter-anomaly` (tag `status = baseline`).
+  Nothing has been copied to the Intel workstation; guide in `docs/infrastructure/MODEL_RELEASES.md`.
+
 ## Update 2026-11-15 — Modal as overflow GPU
 
 - `scripts/modal/train.py` runs the `defect_sorter.training` plan on a Modal GPU in
