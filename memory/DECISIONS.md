@@ -82,9 +82,28 @@ Calibration by hand in Studio is slow and error-prone, so end stops are found by
 joints by the 3D model's collision shapes before each sweep, never run a plan with issues, previous calibration is backed
 up and restored on failure, servo faults stop everything and are never retried. Status: adopted; simulation-tested only.
 
+## 2026-11-14 — The armkit model frame comes from the camera joint fit, not a hand-held pose
+
+The frame recorded with the arm held "in the SO-101 zero pose" disagrees with the camera marker fit by 27° (shoulder
+lift) and 21° (elbow). Evidence that the hand-held frame is the wrong one: the nose-down incident (tip on the table)
+reads as tip 19 cm up in the hand frame but as contact in the camera frame and with "stored midpoint = model zero"; the
+SO-101 `so101_new_calib` URDF is built so the range midpoint is the model zero, and the camera fit (26 poses, 4 mm RMS,
+3.5° base tilt) agrees with that to within 7°. In the camera frame the hand-held reference pose had the forearm level
+(right) but the upper arm 42° forward, not the described 14°. Planning uses the camera-based frame (lift, elbow, wrist
+flex from the fit; pan and roll offsets and all directions from the hand-held checks). Consequence: plans made with
+the hand frame had far less table clearance than reported (shoulder-forward check: about 2 cm by the collision spheres,
+not 8.7 cm). Status: adopted for the next hardware session; verify on the arm before the first sweep.
+
 ## 2026-11-15 — Defect definition: a brick that is not one solid colour
 
 A brick is defective when it is not a single solid colour; marker marks and stuck-on tape both count. The bricks
 recorded so far carry scraps of grey duct tape on any face, and come in red, orange, yellow, lime and teal. The
 table is covered in the same grey tape, so inspection isolates the brick (saturation mask, convex hull, constant
 fill outside) instead of removing tape, which would also remove the defect. Status: adopted (linan).
+
+## 2026-11-15 — scripted-move reach limit 40 cm (hard cap 42 cm)
+
+The user raised the scripted moves' reach limit from 30 cm (hard cap 35) to 40 cm by default with a 42 cm hard cap,
+after planning showed the SO-101 reaches a brick at table height to about 42 cm with a 45° approach. All other
+checks are unchanged (table floors, servo ranges, speed cap, stop on tracking lag). Far moves are the least
+accurate and the most loaded; the first move to a new far area is a dry run, then the operator's go.

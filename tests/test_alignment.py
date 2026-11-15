@@ -5,9 +5,12 @@ from defect_sorter.alignment import (
 	MarkerPose,
 	TablePose,
 	compare_to_reference,
+	held_table_frame,
 	load_reference,
+	load_table_frame,
 	refine_with_depth,
 	save_reference,
+	save_table_frame,
 	table_frame,
 	table_rotation,
 	tilt_deg,
@@ -349,3 +352,49 @@ def test_table_rotation_of_a_flat_yawed_marker_and_an_upright_one():
 
 	np.testing.assert_allclose(table_rotation(poses[10], frame), _rot_z(30.0), atol=1e-9)
 	np.testing.assert_allclose(table_rotation(poses[0], frame), _rot_x(90.0), atol=1e-9)
+
+
+FLAT = Plane(normal=np.array([0.0, 0.0, -1.0]), offset=0.6, inlier_fraction=1.0)
+FIXED = {16: (-0.10, 0.05, 0.6), 17: (0.17, 0.05, 0.6), 18: (0.03, 0.12, 0.6), 7: (0.03, 0.20, 0.6)}
+
+
+def seen(*ids: int, shift=(0.0, 0.0, 0.0)) -> dict[int, MarkerPose]:
+	return {i: pose(i, tuple(np.add(FIXED[i], shift))) for i in ids}
+
+
+class TestHeldTableFrame:
+	def test_saved_frame_round_trips(self, tmp_path):
+		frame = table_frame(FLAT, seen(16, 17))
+		save_table_frame(tmp_path / "frame.json", frame, seen(16, 17, 18, 7))
+
+		loaded, markers = load_table_frame(tmp_path / "frame.json")
+
+		np.testing.assert_allclose(loaded.origin, frame.origin)
+		np.testing.assert_allclose(loaded.axes, frame.axes)
+		assert loaded.basis == frame.basis
+		assert set(markers) == {16, 17, 18, 7}
+
+	def test_a_hidden_anchor_is_bridged_while_the_other_fixed_tags_have_not_moved(self, tmp_path):
+		frame = table_frame(FLAT, seen(16, 17))
+		save_table_frame(tmp_path / "frame.json", frame, seen(16, 17, 18, 7))
+		saved, markers = load_table_frame(tmp_path / "frame.json")
+
+		held = held_table_frame(saved, markers, seen(17, 18, 7, shift=(0.002, -0.001, 0.0)))  # 16 hidden
+
+		assert held is not None
+		np.testing.assert_allclose(held.origin, frame.origin)
+		assert "held" in held.basis
+
+	def test_a_moved_camera_is_not_bridged(self, tmp_path):
+		frame = table_frame(FLAT, seen(16, 17))
+		save_table_frame(tmp_path / "frame.json", frame, seen(16, 17, 18, 7))
+		saved, markers = load_table_frame(tmp_path / "frame.json")
+
+		assert held_table_frame(saved, markers, seen(17, 18, 7, shift=(0.012, 0.0, 0.0))) is None
+
+	def test_one_visible_tag_is_not_enough_proof(self, tmp_path):
+		frame = table_frame(FLAT, seen(16, 17))
+		save_table_frame(tmp_path / "frame.json", frame, seen(16, 17, 18, 7))
+		saved, markers = load_table_frame(tmp_path / "frame.json")
+
+		assert held_table_frame(saved, markers, seen(17)) is None

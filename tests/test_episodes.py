@@ -140,6 +140,24 @@ class TestReview:
 		assert "wrist" in joined
 		assert "gripper" in joined
 
+	def test_depth_v2_camera_names_count_as_the_top_view(self):
+		ep = synthetic_episode()
+		v2 = EpisodeData(
+			ep.timestamps_s,
+			ep.body_deg,
+			ep.gripper,
+			task=ep.task,
+			cameras=("front", "top_rgb_v2", "top_depth_v2", "wrist"),
+		)
+		assert review_episode(v2, ReviewConfig()).problems == []
+
+	def test_a_depth_stream_alone_is_not_a_top_view(self):
+		ep = synthetic_episode()
+		depth_only = EpisodeData(
+			ep.timestamps_s, ep.body_deg, ep.gripper, task=ep.task, cameras=("front", "top_depth_v2", "wrist")
+		)
+		assert any("top" in p for p in review_episode(depth_only, ReviewConfig()).problems)
+
 	def test_too_short(self):
 		report = review_episode(synthetic_episode(length_s=4.0), ReviewConfig())
 		assert any("short" in p for p in report.problems)

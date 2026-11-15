@@ -11,7 +11,15 @@ reports joint zero offsets, the robot base pose on the table and the fit quality
 	uv run sorter-joint-calibration locate --calibration data/calibration/robot.json
 
 ``solve`` accepts several sessions of the same marker mounting and fits them together; vary the wrist roll between
-poses, or the wrist_flex offset is not observable. ``link-base`` measures a marker fixed on the base plate while
+poses, or the wrist_flex offset is not observable.
+
+With Studio's joint zeros trusted, ``solve --base-only`` fits only the base pose, from fewer poses and from markers on
+several links at once (``capture --marker 9:shoulder --marker 4:gripper``): a marker on the turning base pins the
+base position, one further out on the arm gives the heading
+(:func:`defect_sorter.joint_calibration.solve_base`).
+
+	uv run sorter-joint-calibration capture --port /dev/ttyACM0 --marker 9:shoulder --marker 4:gripper --count 8
+	uv run sorter-joint-calibration solve --base-only --save data/calibration/robot.json ``link-base`` measures a marker fixed on the base plate while
 the robot still stands where it was calibrated; afterwards ``locate`` finds the base from that marker alone, so
 the robot can be moved without another capture.
 
@@ -30,7 +38,14 @@ from pathlib import Path
 
 import numpy as np
 
-from defect_sorter.joint_calibration import TICKS_PER_DEGREE, Observation, angles_from_ticks, solve
+from defect_sorter.joint_calibration import (
+	MARKER_LINKS,
+	TICKS_PER_DEGREE,
+	Observation,
+	angles_from_ticks,
+	solve,
+	solve_base,
+)
 from defect_sorter.robot_pose import RobotCalibration, link_base_marker, load_calibration, save_calibration
 
 logger = logging.getLogger(__name__)
@@ -98,6 +113,15 @@ class StillnessGate:
 		return True
 
 
+def parse_marker_spec(text: str) -> tuple[int, str]:
+	"""``"ID"`` or ``"ID:LINK"`` → (marker id, link); a bare id is a marker on the gripper."""
+	marker, _, link = text.partition(":")
+	link = link or "gripper"
+	if link not in MARKER_LINKS:
+		raise ValueError(f"unknown marker link {link!r}; use one of {sorted(MARKER_LINKS)}")
+	return int(marker), link
+
+
 def save_session(
 	path: Path,
 	ranges: dict[str, tuple[int, int]],
@@ -118,6 +142,7 @@ def save_session(
 						"angles_deg": o.angles_deg,
 						"rotation": np.asarray(o.marker_rotation).tolist(),
 						"position_m": np.asarray(o.marker_position_m).tolist(),
+						"link": o.link,
 					}
 				)
 				+ "\n"
@@ -142,6 +167,7 @@ def load_session(path: Path) -> tuple[dict[str, tuple[int, int]], list[dict[str,
 					angles_deg=row["angles_deg"],
 					marker_rotation=np.array(row["rotation"]),
 					marker_position_m=np.array(row["position_m"]),
+					link=row.get("link", "gripper"),
 				)
 			)
 	return ranges, raw, obs, meta
@@ -167,10 +193,12 @@ def _capture(args: argparse.Namespace) -> None:
 		plane = None
 		raw: list[dict[str, int]] = []
 		obs: list[Observation] = []
+		markers = args.marker or [(4, "gripper")]
+		poses_done = 0
 		frames = 0
 		last_status = 0.0
 		try:
-			while len(obs) < args.count:
+			while poses_done < args.count:
 				frame = camera.read()
 				if plane is None or frames % 15 == 0:
 					i = frame.intrinsics
@@ -183,31 +211,38 @@ def _capture(args: argparse.Namespace) -> None:
 				}
 				table = table_frame(plane, poses, anchors=(args.anchors[0], args.anchors[1]))
 				ticks = arm.read_ticks()
-				marker = poses.get(args.marker)
 				anchors_ok = table.basis.startswith("anchors")
-				usable = marker is not None and anchors_ok
-				position = table.point(marker.position_m) if usable else None
+				visible = [(mid, link) for mid, link in markers if mid in poses] if anchors_ok else []
+				# the stillness gate follows the first listed marker in view
+				position = table.point(poses[visible[0][0]].position_m) if visible else None
 				now = time.monotonic()
 				if now - last_status >= 2.0:
-					seen = "not seen" if marker is None else f"seen ({marker.source})"
+					seen = ", ".join(
+						f"{mid} ({link}) {'seen' if mid in poses else 'not seen'}" for mid, link in markers
+					)
 					anchors = "ok" if anchors_ok else "NOT both visible"
 					sys.stdout.write(
-						f"[{len(obs)}/{args.count}] marker {args.marker}: {seen} | anchors {args.anchors[0]}+{args.anchors[1]}: {anchors}\n"
+						f"[{poses_done}/{args.count}] markers: {seen} | anchors {args.anchors[0]}+{args.anchors[1]}: {anchors}\n"
 					)
 					sys.stdout.flush()
 					last_status = now
 				if gate.update(time.monotonic(), ticks, position):
-					raw.append(ticks)
-					obs.append(
-						Observation(
-							angles_deg=angles_from_ticks(ticks, ranges),
-							marker_rotation=table_rotation(marker, table),
-							marker_position_m=position,
+					angles = angles_from_ticks(ticks, ranges)
+					for mid, link in visible:
+						raw.append(ticks)
+						obs.append(
+							Observation(
+								angles_deg=angles,
+								marker_rotation=table_rotation(poses[mid], table),
+								marker_position_m=table.point(poses[mid].position_m),
+								link=link,
+							)
 						)
-					)
-					angles = obs[-1].angles_deg
+					poses_done += 1
 					sys.stdout.write(
-						f"captured {len(obs)}/{args.count}: lift {angles['shoulder_lift']:+.0f}  elbow {angles['elbow_flex']:+.0f}  wrist {angles['wrist_flex']:+.0f} deg\n"
+						f"captured pose {poses_done}/{args.count} with marker(s) {[mid for mid, _ in visible]}: "
+						f"pan {angles['shoulder_pan']:+.0f}  lift {angles['shoulder_lift']:+.0f}  "
+						f"elbow {angles['elbow_flex']:+.0f}  wrist {angles['wrist_flex']:+.0f} deg\n"
 					)
 					sys.stdout.flush()
 		except KeyboardInterrupt:
@@ -220,7 +255,7 @@ def _capture(args: argparse.Namespace) -> None:
 				raw,
 				obs,
 				meta={
-					"marker": args.marker,
+					"markers": {str(mid): link for mid, link in markers},
 					"anchors": list(args.anchors),
 					"port": args.port,
 					"captured_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
@@ -292,13 +327,38 @@ def _locate(args: argparse.Namespace) -> None:
 		sys.stdout.write(f"updated {args.calibration}\n")
 
 
+def _solve_base_only(args: argparse.Namespace, obs: list[Observation]) -> None:
+	fit = solve_base(obs)
+	r = fit.base_rotation
+	pos = fit.base_position_m * 1000
+	out = sys.stdout
+	out.write(f"observations: {fit.n_observations}; joint zeros taken from Studio's calibration (not fitted)\n")
+	out.write(f"fit: RMS {fit.rms_position_mm:.1f} mm, {fit.rms_rotation_deg:.1f} deg\n")
+	for link, rms in fit.rms_by_link_mm.items():
+		out.write(f"  {link:9s} markers: RMS {rms:.1f} mm\n")
+	out.write(
+		f"robot base in table frame: x {pos[0]:.0f} mm, y {pos[1]:.0f} mm, z {pos[2]:.0f} mm, "
+		f"yaw {np.degrees(np.arctan2(r[1, 0], r[0, 0])):.1f} deg, "
+		f"tilt {np.degrees(np.arccos(np.clip(r[2, 2], -1.0, 1.0))):.1f} deg\n"
+	)
+	if args.save:
+		save_calibration(args.save, RobotCalibration({}, fit.base_rotation, fit.base_position_m))
+		out.write(f"saved robot calibration (base pose, no joint offsets) to {args.save}\n")
+
+
 def _solve(args: argparse.Namespace) -> None:
 	obs: list[Observation] = []
 	meta: dict = {}
 	for path in args.session:
 		_, _, session_obs, meta = load_session(path)
 		obs.extend(session_obs)
-	result = solve(obs)
+	if args.base_only:
+		_solve_base_only(args, obs)
+		return
+	links = {o.link for o in obs}
+	if len(links) != 1:
+		sys.exit(f"markers on several links {sorted(links)}: fit them together with --base-only")
+	result = solve(obs, link=links.pop())
 	r = result.base_rotation
 	base_yaw = float(np.degrees(np.arctan2(r[1, 0], r[0, 0])))
 	base_tilt = float(np.degrees(np.arccos(np.clip(r[2, 2], -1.0, 1.0))))
@@ -330,10 +390,17 @@ def _solve(args: argparse.Namespace) -> None:
 def main(argv: list[str] | None = None) -> None:
 	parser = argparse.ArgumentParser(description="Camera-based joint calibration of the SO-101 follower (measure only)")
 	sub = parser.add_subparsers(dest="command", required=True)
-	cap = sub.add_parser("capture", help="record still poses: joint ticks + gripper marker pose")
+	cap = sub.add_parser("capture", help="record still poses: joint ticks + arm marker poses")
 	cap.add_argument("--port", required=True, help="follower serial port, e.g. /dev/ttyACM0 (check /dev/serial/by-id)")
-	cap.add_argument("--marker", type=int, default=4, help="id of the marker on the gripper")
-	cap.add_argument("--count", type=int, default=18)
+	cap.add_argument(
+		"--marker",
+		type=parse_marker_spec,
+		action="append",
+		metavar="ID[:LINK]",
+		help=f"marker and the link it sits on ({', '.join(MARKER_LINKS)}; default gripper); repeat for several "
+		"(default 4:gripper)",
+	)
+	cap.add_argument("--count", type=int, default=18, help="still poses to record")
 	cap.add_argument(
 		"--anchors",
 		type=int,
@@ -351,6 +418,9 @@ def main(argv: list[str] | None = None) -> None:
 		"--session", type=Path, nargs="+", default=[Path("data/calibration/session.jsonl")], help="one or more sessions"
 	)
 	sol.add_argument("--tolerance-deg", type=float, default=2.0)
+	sol.add_argument(
+		"--base-only", action="store_true", help="trust Studio's joint zeros and fit only the base pose (any links)"
+	)
 	sol.add_argument("--save", type=Path, help="write offsets and base pose as a robot calibration (JSON)")
 	for name, text in (
 		("link-base", "measure the base-plate marker next to the calibrated base and store the link"),

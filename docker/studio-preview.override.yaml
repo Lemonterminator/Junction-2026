@@ -2,8 +2,8 @@
 # Mounts docker/studio-patches over the upstream image's backend; no image rebuild. Recording is unaffected.
 # Add after the Studio compose file (relative paths resolve from external/physical-ai-studio/application/docker),
 # then recreate the container. Limits are documented in docker/studio-patches/preview_limits.py.
-# The patched runtime_ws.py is a copy of the image's file (revision 8f1324161ece2b24f2d38765b6e943ed1961258c);
-# recheck it against the image when IMAGE_TAG changes.
+# The patched runtime_ws.py is a copy of the image's file (revision 8f1324161ece2b24f2d38765b6e943ed1961258c, unchanged
+# in the junction2026 revision 17714488fa9c7d098a056da83f7c220cf983957d); recheck it when the image changes.
 services:
   physical-ai-studio-xpu:
     environment:

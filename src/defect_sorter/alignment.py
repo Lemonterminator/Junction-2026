@@ -334,3 +334,46 @@ def load_reference(path: Path) -> dict[int, TablePose]:
 		)
 		for k, v in data["markers"].items()
 	}
+
+
+def save_table_frame(path: Path, frame: TableFrame, fixed_markers: dict[int, MarkerPose]) -> None:
+	"""Write ``frame`` and the camera-space positions of markers fixed to the table, for :func:`held_table_frame`."""
+	path.parent.mkdir(parents=True, exist_ok=True)
+	data = {
+		"saved_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+		"basis": frame.basis,
+		"origin": [float(v) for v in frame.origin],
+		"axes": [[float(v) for v in row] for row in frame.axes],
+		"markers_m": {str(i): [float(v) for v in p.position_m] for i, p in fixed_markers.items()},
+	}
+	path.write_text(json.dumps(data, indent=1))
+
+
+def load_table_frame(path: Path) -> tuple[TableFrame, dict[int, np.ndarray]]:
+	"""Read a frame written by :func:`save_table_frame` and its fixed markers' camera-space positions."""
+	data = json.loads(path.read_text())
+	frame = TableFrame(origin=np.array(data["origin"]), axes=np.array(data["axes"]), basis=data["basis"])
+	return frame, {int(k): np.array(v) for k, v in data["markers_m"].items()}
+
+
+def held_table_frame(
+	saved: TableFrame,
+	saved_markers_m: dict[int, np.ndarray],
+	poses: dict[int, MarkerPose],
+	*,
+	max_shift_m: float = 0.005,
+	min_markers: int = 2,
+) -> TableFrame | None:
+	"""The saved table frame, when the fixed markers in view prove the camera has not moved; else ``None``.
+
+	The camera is fixed, so the frame built once from both anchors stays valid while an anchor is hidden (by the arm,
+	a hand). At least ``min_markers`` of the saved fixed markers must be in view, every one of them within
+	``max_shift_m`` of where it was.
+	"""
+	common = [i for i in saved_markers_m if i in poses]
+	if len(common) < min_markers:
+		return None
+	shifts = [float(np.linalg.norm(np.asarray(poses[i].position_m) - saved_markers_m[i])) for i in common]
+	if max(shifts) > max_shift_m:
+		return None
+	return TableFrame(origin=saved.origin, axes=saved.axes, basis=f"{saved.basis} (held)")

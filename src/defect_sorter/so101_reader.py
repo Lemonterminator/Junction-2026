@@ -35,11 +35,17 @@ class SO101Reader:
 		for servo_id in _IDS.values():
 			self._sync.addParam(servo_id)
 
-	def read_ticks(self) -> dict[str, int]:
-		"""Present position of every joint, raw ticks; raises if any servo does not answer."""
-		result = self._sync.txRxPacket()
-		if result != self._scs.COMM_SUCCESS:
-			raise OSError(f"sync read failed: {self._packet.getTxRxResult(result)}")
+	def read_ticks(self, attempts: int = 3) -> dict[str, int]:
+		"""Present position of every joint, raw ticks; raises if the servos do not answer in ``attempts`` reads.
+
+		A single lost status packet on the shared bus is common; reading again is harmless (nothing is written).
+		"""
+		for _ in range(attempts):
+			result = self._sync.txRxPacket()
+			if result == self._scs.COMM_SUCCESS:
+				break
+		else:
+			raise OSError(f"sync read failed {attempts} times: {self._packet.getTxRxResult(result)}")
 		return {name: _signed(self._sync.getData(servo_id, _PRESENT_POSITION, 2)) for name, servo_id in _IDS.items()}
 
 	def _read(self, servo_id: int, address: int, length: int) -> int:

@@ -597,6 +597,15 @@ base, the front camera or the bowls needs no new training.
   depends almost only on the shoulder angle); the gate now accepts a sweep the model clears only partly, if the clear
   part goes past the stored end. Shoulder-lift lower 838 (earlier run with widened limits) is a real stop.
   Open ends: elbow upper, wrist-flex both, gripper open.
+- Offline review (2026-11-14, arm not used): the hand-held frame (`frame-dir.json`) is wrong by 27° on the lift and
+  21° on the elbow; see DECISIONS. The camera-based frame is in `.local/armkit-frame-camera-2026-11-14.json` (copy it
+  to the workstation as `~/armkit-run/frame-camera.json`). In that frame the measured stops are elbow lower -104°,
+  lift +105° / -102° (model degrees; the real arm goes 2-7° past the URDF limits), and today's shoulder-forward check
+  came within about 2 cm of the table by the spheres (8.7 cm was reported). `check` now judges the sweep over the
+  whole search (stored ends plus 25°), not only the URDF travel, so nothing past the URDF limit runs unchecked.
+  Plan per open end (camera frame): elbow upper from lift -60 / wrist -90 (clear to 115° with the 8 cm margin);
+  wrist-flex ends are self-contacts of gripper and forearm (spheres touch at -104° / +82°, stored ends -104° / +99°),
+  which needs a decision on allowing a joint's own end contact; gripper open end is compliant (3501-3536).
 
 
 ## Update 2026-11-14 — brick hover target from the top camera
@@ -781,3 +790,172 @@ No camera or arm was touched; sort-depth-v2 was read from a local copy.
   recorded before all defective ones, so session differences may inflate PatchCore. Next: label and use the
   "show it to the front camera" dataset `a9ea91fe-…`, record interleaved, combine views.
 
+## Update 2026-11-14 — Studio cleared for a manual recalibration
+
+- On the user's request, deleted in Studio (project "Defect Sorting (Intel Challenge)"): datasets practice-1 (2
+  episodes), grasp, sort-v1, sort-depth-v2 (all 0 episodes); environments "Sorting cell" and "Sorting cell + depth
+  v2"; robots Follower and Leader. Studio left practice-1's folder on disk; removed as well, so
+  `/app/storage/datasets` is empty. Cameras (front, wrist, top, top_rgb_v2, top_depth_v2) and the project kept.
+- The robots' Studio calibration and both environment definitions were saved first to
+  `.local/studio-*-before-delete-2026-11-14.json`. No servo was written and the arm did not move.
+- The dataset and environment ids in `docs/datasets/SORT_V1.md` are now stale; recreate the robots (manual
+  calibration), environments and datasets, then update the ids there.
+- Rebuilt after the manual recalibration: robots Follower `76ad5f89…` (/dev/ttyACM1) and Leader `ac3b6374…`
+  (/dev/ttyACM0), 6 joints each; environment "Sorting cell + depth" `82b8829f-799a-4457-bba0-4d64a3ff302d` (front,
+  wrist, top_rgb_v2, top_depth_v2); empty dataset sort-depth-v2 `af9b173a-ee59-4e24-97c8-be71dba701ce`. Ids updated in
+  `docs/datasets/SORT_V1.md`. A colour-only "Sorting cell" environment and the sort-v1/grasp datasets were not
+  recreated. `data/calibration/robot.json` predates the recalibration; re-measure before the next `sorter-move`.
+
+## Update 2026-11-14 — Studio with Modal training
+
+- The published `physical-ai-studio-xpu:main` image (upstream `8f13241`) has no Modal support; Modal training is only
+  on the pinned `junction2026` commit `17714488`. Built that commit on the workstation as
+  `junction/physical-ai-studio-xpu:junction2026-17714488` and recreated the Studio container from it (user-approved;
+  it ended an open browser session). Same storage volume: both projects and sort-depth-v2 (35 episodes) intact;
+  preview patches and the tailnet binding still apply. Steps and rollback: [TRAINING.md](../docs/infrastructure/TRAINING.md#5-train-on-modal-from-studio).
+- Modal credentials come from the Git-ignored `~/junction/docker/secrets.env` through
+  `docker/studio-modal.override.yaml`; a read-only Modal API call from the image succeeded.
+- Modal target "Modal" (`708933f7-096f-4ca0-b48e-593d3ee46477`) deployed and healthy (trainer app and Volume on Modal,
+  environment `main`). The first attempt failed because the Modal workspace usage limit was $0 ("exceeded its spend
+  limit"; Studio hides the deploy output); the user set it to the credit amount. No training has run yet; no camera
+  or arm was touched.
+
+## Update 2026-11-14 — scripted hover adapted to the depth-v2/v3 cell
+
+- Reviewed sort-depth-v2 (35 episodes, 37 515 frames, 23 green / 12 pink): depth encoding consistent across all
+  episodes (table flat within 0.6 mm); only episodes 2, 13 and 15 have a hover pause (operators go straight into the
+  grasp); episode 2 is 71 s. The brick is a square 2x2 Duplo.
+- After recording, the top camera moved (about 2°): the old plane read the table 2–3 cm tilted. With the user's
+  approval the bridge was restarted from `~/depth-v3/src` with `data/depth/plane-v3.json` (same crop). New
+  recordings go to a new dataset sort-depth-v3 (`docs/datasets/SORT_V1.md`).
+- Code: `/raw.npz` on the bridge plus `fetch_raw`/`fresh_frames`; `sorter-move --above-brick --bridge URL
+  [--measure-only]` measures through it; `scene.PAPER_CELL` (colour balanced on the table, hue band per bowl colour,
+  no top ROI margin) because evening light tints the fixed-white-balance image and the bowls touch in the image;
+  `grasp_symmetry_deg` (square Duplo: rolls 90° apart); `sorter-episodes` accepts `top_rgb_v2`.
+- Checked on the live cell without the arm: anchors 16/17 and markers 10, 11, 14 seen; both bowls found; the loose
+  lime brick measured at (150, −49) mm, yaw +34°, square, spread 0.5 mm over 10 frames, the same on two runs. The
+  top height reads 16 mm, a few mm low for the Duplo.
+- Still blocking a real hover: no robot calibration (`data/calibration/robot.json` absent locally and on the
+  workstation; the robot base is outside the top view, so it needs the hand-guided gripper-marker capture with the
+  bridge stopped). Also: a lifted paper corner at about (158, −215) mm reads as a brick; flatten it or use `--near`.
+
+## Update 2026-11-14 — base pose without joint calibration
+
+- Decision (user): trust Studio's manual joint calibration; measure only the robot base pose. A marker turned by a
+  joint cannot reveal that joint's zero (the fitted mounting absorbs it), so a forearm tag alone sees only the base
+  pose and `shoulder_lift`, and a tag on the turning base cannot give the heading.
+- Code: `joint_calibration.solve_base` (base pose and one mounting per tag, joint zeros fixed; tags on `shoulder`,
+  `forearm`, `gripper`), `solve(link="forearm")`, `sorter-joint-calibration capture --marker 9:shoulder --marker
+  4:gripper` (several tags per held pose) and `solve --base-only --save data/calibration/robot.json`.
+- Cell now: camera moved again (6° from plane-v3, 517 mm); the bridge still holds plane-v3 and needs a restart with
+  plane-v4 before recording. Tag 9 on the turning base is seen at rest (small at 640x480); the gripper tag still
+  needs a visibility check with the gripper over the table.
+- Risk: earlier camera fits found Studio-style zeros off by 1.2/-6.6/-2.4 deg (lift/elbow/wrist), a few cm at the jaw
+  tip; check on the first hover, and refit the zeros from the same session if needed.
+- Bridge restarted at 12:57 (workstation time) from `~/depth-v3/start-bridge-v4.sh` with `data/depth/plane-v4.json` (91 %
+  inliers, camera 517 mm above the table); record new episodes into a new dataset.
+- Base calibration from recordings: `defect_sorter.episode_calibration` finds still moments in each episode, places
+  the tags from the recorded colour + layered height image with plane-v4 and the D415 intrinsics (fx 605.2, fy
+  604.7, ppx 324.1, ppy 258.6; crop origin 96, 0), and runs `solve_base`. Runs inside Studio's container (it has
+  av, pyarrow, scipy, cv2.aruco). Not yet run on a real recording.
+
+## Update 2026-11-14 — Anomalib on the top view, inspect-v1 dataset
+
+- Exploration on sort-depth-v2 (workstation, CPU; scripts and outputs in `~/anomaly-exp`, `data/anomaly/top-v1`,
+  `artifacts/anomaly/`, not in the package yet): brick found by height in the depth layers outside the bowls
+  (33 of 35 episodes, all boxes correct), 64 × 64 top-camera crops, labels from the task text. Defects are tape
+  patches, not marker crosses; good bricks come in several colours and a 2x4.
+- Episode-level 4-fold cross-validation (each good brick scored once by a model that never saw it): Padim mean AUROC
+  0.60, PatchCore 0.78 (folds 0.67–0.89). Heatmaps sit on the tape when it is visible from above; failures are
+  tape on a side or underneath (score down to 0.01) and rare good bricks (yellow 2x4, lime).
+- Consequence: a show-to-the-front-camera step. Studio dataset inspect-v1 `a9ea91fe-9417-449c-85ff-197665f62ea9`
+  created (empty) with card and 40-brick plan in [docs/datasets/INSPECT_V1.md](../docs/datasets/INSPECT_V1.md).
+- Not done: crops and training code in `defect_sorter` with tests, threshold choice, front-view Anomalib model,
+  VLM second opinion.
+- inspect-v1 (`a9ea91fe…`, 11 episodes, task "Pick up the brick and show it to the front camera."): fine as task
+  data (grasp and release in all, hover pause in 5); useless for the arm-tag calibration (base tag 9 and the gripper
+  tag never detected in the recorded crop, forearm tag 2 in 8 still moments, fits 32–66 mm RMS).
+- Switched to touch points: dataset touch-calib-v1 (`d337ee47-8e7b-436b-8ec6-a6f904c498bd`) for jaw-tip touches on
+  markers 16, 17, 18, 7, 10, 11 (gripper closed, 2 s each); `python -m defect_sorter.episode_calibration <dataset> --touch`
+  fits the base pose (Kabsch over every touch-to-marker pairing) and reports the per-touch residual.
+
+## Update 2026-11-15 — touch calibration and tilted brick approach
+
+- Calibration: `episode_calibration --touch` fits the base pose and the lift/elbow/wrist zeros to jaw-tip touches
+  (touch-calib-v1, 2 episodes, markers 16/17/18/7): zeros −5.6/−6.4/−1.2°, base (158, 190, −20) mm, yaw −111°;
+  fitted RMS 8.1 mm, leave-one-out mean 11 mm (max 17). Pairings must keep the base upright (the 16/17/18 layout is
+  near-isosceles and otherwise also fits upside down); zeros are bounded to ±20° with several starts.
+  Saved to `data/calibration/robot.json` on the workstation.
+- Jaws-down hovers with the first fit (3 runs): height within 3 mm, sideways 3–17 mm along the anchor line and a
+  constant ~22 mm toward the camera (partly how the depth camera sees the jaws' front).
+- Reach: jaws down only covers ~17–25 cm from the base (95° wrist flex); `targeting.choose_approach` /
+  `motion.plan_brick_hover` now take the steepest of 0–75° tilts that passes every check, to the standoff point
+  60 mm back along the approach; the bowls (~50 cm) stay out of reach — move robot or bowls before sorting.
+- Tilted approach run on the live cell (operator's go): brick at (81, −81) mm, 6 cm beyond the jaws-down band,
+  15° from vertical, 11.0 s from rest; the gripper ended (+10, −12, +15) mm from the planned standoff, in line with
+  the calibration's 11 mm mean leave-one-out error. One earlier attempt stopped before any motion on a lost servo
+  status packet; `SO101Reader.read_ticks` now reads up to 3 times (reads only).
+- Runbook: `docs/infrastructure/SCRIPTED_HOVER.md`; machine commands in `.local/scripted-hover.local.md`.
+- Hybrid pick data: dataset grasp-from-standoff-v1 (`6d4df092-4ffc-4af8-839e-0be62bb9d054`, task "Pick up the
+  brick.") created for episodes that start at the scripted standoff; protocol in
+  `docs/datasets/GRASP_FROM_STANDOFF_V1.md`. Operator runs the hover wrapper on the workstation (see `.local/`).
+- Reach limit raised (user decision, `memory/DECISIONS.md`): 40 cm default, `--reach` up to the 42 cm cap. From rest
+  the planner now reaches bricks from ~4 cm behind the 16–17 line to ~20 cm in front (tag 7 included). From the
+  folded rest pose the arm lifts keeping its orientation, then turns; normal floors apply after the lift. A refused
+  far brick now says how far to move it. Brick finding needs anchors 16 and 17 visible (an arm hovering near 16
+  hides it).
+- Held table frame: `alignment.save_table_frame` / `held_table_frame`; `sorter-move --frame-file` (default
+  `data/depth/table-frame.json`) bridges a hidden anchor when two or more fixed tags (16, 17, 18, 7) in view are
+  within 5 mm of their saved camera positions. The workstation copy was built from a clear view after the plane-v4
+  restart; the hover wrapper copies it into the container. Checked: brick found with tag 16 covered by the gripper.
+- Bowl drop: `targeting.bowl_pose` (rim from depth, robust circle fit), `drop_points`, `motion.plan_bowl_drop`,
+  `sorter-move --above-bowl green|pink [--clearance] [--reach]`. Live: green rim (7, −235), pink (264, −252) mm,
+  radius 90 mm, rim 10 mm; with `--reach 420` both dry runs pass (drop 40 mm from centre toward the robot, 90 mm
+  high). Operator wrapper `~/bowl.sh green|pink` (same safeguards as the hover wrapper). Real bowl move not run yet.
+- Overview (hybrid inspection step): taught in overview-demo-v1 (`39dff154-d3f7-478d-8725-6d76afba6f85`), 6 distinct
+  views; sequence `data/sequences/overview.json` on the workstation (views #0 #2 #3 #4 #6 along the demonstrated
+  path, ends at the last view). `motion.plan_keyframes` + `sorter-move --play`; played on the arm: 51 poses, 69.5 s at
+  10°/s, completed. Operator wrapper `~/overview.sh [--speed N]`.
+- Overview v2 (`data/sequences/overview-v2.json`, default of `~/overview.sh`): wrist roll 0/−83/0/+83 at view #0
+  (±90 is outside the calibrated ±84 wrist range), then a computed bottom view (jaw axis horizontal toward the front
+  camera at view #6's point). Dry run passed (47 s at 10°/s); not yet played.
+
+## Update 2026-11-15 — hybrid cycle (sorter-hybrid), grasp policy diagnosis
+
+- New `hybrid.py` / `sorter-hybrid` (workstation wrapper `~/hybrid.sh MODEL green|pink`): scripted hover, ACT grasp run
+  through a Studio runtime session (stopped by `GraspMonitor`: held = jaws blocked short of the command and lifted
+  25 mm; missed = jaws shut 0.5 s), retry without opening the gripper, lift in place (`motion.plan_lift`), scripted
+  show (`SHOW_ROUTINE`, median operator holds from inspect-v1) and bowl drop. Joint traces per policy run in
+  `data/logs/hybrid/`. Also `motion.plan_joint_move`, `motion.gripper_ticks`; gripper goals are ramped (a jump
+  tripped the tracking stop).
+- Grasp data cut from recordings: grasp-cut-both / grasp-cut-inspect (`docs/datasets/GRASP_CUT_V1.md`). sort-depth-v2
+  was recorded in an earlier cell layout (different top view, bowls elsewhere): its place motions are unusable, so
+  place data is recorded fresh into place-v1 (`docs/datasets/PLACE_V1.md`). inspect-v1 matches today's cell.
+- Models (Modal through Studio; extra trainer entries Modal-b/-c on the same Modal app run jobs in parallel):
+  grasp-both-act-e50-noaug `a94f6cd9` is the best grasp model so far (offline on 6 held-out clips: close point
+  median 28 mm from the operator's, action error 7.0); grasp-inspect-act 29 mm / 11.8. The candidate
+  sort-depth-v2-10k SmolVLA OpenVINO export ignores its inputs (output driven by the noise sample, fails on its own
+  training episodes); Studio's own SmolVLA export still to be checked against its torch export.
+- Arm runs (user-approved, all stops clean): the policy grasped and lifted once in ~9 attempts. It uses vision (from
+  an offset hover it moved 5–7 cm toward the brick) but closes 2–4 cm off, mostly away from the arm. Diagnosis: the
+  model is ~3 cm imprecise even offline on its own kind of data (replanning more often changes little: 32 -> 28 mm);
+  the hover start differs from the clips (they start mid-descent; the hover carries the calibration's ~2 cm bias).
+- Next: record 40–60 grasp-from-standoff-v1 episodes from the real scripted hover; make the hover more accurate
+  (measure the jaw position at the hover) and add a scripted descend-and-close fallback; record place-v1 and train
+  SmolVLA on it (Anomalib label -> place instruction).
+
+## Update 2026-11-15 (morning) — first full hybrid pick-and-place
+
+- grasp-from-standoff-v2 (`47a4f345`, 35 episodes from the real scripted hover; 5 were misfiled into sort-depth-v2
+  and moved, sort-depth-v2 back to its 35, backups in `~/backups/` on the workstation). grasp-mix-v2 (`b4d52459`):
+  32 standoff grasps twice each + the 62 cut clips; 4 standoff grasps held out.
+- grasp-mix2-act-e30-aug (`9663a60d`): on the held-out standoff grasps the close point is a median 11.8 mm from the
+  operator's (27 mm worst), action error 4.5 (old models 11–14); the no-augmentation run 18.8 mm (71 mm worst).
+- Arm (user-approved): `sorter-hybrid` with `9663a60d` grasped on the first attempt in 4 s, and the scripted place put
+  the brick in the green bowl. Place fixes found on the way: lift in place in smaller steps near a joint's range end;
+  when the bowl drop needs a vertical rise the arm cannot make, carry via the level show pose first.
+- place-v1 (`1da12999`, 40 episodes, labels verified against the release point): SmolVLA trained on it ignores the
+  instruction (output change from the text below its own noise; train loss 0.008 vs val 0.20) and always heads for
+  green. Retraining on place-v1-balanced (pink twice, instructions "...green bowl on the left." / "...pink bowl on the
+  right.", `hybrid.PLACE_TEXTS`). SmolVLA on the Intel GPU: 119 ms per chunk (CPU 2.8 s).
+- The Studio container was recreated by someone at 05:42 UTC; container `/tmp` is not durable (keep work on the host).

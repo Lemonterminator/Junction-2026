@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 from defect_sorter.geometry import Intrinsics
-from defect_sorter.scene import SceneConfig, detect_scene, hue_name
+from defect_sorter.scene import PAPER_CELL, SceneConfig, detect_scene, hue_name
 
 INTR = Intrinsics(fx=600.0, fy=600.0, ppx=320.0, ppy=240.0)
 TABLE_Z = 0.6
@@ -123,3 +123,58 @@ class TestDetectScene:
 
 		assert again.plane is first.plane
 		assert len(again.objects) == 1
+
+
+PAPER = (205, 205, 205)
+
+
+def paper_scene() -> tuple[np.ndarray, np.ndarray]:
+	color = np.zeros((480, 640, 3), np.uint8)
+	color[:] = PAPER
+	return color, np.full((480, 640), TABLE_Z, np.float32)
+
+
+# Per-channel (B, G, R) gains of tinted room light on a camera with fixed white balance.
+BLUE_LIGHT = (1.0, 0.81, 0.72)  # evening light in the hall: the white table measured BGR 127, 103, 91
+GREEN_LIGHT = (0.72, 1.0, 0.78)  # fluorescent: the white table takes the green bowl's hue
+
+
+def tinted(color: np.ndarray, gains: tuple[float, float, float]) -> np.ndarray:
+	return np.clip(color.astype(np.float64) * gains, 0, 255).astype(np.uint8)
+
+
+class TestPaperCell:
+	def test_touching_bowls_of_two_colours_are_two_bowls(self):
+		color, depth = paper_scene()
+		add_bowl(color, (300, 300), 80, PINK)
+		add_bowl(color, (460, 300), 80, GREEN)
+
+		bowls = {b.colour: b for b in detect_scene(color, depth, INTR, config=PAPER_CELL).bowls}
+
+		assert set(bowls) == {"pink", "green"}
+		assert bowls["pink"].px == pytest.approx((300, 300), abs=3)
+		assert bowls["green"].px == pytest.approx((460, 300), abs=3)
+
+	@pytest.mark.parametrize("light", [BLUE_LIGHT, GREEN_LIGHT])
+	def test_tinted_light_on_the_white_table_still_gives_both_bowls(self, light: tuple[float, float, float]):
+		color, depth = paper_scene()
+		add_bowl(color, (250, 300), 80, PINK)
+		add_bowl(color, (480, 300), 80, GREEN)
+		add_box(color, depth, 280, 290, 30, 30, 0.02)
+		cast = tinted(color, light)
+		hsv_table = cv2.cvtColor(cast[:1, :1], cv2.COLOR_BGR2HSV)[0, 0]
+		assert hsv_table[1] > SceneConfig().saturation_min  # the cast table itself looks coloured
+
+		scene = detect_scene(cast, depth, INTR, config=PAPER_CELL)
+
+		assert {b.colour for b in scene.bowls} == {"pink", "green"}
+		assert len(scene.objects) == 1
+		assert scene.objects[0].in_bowl is not None
+
+	def test_a_bowl_reaching_the_top_of_the_image_is_kept(self):
+		color, depth = paper_scene()
+		add_bowl(color, (420, 70), 80, GREEN)
+
+		bowls = detect_scene(color, depth, INTR, config=PAPER_CELL).bowls
+
+		assert [b.colour for b in bowls] == ["green"]

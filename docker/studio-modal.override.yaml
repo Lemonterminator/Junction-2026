@@ -1,0 +1,11 @@
+# Run Physical AI Studio from the pinned junction2026 submodule commit, which adds Modal GPU training
+# (Settings -> Training Targets -> Modal Provider). The published :main image is built from upstream main and has
+# no Modal support, so the image is built locally from the submodule (see docs/infrastructure/TRAINING.md, "Train on
+# Modal") and selected here by REGISTRY/IMAGE_TAG in the Studio compose .env.
+# Modal credentials reach the backend from the Git-ignored docker/secrets.env (MODAL_TOKEN_ID, MODAL_TOKEN_SECRET).
+# Add after the Studio compose file; relative paths resolve from external/physical-ai-studio/application/docker.
+services:
+  physical-ai-studio-xpu:
+    env_file:
+      - path: ../../../../docker/secrets.env
+        required: false
