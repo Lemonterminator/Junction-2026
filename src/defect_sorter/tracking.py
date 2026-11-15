@@ -9,6 +9,10 @@ never sit unlabelled next to real ones. Reading run directories needs no MLflow;
 		--backend-store-uri sqlite:///artifacts/mlflow/mlflow.db --artifacts-destination artifacts/mlflow/artifacts
 	uv run --extra tracking python -m defect_sorter.tracking training artifacts/training/studio-smoke-1
 	uv run --extra tracking python -m defect_sorter.tracking evaluation artifacts/twin/eval-padim-CPU
+	uv run --extra tracking python -m defect_sorter.tracking anomaly artifacts/anomaly/real-baseline-v2 --fold 0
+
+Anomaly models from ``scripts/anomaly/real_baseline.py`` are logged one fold model at a time with the threshold chosen on
+that fold's validation episodes, tagged ``status = baseline``.
 """
 
 from __future__ import annotations
@@ -115,6 +119,84 @@ def evaluation_record(eval_dir: Path) -> RunRecord:
 	)
 
 
+ANOMALY_STATUS = "baseline"
+"""Status tag of anomaly models from the grouped-fold baseline: real data, but not validated for the arm."""
+
+
+def _anomaly_export(fold_dir: Path) -> tuple[str, Path]:
+	for model_dir in sorted(p for p in fold_dir.glob("*") if p.is_dir()):
+		xml = model_dir / "export" / "weights" / "openvino" / "model.xml"
+		if xml.is_file():
+			return model_dir.name, xml
+	raise FileNotFoundError(f"no OpenVINO export under {fold_dir}")
+
+
+def anomaly_record(baseline_dir: Path, fold: int, params: dict[str, Any] | None = None) -> RunRecord:
+	"""Read one fold model of a ``scripts/anomaly/real_baseline.py`` run as a deployable baseline.
+
+	The fold model keeps the threshold chosen on its own validation fold (episode median of frame scores, scored on
+	the CPU), which is the only threshold the evaluation validated for that file. Cross-fold episode results and the
+	latency measured on the fold-0 export are logged next to it; failed latency devices are left out.
+
+	Parameters
+	----------
+	baseline_dir : Path
+		Output directory of the baseline script (``summary.json``, ``folds.json``, ``fold<i>/<model>/export``).
+	fold : int
+		Test fold whose model is logged.
+	params : dict, optional
+		Training settings the run directory does not record, such as ``coreset_ratio``.
+
+	Raises
+	------
+	FileNotFoundError
+		When the fold has no OpenVINO export.
+	"""
+	model, xml = _anomaly_export(baseline_dir / f"fold{fold}")
+	summary = json.loads((baseline_dir / "summary.json").read_text(encoding="utf-8"))
+	fold_result = next(
+		r for r in json.loads((baseline_dir / "folds.json").read_text(encoding="utf-8")) if r["fold"] == fold
+	)
+	score = next(key for key in summary if key.endswith("_score/median"))
+	overall = summary[score]
+	confusion = overall["episode_confusion"]
+	aurocs = [a for a in overall["frame_auroc_test_per_fold"] if a is not None]
+	metrics: dict[str, list[tuple[int, float]]] = {
+		"fold_frame_auroc_test": [(0, float(fold_result[score]["frame_auroc_test"]))],
+		"defects_caught": [(0, float(confusion["defective->defective"]))],
+		"defects_total": [(0, float(confusion["defective->defective"] + confusion["defective->normal"]))],
+		"normals_passed": [(0, float(confusion["normal->normal"]))],
+		"normals_total": [(0, float(confusion["normal->normal"] + confusion["normal->defective"]))],
+		"frame_auroc_mean": [(0, sum(aurocs) / len(aurocs))],
+	}
+	latency = next((v for k, v in summary.items() if k.startswith("latency_")), {})
+	for device, values in latency.items():
+		if device.startswith("off_colour") or not isinstance(values, dict):
+			continue
+		for stat in ("median_ms", "p90_ms"):
+			if stat in values:
+				metrics[f"latency_{device}_{stat}"] = [(0, float(values[stat]))]
+	return RunRecord(
+		name=f"{model}-{baseline_dir.name}-fold{fold}",
+		params={
+			"model": model,
+			"dataset": summary["dataset"].replace("\\", "/").rsplit("/", 1)[-1],
+			"camera": summary["camera"],
+			"frames": summary["frames"],
+			"episodes": summary["episodes"],
+			"fold": fold,
+			"val_fold": fold_result["val_fold"],
+			"train_frames": fold_result["train_frames"],
+			"aggregate": "median",
+			"threshold_cpu": float(fold_result[score]["threshold"]),
+			**(params or {}),
+		},
+		metrics=metrics,
+		tags={"source": "real", "kind": "anomaly", "model": model, "status": ANOMALY_STATUS},
+		artifacts=[xml, xml.with_suffix(".bin"), baseline_dir / "summary.json", baseline_dir / "folds.json"],
+	)
+
+
 def log_record(record: RunRecord, uri: str, experiment: str, *, artifacts: bool = True) -> str:
 	"""Create one MLflow run from ``record`` and return its run id."""
 	import mlflow
@@ -134,17 +216,39 @@ def log_record(record: RunRecord, uri: str, experiment: str, *, artifacts: bool 
 		return run.info.run_id
 
 
+def parse_params(pairs: list[str]) -> dict[str, Any]:
+	"""``KEY=VALUE`` strings to a dict; values that parse as JSON numbers or booleans keep that type."""
+	params: dict[str, Any] = {}
+	for pair in pairs:
+		key, sep, value = pair.partition("=")
+		if not sep or not key:
+			raise ValueError(f"expected KEY=VALUE, got {pair!r}")
+		try:
+			params[key] = json.loads(value)
+		except json.JSONDecodeError:
+			params[key] = value
+	return params
+
+
 def main(argv: list[str] | None = None) -> int:
-	"""``training`` or ``evaluation`` followed by one or more directories."""
+	"""``training``, ``evaluation`` or ``anomaly`` followed by one or more directories."""
 	parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-	parser.add_argument("kind", choices=["training", "evaluation"])
+	parser.add_argument("kind", choices=["training", "evaluation", "anomaly"])
 	parser.add_argument("dirs", type=Path, nargs="+")
 	parser.add_argument("--uri", default=DEFAULT_URI)
 	parser.add_argument("--experiment", help="defaults to defect-sorter-<kind>")
 	parser.add_argument("--no-artifacts", action="store_true", help="log params and metrics only")
+	parser.add_argument("--fold", type=int, default=0, help="anomaly: fold model to log")
+	parser.add_argument("--param", action="append", default=[], help="anomaly: extra KEY=VALUE training setting")
 	args = parser.parse_args(argv)
 	logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-	read = training_record if args.kind == "training" else evaluation_record
+	if args.kind == "anomaly":
+		extra = parse_params(args.param)
+
+		def read(directory: Path) -> RunRecord:
+			return anomaly_record(directory, args.fold, extra)
+	else:
+		read = training_record if args.kind == "training" else evaluation_record
 	experiment = args.experiment or f"defect-sorter-{args.kind}"
 	for directory in args.dirs:
 		run_id = log_record(read(directory), args.uri, experiment, artifacts=not args.no_artifacts)

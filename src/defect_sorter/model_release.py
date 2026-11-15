@@ -8,6 +8,8 @@ SHA-256, the training run (recipe, data source, episode counts, steps, final los
 		--status smoke-test --out artifacts/export/<run>/release.json
 	gh release download <tag> --repo Lemonterminator/Junction-2026 --dir models/<tag>
 	uv run python -m defect_sorter.model_release verify models/<tag>
+	uv run python -m defect_sorter.model_release anomaly-manifest artifacts/release/<tag> \\
+		artifacts/anomaly/real-baseline-v2 --fold 0 --status baseline --out artifacts/release/<tag>/release.json
 """
 
 from __future__ import annotations
@@ -20,11 +22,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from defect_sorter.tracking import training_record
+from defect_sorter.tracking import anomaly_record, parse_params, training_record
 
-STATUSES = ("smoke-test", "candidate", "demo")
-"""``smoke-test``: proves the path, not usable on the arm; ``candidate``: trained on real data, under evaluation;
-``demo``: frozen for the judged run."""
+STATUSES = ("smoke-test", "baseline", "candidate", "demo")
+"""``smoke-test``: proves the path, not usable on the arm; ``baseline``: first model on real data with known data
+limits, not validated for the arm; ``candidate``: trained on real data, under evaluation; ``demo``: frozen for the
+judged run."""
 
 MANIFEST_NAME = "release.json"
 
@@ -49,11 +52,7 @@ def release_manifest(export_dir: Path, run_dir: Path, *, status: str, commit: st
 		raise ValueError(f"status must be one of {STATUSES}")
 	record = training_record(run_dir)
 	last = {key: series[-1][1] for key, series in record.metrics.items() if series}
-	files = [
-		{"name": path.name, "bytes": path.stat().st_size, "sha256": _sha256(path)}
-		for path in sorted(export_dir.iterdir())
-		if path.is_file() and path.name != MANIFEST_NAME
-	]
+	files = _files(export_dir)
 	return {
 		"status": status,
 		"source": record.tags["source"],
@@ -71,6 +70,73 @@ def release_manifest(export_dir: Path, run_dir: Path, *, status: str, commit: st
 			"final_val_loss": last.get("val/loss"),
 		},
 		"files": files,
+	}
+
+
+def _files(export_dir: Path) -> list[dict[str, Any]]:
+	return [
+		{"name": path.name, "bytes": path.stat().st_size, "sha256": _sha256(path)}
+		for path in sorted(export_dir.iterdir())
+		if path.is_file() and path.name != MANIFEST_NAME
+	]
+
+
+def anomaly_manifest(
+	export_dir: Path,
+	baseline_dir: Path,
+	fold: int,
+	*,
+	status: str,
+	commit: str,
+	params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+	"""Describe a release of one fold model from an anomaly baseline run (see :func:`tracking.anomaly_record`).
+
+	``export_dir`` holds the staged ``model.xml`` and ``model.bin``; they must be byte-identical to the fold's export,
+	so the threshold and results in the manifest belong to the released file. Only the CPU threshold is recorded:
+	scores differ by device, so other devices are calibrated on their own before use.
+
+	Raises
+	------
+	ValueError
+		For a status outside :data:`STATUSES`, or a staged model that differs from the fold export.
+	"""
+	if status not in STATUSES:
+		raise ValueError(f"status must be one of {STATUSES}")
+	record = anomaly_record(baseline_dir, fold, params)
+	for source in record.artifacts[:2]:
+		staged = export_dir / source.name
+		if not staged.is_file() or _sha256(staged) != _sha256(source):
+			raise ValueError(f"{source.name} in {export_dir} is not the fold {fold} export")
+	summary = json.loads((baseline_dir / "summary.json").read_text(encoding="utf-8"))
+	latency = next((v for k, v in summary.items() if k.startswith("latency_")), {})
+	values = {key: series[0][1] for key, series in record.metrics.items()}
+	return {
+		"status": status,
+		"source": record.tags["source"],
+		"code_commit": commit,
+		"inspection": {
+			"run": record.name,
+			**{key: record.params[key] for key in ("model", "dataset", "camera", "fold", "val_fold", "train_frames")},
+			"aggregate": record.params["aggregate"],
+			"thresholds": {"CPU": record.params["threshold_cpu"]},
+			"params": params or {},
+			"results": {
+				**{
+					key: int(values[key])
+					for key in ("defects_caught", "defects_total", "normals_passed", "normals_total")
+				},
+				"frame_auroc_test_per_fold": summary[next(k for k in summary if k.endswith("_score/median"))][
+					"frame_auroc_test_per_fold"
+				],
+			},
+			"latency_ms": {
+				device: v
+				for device, v in latency.items()
+				if isinstance(v, dict) and not device.startswith("off_colour")
+			},
+		},
+		"files": _files(export_dir),
 	}
 
 
@@ -95,17 +161,34 @@ def main(argv: list[str] | None = None) -> int:
 	make.add_argument("run_dir", type=Path)
 	make.add_argument("--status", choices=STATUSES, required=True)
 	make.add_argument("--out", type=Path, required=True)
+	anomaly = sub.add_parser("anomaly-manifest", help="manifest for one fold model of an anomaly baseline run")
+	anomaly.add_argument("export_dir", type=Path)
+	anomaly.add_argument("baseline_dir", type=Path)
+	anomaly.add_argument("--fold", type=int, default=0)
+	anomaly.add_argument("--param", action="append", default=[], help="extra KEY=VALUE training setting")
+	anomaly.add_argument("--status", choices=STATUSES, required=True)
+	anomaly.add_argument("--out", type=Path, required=True)
 	check = sub.add_parser("verify")
 	check.add_argument("directory", type=Path)
 	args = parser.parse_args(argv)
-	if args.command == "manifest":
+	if args.command in ("manifest", "anomaly-manifest"):
 		commit = subprocess.run(
 			["git", "rev-parse", "HEAD"],  # noqa: S607
 			capture_output=True,
 			text=True,
 			check=True,
 		).stdout.strip()
-		manifest = release_manifest(args.export_dir, args.run_dir, status=args.status, commit=commit)
+		if args.command == "manifest":
+			manifest = release_manifest(args.export_dir, args.run_dir, status=args.status, commit=commit)
+		else:
+			manifest = anomaly_manifest(
+				args.export_dir,
+				args.baseline_dir,
+				args.fold,
+				status=args.status,
+				commit=commit,
+				params=parse_params(args.param),
+			)
 		args.out.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 		sys.stdout.write(f"wrote {args.out} ({len(manifest['files'])} files)\n")
 		return 0

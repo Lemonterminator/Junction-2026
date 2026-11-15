@@ -167,7 +167,7 @@ The recorded workstation setup uses `~/junction` and Studio's **submodule Compos
 
 Only one process can own a camera or servo bus. Studio recording, the depth bridge, alignment and perception demos must not compete for the D415; Studio's follower worker and armkit must not share a serial port. Hardware checks are manual and outside tests. Arm motion requires an on-site operator and explicit authorization for that motion; retain limits, stop on faults and do not automatically retry.
 
-An operator-coordinated Linux perception session uses the `camera` extra and `sorter-live-demo`, which opens the D415; follow the access guide before launching. See [marker alignment](docs/infrastructure/MARKER_ALIGNMENT.md) for print sheets/alignment and [hardware profiling](docs/infrastructure/HARDWARE_PROFILING.md) for inference correctness/latency evidence. [Tailscale changes](docs/infrastructure/TAILSCALE_REMOTE_OPERATION.md) remain proposals unless the latest status records otherwise.
+An operator-coordinated Linux perception session uses the `camera` extra and `sorter-live-demo`, which opens the D415; follow the access guide before launching. See [marker alignment](docs/infrastructure/MARKER_ALIGNMENT.md) for print sheets/alignment, [hardware profiling](docs/infrastructure/HARDWARE_PROFILING.md) for first-round inference checks, and the [async pipeline benchmark](docs/infrastructure/ASYNC_PIPELINE_BENCHMARK.md) for measured FP16 camera-to-policy latencies on the Intel workstation without arm motion. [Tailscale changes](docs/infrastructure/TAILSCALE_REMOTE_OPERATION.md) remain proposals unless the latest status records otherwise.
 
 ## Plan training
 
@@ -216,7 +216,7 @@ Authenticated collaborators can follow that guide to download release assets int
 | `src/defect_sorter/kinematics.py`, `joint_calibration.py`, `calibration_capture.py` | SO-101 kinematics and measure-only calibration |
 | `src/defect_sorter/motion.py`, `robot_pose.py`, `targeting.py` | Checked scripted moves, measured robot/model mapping and top-camera brick hover targets |
 | `packages/armkit/` | Workspace library: kinematics, collision model, guarded motion/calibration and servo adapters |
-| `src/defect_sorter/inspection.py`, `closed_loop.py` | Anomaly decisions and observe/inspect/plan/execute/verify loop |
+| `src/defect_sorter/inspection.py`, `closed_loop.py`, `async_pipeline.py` | Anomaly decisions, observe/inspect/plan/execute/verify loop, async OpenVINO camera-to-policy pipeline & `DryRunCell` |
 | `src/defect_sorter/twin.py`, `offline_pipeline.py`, `lerobot_export.py` | Twin, synthetic demonstrations/evaluation and LeRobot export |
 | `src/defect_sorter/training.py`, `training_preflight.py` | Training plans, dataset contracts and launch preflight |
 | `src/defect_sorter/episodes.py`, `docs/datasets/SORT_V1.md` | Recorded-episode review, hover/grasp clip ranges and recording protocol |
