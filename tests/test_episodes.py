@@ -7,6 +7,7 @@ from defect_sorter.episodes import (
 	EpisodeData,
 	ReviewConfig,
 	find_grasp,
+	find_hold,
 	find_hover_pause,
 	grasp_clip,
 	review_episode,
@@ -80,6 +81,41 @@ def test_grasp_clip_runs_from_hover_start_to_after_the_close():
 	assert ep.timestamps_s[a] == pytest.approx(2.0, abs=0.15)
 	assert ep.timestamps_s[b] == pytest.approx(4.2 + 1.5, abs=0.15)
 	assert grasp_clip(synthetic_episode(pause=False), ReviewConfig()) is None
+
+
+def held_brick_episode(hold_value: float = 17.0) -> EpisodeData:
+	"""Gripper as recorded on the follower: closed empty (3), opened (45), closed on a brick (hold_value) 4-9 s, opened (70)."""
+	t = np.arange(0, 10, 1 / FPS)
+	gripper = np.select([t < 2, t < 4, t < 9], [3.0, 45.0, hold_value], 70.0)
+	return EpisodeData(
+		timestamps_s=t,
+		body_deg=np.zeros((len(t), len(JOINTS))),
+		gripper=gripper,
+		task=PINK_TASK,
+		cameras=("top", "wrist", "front"),
+	)
+
+
+class TestHold:
+	def test_hold_is_the_interval_with_the_gripper_closed_on_the_brick(self):
+		ep = held_brick_episode()
+		start, end = find_hold(ep, band=(12.0, 24.0))
+		assert ep.timestamps_s[start] == pytest.approx(4.0, abs=1 / FPS)
+		assert ep.timestamps_s[end] == pytest.approx(9.0 - 1 / FPS, abs=1 / FPS)
+
+	def test_short_passes_through_the_band_do_not_count(self):
+		ep = held_brick_episode()
+		g = ep.gripper.copy()
+		g[(ep.timestamps_s >= 1.0) & (ep.timestamps_s < 1.2)] = 18.0
+		ep = EpisodeData(ep.timestamps_s, ep.body_deg, g, ep.task, ep.cameras)
+		start, _ = find_hold(ep, band=(12.0, 24.0))
+		assert ep.timestamps_s[start] == pytest.approx(4.0, abs=1 / FPS)
+
+	def test_no_hold_when_the_gripper_never_rests_in_the_band(self):
+		assert find_hold(held_brick_episode(hold_value=40.0), band=(12.0, 24.0)) is None
+
+	def test_hold_shorter_than_the_minimum_is_rejected(self):
+		assert find_hold(held_brick_episode(), band=(12.0, 24.0), min_s=6.0) is None
 
 
 class TestReview:

@@ -693,3 +693,21 @@ MLflow server; no new training, camera access or arm motion.
   export, a model release, and any run of the policy on the arm (needs a person asking for that motion).
 - Open from the handoff: about 10 more pink-bowl episodes to balance the tasks (23 green, 12 pink), and whether
   Studio's older datasets disappeared on purpose.
+
+## Update 2026-11-15 — anomaly detection on real recordings
+
+Branch `claude/project-thread-xtobwd`; details: [ANOMALY_REAL_BASELINE](../docs/infrastructure/ANOMALY_REAL_BASELINE.md).
+No camera or arm was touched; sort-depth-v2 was read from a local copy.
+
+- Defect definition changed to "not one solid colour" (tape, marker marks); see `DECISIONS.md`.
+- New: `episodes.find_hold` (gripper closed on the brick), `inspection.isolate_object` (brick cut-out by saturation,
+  convex hull and a fixed core region, constant fill), `off_colour_fraction`, `grouped_folds`, `choose_threshold`,
+  PatchCore training option, `OpenVinoScorer` keeps an export's fixed batch. Experiment script
+  `scripts/anomaly/real_baseline.py`.
+- Grouped 5-fold result on 35 episodes (wrist crops, median per episode): PatchCore 11/12 defects caught, 14/23
+  normals passed; colour purity 7/12 and 17/23; Padim 9/12 and 11/23. Latency per crop: Padim 4 ms CPU, PatchCore
+  306 ms CPU / 136 ms Intel iGPU, colour purity under 2 ms.
+- Limits: tape is invisible to the wrist camera in about half the defective episodes; all normal episodes were
+  recorded before all defective ones, so session differences may inflate PatchCore. Next: label and use the
+  "show it to the front camera" dataset `a9ea91fe-…`, record interleaved, combine views.
+
