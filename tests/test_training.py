@@ -7,7 +7,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from defect_sorter.training import build_plan, load_dataset, load_recipe, run_training, validate_dataset
+from defect_sorter.training import (
+	build_plan,
+	load_dataset,
+	load_recipe,
+	run_training,
+	validate_dataset,
+	warm_start_state_dict,
+)
 from defect_sorter.training_preflight import validate_tasks
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -312,3 +319,112 @@ def test_windows_plan_launches_fit_without_the_posix_only_robot_cli(tmp_path, pl
 	# torchcodec needs FFmpeg DLLs that Windows wheels do not ship; PyAV bundles its own decoders.
 	expected_backend = "pyav" if platform == "win32" else None
 	assert plan["config"]["data"]["init_args"].get("video_backend") == expected_backend
+
+
+def warm_recipe(tmp_path: Path, extra: str = 'warm_start = "sort-depth-v2-10k"\n') -> Path:
+	path = tmp_path / "warm.toml"
+	path.write_text(extra + (RECIPES / "smolvla_expert.toml").read_text(encoding="utf-8"), encoding="utf-8")
+	return path
+
+
+def test_warm_start_loads_the_converted_policy_directory_instead_of_the_base(tmp_path):
+	recipe = load_recipe(warm_recipe(tmp_path))
+	dataset = load_dataset(dataset_spec(tmp_path))
+	plan = build_plan(recipe, dataset, tmp_path / "runs", "warm", ROOT, warm_start_root=tmp_path / "warm-start")
+	kwargs = plan["config"]["model"]["init_args"]
+	assert kwargs["pretrained_name_or_path"] == str(tmp_path / "warm-start" / "sort-depth-v2-10k")
+	assert kwargs["train_expert_only"] is True
+	assert plan["warm_start"] == "sort-depth-v2-10k"
+	assert "warm_start" not in kwargs
+
+
+def test_warm_start_needs_a_root_and_a_plain_name_and_only_applies_to_smolvla(tmp_path):
+	recipe = load_recipe(warm_recipe(tmp_path))
+	with pytest.raises(ValueError, match="warm_start_root"):
+		build_plan(recipe, load_dataset(dataset_spec(tmp_path)), tmp_path / "runs", "warm", ROOT)
+	for bad in ("../escape", "a/b", ""):
+		with pytest.raises(ValueError, match="warm_start"):
+			load_recipe(warm_recipe(tmp_path, f'warm_start = "{bad}"\n'))
+	act = tmp_path / "act.toml"
+	act.write_text('warm_start = "x"\n' + (RECIPES / "act_baseline.toml").read_text(encoding="utf-8"), encoding="utf-8")
+	with pytest.raises(ValueError, match="warm_start"):
+		load_recipe(act)
+
+
+def test_recipe_without_warm_start_is_unchanged(tmp_path):
+	plan = build_plan(
+		load_recipe(RECIPES / "smolvla_expert.toml"),
+		load_dataset(dataset_spec(tmp_path)),
+		tmp_path / "runs",
+		"base",
+		ROOT,
+		warm_start_root=tmp_path / "warm-start",
+	)
+	assert plan["config"]["model"]["init_args"]["pretrained_name_or_path"] == "lerobot/smolvla_base"
+	assert plan["warm_start"] is None
+
+
+def test_warm_start_weights_keep_only_the_policy_model_under_its_own_names():
+	state = {
+		"model._model.state_proj.weight": 1,
+		"model._model.vlm_with_expert.lm_expert.layers.0.mlp.weight": 2,
+		"_preprocessor._state_action_normalizer.buffer_state.mean": 3,
+		"_postprocessor._action_denormalizer.buffer_action.std": 4,
+	}
+	# SmolVLA._initialize_model loads into policy.model after renaming a leading "model." to "_model.",
+	# so the stored keys must be the policy.model keys, which already start with "_model.".
+	assert warm_start_state_dict(state) == {
+		"_model.state_proj.weight": 1,
+		"_model.vlm_with_expert.lm_expert.layers.0.mlp.weight": 2,
+	}
+	with pytest.raises(ValueError, match="no policy weights"):
+		warm_start_state_dict({"_preprocessor.x": 1})
+
+
+def scaled_recipe(tmp_path: Path, extra: str) -> Path:
+	path = tmp_path / "scaled.toml"
+	path.write_text(extra + (RECIPES / "smolvla_expert.toml").read_text(encoding="utf-8"), encoding="utf-8")
+	return path
+
+
+def test_default_recipe_trains_on_one_gpu_in_process_with_periodic_checkpoints(tmp_path):
+	plan = build_plan(
+		load_recipe(RECIPES / "smolvla_expert.toml"),
+		load_dataset(dataset_spec(tmp_path)),
+		tmp_path / "runs",
+		"one",
+		ROOT,
+	)
+	trainer = plan["config"]["trainer"]
+	assert trainer["devices"] == [0]
+	assert "strategy" not in trainer
+	assert plan["config"]["data"]["init_args"]["num_workers"] == 0
+	assert plan["config"]["data"]["init_args"]["persistent_workers"] is False
+	periodic = [c["init_args"] for c in trainer["callbacks"] if "every_n_train_steps" in c["init_args"]]
+	assert periodic == [
+		{
+			"dirpath": str(tmp_path / "runs" / "one" / "checkpoints"),
+			"filename": "periodic",
+			"every_n_train_steps": 500,
+			"save_top_k": 1,
+			"save_last": False,
+		}
+	]
+
+
+def test_several_devices_use_ddp_and_data_workers_keep_running(tmp_path):
+	recipe = load_recipe(scaled_recipe(tmp_path, "devices = 8\nnum_workers = 4\n"))
+	plan = build_plan(recipe, load_dataset(dataset_spec(tmp_path)), tmp_path / "runs", "ddp", ROOT)
+	trainer = plan["config"]["trainer"]
+	assert trainer["devices"] == 8
+	# Unused trainable parameters (target-time MLP without SnapFlow) must not stop the DDP gradient reduction.
+	assert trainer["strategy"] == "ddp_find_unused_parameters_true"
+	data = plan["config"]["data"]["init_args"]
+	assert (data["num_workers"], data["persistent_workers"]) == (4, True)
+	assert plan["devices"] == 8
+
+
+@pytest.mark.parametrize("extra", ["devices = 0\n", "devices = 1.5\n", "num_workers = -1\n", "num_workers = true\n"])
+def test_device_and_worker_counts_must_be_whole_numbers(tmp_path, extra):
+	with pytest.raises(ValueError, match=r"devices|num_workers"):
+		load_recipe(scaled_recipe(tmp_path, extra))

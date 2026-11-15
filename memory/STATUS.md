@@ -21,8 +21,20 @@ Branch `feat/async-inference-pipeline`; full report in [ASYNC_PIPELINE_BENCHMARK
   dataset root is `data/sim/lerobot_batch_v1` (Git-ignored). Intended as a sim-pretrained
   start for a fine-tune on sort-depth-v2; its scores are simulated and never pooled with
   real ones.
-- The Modal spend limit is now raised (the sim render ran there). The dataset sits in the
-  Volume at `/datasets/sim-batch-v1`; run `smolvla-sim-v1-01` on L40S, capped at 4 h.
+- Warm start: recipes may name `warm_start`; `scripts/training/ckpt_to_warm_start.py`
+  turns a Lightning SmolVLA checkpoint into a loadable policy directory (policy weights
+  only, `lerobot/smolvla_base` config). The sim recipe starts from sort-depth-v2-10k
+  `best.ckpt` (step 4120); loading it was checked locally: no missing keys, weights equal
+  to the checkpoint up to SmolVLA's bf16 rounding. Tests in `tests/test_training.py` and
+  `tests/test_modal_training.py`, written first.
+- Data parallel: recipes may set `devices` (DDP with unused-parameter detection when > 1) and
+  `num_workers` (data loader processes); every run also keeps `checkpoints/periodic.ckpt`
+  every 500 steps, because validation and best/last checkpoints come only once per epoch.
+  The sim recipe now runs on 8 x L40S in one Modal container (effective batch 64, 3,750
+  steps, lr 2e-4, warm-up 250). A first single-GPU run was stopped after ~600 steps
+  without a checkpoint, before this change.
+- The Modal spend limit is now raised (the sim render ran there). The Volume holds
+  `/datasets/sim-batch-v1` and `/warm-start/sort-depth-v2-10k`.
 
 ## Update 2026-11-15 — anomaly baselines in MLflow and releases
 
@@ -30,7 +42,13 @@ Branch `feat/async-inference-pipeline`; full report in [ASYNC_PIPELINE_BENCHMARK
   register one fold model of the real baseline with its CPU threshold, cross-fold results and latency; new release
   status `baseline`. Tests written first in `tests/test_tracking.py` and `tests/test_model_release.py`.
 - PatchCore 10 % and Padim fold-0 exports are in MLflow experiment `defect-sorter-anomaly` (tag `status = baseline`).
-  Nothing has been copied to the Intel workstation; guide in `docs/infrastructure/MODEL_RELEASES.md`.
+  Both are private pre-releases `anomaly-patchcore-baseline-1` and `anomaly-padim-baseline-1` (status `baseline`).
+- On the Intel workstation: models in `~/models/anomaly/`, crops/scripts/results in `~/models/anomaly-calib/`, and
+  `~/models/studio-anomaly-models.override.yaml` (read-only mount at `/app/models/anomaly`, `physical-ai-studio-xpu`
+  recreated with it, healthy). `scripts/anomaly/calibrate_devices.py` chose a threshold per device: scores were
+  identical across CPU, iGPU (FP32) and NPU for Padim (NPU at most 0.23 % lower) and CPU/iGPU for PatchCore; PatchCore
+  does not compile on the NPU. The fold-0 test fold has 7 episodes, so this is a smoke check. Details in
+  `docs/infrastructure/MODEL_RELEASES.md`.
 
 ## Update 2026-11-15 — Armigo dashboard and live Studio link
 

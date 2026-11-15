@@ -11,7 +11,9 @@ Three steps, each cheaper than the next is expensive (see docs/infrastructure/MO
 
 	modal run scripts/modal/train.py --recipe ... --dataset ... --dataset-name sort-depth-v2 --run-name modal-smoke-01
 
-3. Real GPU training, bounded by ``--max-hours``::
+3. Real GPU training, bounded by ``--max-hours``. A recipe with ``devices = N`` runs data parallel on N GPUs of one
+   container (``--gpu`` names the type; ``Function.with_options`` takes a single type, so there is no fallback list)
+   and the cost ceiling counts all N::
 
 	modal run scripts/modal/train.py ... --gpu L40S --max-hours 4 --go
 
@@ -35,7 +37,13 @@ ROOT = Path(__file__).resolve().parents[2] if modal.is_local() else Path(REMOTE)
 if str(ROOT / "src") not in sys.path:
 	sys.path.insert(0, str(ROOT / "src"))
 
-from defect_sorter.modal_training import VOLUME_MOUNT, VOLUME_NAME, VolumeLayout, cost_ceiling  # noqa: E402
+from defect_sorter.modal_training import (  # noqa: E402
+	VOLUME_MOUNT,
+	VOLUME_NAME,
+	VolumeLayout,
+	cost_ceiling,
+	warm_start_upload_command,
+)
 from defect_sorter.training import load_dataset, load_recipe, validate_dataset  # noqa: E402
 
 # USD per GPU hour from `modal billing rates` on 2026-11-15; re-check before large runs.
@@ -69,7 +77,15 @@ def _container_plan(recipe: dict, dataset: dict, dataset_name: str, run_name: st
 
 	layout = VolumeLayout(dataset_name, run_name)
 	spec = volume_dataset(DatasetSpec(**dataset), layout)
-	return build_plan(recipe, spec, Path(layout.container_runs), run_name, Path(REMOTE), platform="linux")
+	return build_plan(
+		recipe,
+		spec,
+		Path(layout.container_runs),
+		run_name,
+		Path(REMOTE),
+		platform="linux",
+		warm_start_root=Path(layout.container_warm_start),
+	)
 
 
 @app.function(image=image, volumes={str(VOLUME_MOUNT): volume}, timeout=600)
@@ -112,6 +128,7 @@ def _local_summary(recipe_path: str, dataset_path: str, dataset_name: str, run_n
 	layout = VolumeLayout(dataset_name, run_name)
 	if gpu not in GPU_RATES:
 		raise ValueError(f"gpu must be one of {sorted(GPU_RATES)}")
+	rate = GPU_RATES[gpu]
 	info_exists = (Path(dataset.root) / "meta" / "info.json").is_file()
 	if info_exists:
 		validate_dataset(dataset)
@@ -124,10 +141,15 @@ def _local_summary(recipe_path: str, dataset_path: str, dataset_name: str, run_n
 		"upload": " ".join(layout.upload_command(dataset.root)),
 		"download": " ".join(layout.download_command()),
 		"gpu": gpu,
-		"gpu_usd_per_hour": GPU_RATES[gpu],
+		"gpus": recipe["devices"],
+		"gpu_usd_per_hour": rate * recipe["devices"],
 		"max_hours": max_hours,
-		"gpu_cost_ceiling_usd": round(cost_ceiling(GPU_RATES[gpu], max_hours), 2),
+		"gpu_cost_ceiling_usd": round(cost_ceiling(rate * recipe["devices"], max_hours), 2),
+		"warm_start": recipe["warm_start"],
 	}
+	if recipe["warm_start"] is not None:
+		local_warm = ROOT / "artifacts" / "warm-start" / recipe["warm_start"]
+		summary["warm_start_upload"] = " ".join(warm_start_upload_command(str(local_warm), recipe["warm_start"]))
 	return recipe, dataset, layout, summary
 
 
@@ -157,9 +179,15 @@ def main(
 	if not go:
 		print("dry run only; add --go to train on the GPU")  # noqa: T201
 		return
-	result = train.with_options(gpu=gpu, timeout=int(max_hours * 3600)).remote(
-		recipe_, asdict(dataset_), dataset_name, run_name
-	)
+	gpus = recipe_["devices"]
+	# Data loader workers decode video on CPU: give each GPU's workers their own cores and memory.
+	cpu = max(8, gpus * (recipe_["num_workers"] + 1))
+	result = train.with_options(
+		gpu=gpu if gpus == 1 else f"{gpu}:{gpus}",
+		cpu=cpu,
+		memory=max(32768, cpu * 4096),
+		timeout=int(max_hours * 3600),
+	).remote(recipe_, asdict(dataset_), dataset_name, run_name)
 	print(json.dumps(result, indent=2))  # noqa: T201
 	print(f"download with:\n  {summary['download']}")  # noqa: T201
 

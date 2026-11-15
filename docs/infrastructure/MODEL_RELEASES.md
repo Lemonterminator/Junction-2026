@@ -20,6 +20,8 @@ Releases other than `demo` are published as GitHub pre-releases.
 
 | Tag | Status | Contents |
 | --- | --- | --- |
+| [`anomaly-patchcore-baseline-1`](https://github.com/Lemonterminator/Junction-2026/releases/tag/anomaly-patchcore-baseline-1) | `baseline` | PatchCore 10 % (wide_resnet50, fold 0 of the real baseline), OpenVINO `model.xml/.bin`, 267 MB. |
+| [`anomaly-padim-baseline-1`](https://github.com/Lemonterminator/Junction-2026/releases/tag/anomaly-padim-baseline-1) | `baseline` | Padim (resnet18, fold 0 of the real baseline), OpenVINO `model.xml/.bin`, 168 MB. |
 | [`model-smolvla-studio-smoke-1`](https://github.com/Lemonterminator/Junction-2026/releases/tag/model-smolvla-studio-smoke-1) | `smoke-test` | SmolVLA, 50 steps on the first Studio recording (2 episodes, green-bowl task only), OpenVINO IR (`smolvla.xml/.bin`, `tokenizer.xml/.bin`, `manifest.json`), ~0.8 GB. Train loss 0.16, held-out val loss 0.81. Runs on CPU: 50×6 action chunk in ~295 ms with synthetic input. |
 
 ## Download and verify
@@ -94,3 +96,28 @@ gh release create anomaly-padim-baseline-1 artifacts/release/anomaly-padim-basel
 
 On Windows set `PYTHONIOENCODING=utf-8` for the tracking command: MLflow prints an emoji run link that cp1252 cannot
 encode, which leaves the run in status RUNNING (the files are uploaded; mark it FINISHED).
+
+### On the Intel workstation
+
+The two baselines were copied with SSH keys (no password) from a verified download into `~/models/anomaly/` of the
+`intel` account, outside Docker. `~/models/studio-anomaly-models.override.yaml` mounts that folder read-only at
+`/app/models/anomaly`; add it as one more `-f` to the four files the Studio project already uses, then
+`docker compose ... up -d --force-recreate --no-deps physical-ai-studio-xpu` (the live preview drops for a moment).
+
+### Per-device thresholds
+
+`scripts/anomaly/calibrate_devices.py` picks a threshold per OpenVINO device on the fold's validation episodes and
+judges the test episodes with it. On the workstation (OpenVINO 2026.4, fold 0, 7 test episodes):
+
+| Model | Device | Threshold | Score vs CPU | Latency median / p90 |
+| --- | --- | ---: | --- | --- |
+| Padim | CPU | 0.5238 | reference | 9.1 / 10.1 ms |
+| Padim | iGPU, FP32 | 0.5238 | same | 36.3 / 50.8 ms |
+| Padim | NPU | 0.5238 | up to 0.23 % lower | 9.2 / 9.5 ms |
+| PatchCore | CPU | 0.4030 | reference | 861 / 1006 ms |
+| PatchCore | iGPU, FP32 | 0.4030 | same | 215 / 264 ms |
+| PatchCore | NPU | none | graph compilation fails | none |
+
+The earlier note that NPU scores are about 16 % lower did not reproduce with these exports and this runtime, so keep
+one threshold per device anyway. The test fold is tiny, so treat the confusion counts as a smoke check, and the
+latencies were taken while Studio was running.

@@ -34,6 +34,9 @@ _RECIPE_KEYS = {
 	"accumulate_grad_batches",
 	"model",
 }
+_OPTIONAL_RECIPE_KEYS = {"warm_start", "devices", "num_workers"}
+_PERIODIC_CHECKPOINT_STEPS = 500
+_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
 
 
 @dataclass(frozen=True)
@@ -113,8 +116,20 @@ def load_recipe(path: Path) -> dict[str, Any]:
 		Validated recipe; no optional ML libraries are imported.
 	"""
 	recipe = _read_toml(path)
-	if set(recipe) != _RECIPE_KEYS:
-		raise ValueError(f"recipe requires exactly {sorted(_RECIPE_KEYS)}")
+	if not _RECIPE_KEYS <= set(recipe) <= _RECIPE_KEYS | _OPTIONAL_RECIPE_KEYS:
+		raise ValueError(f"recipe requires exactly {sorted(_RECIPE_KEYS)}, optionally {sorted(_OPTIONAL_RECIPE_KEYS)}")
+	devices = recipe.setdefault("devices", 1)
+	if isinstance(devices, bool) or not isinstance(devices, int) or devices < 1:
+		raise ValueError("devices must be a positive integer")
+	workers = recipe.setdefault("num_workers", 0)
+	if isinstance(workers, bool) or not isinstance(workers, int) or workers < 0:
+		raise ValueError("num_workers must be a nonnegative integer")
+	warm_start = recipe.setdefault("warm_start", None)
+	if warm_start is not None:
+		if recipe["policy"] != "smolvla":
+			raise ValueError("warm_start is supported for SmolVLA recipes only")
+		if not isinstance(warm_start, str) or not _NAME.fullmatch(warm_start) or ".." in warm_start:
+			raise ValueError("warm_start must name a single converted policy directory")
 	if recipe["policy"] not in _POLICIES:
 		raise ValueError("unsupported policy")
 	if not isinstance(recipe["experimental"], bool) or not isinstance(recipe["name"], str):
@@ -203,6 +218,7 @@ def build_plan(
 	*,
 	uv: str = "uv",
 	platform: str = sys.platform,
+	warm_start_root: Path | None = None,
 ) -> dict[str, Any]:
 	"""Build an inspectable config and argument vector without creating files.
 
@@ -224,6 +240,10 @@ def build_plan(
 		Target ``sys.platform``. On Windows the ``physicalai`` console script fails importing the POSIX-only
 		robot CLI, so the plan runs ``fit`` through ``scripts/offline_pipeline/physicalai_without_robot_cli.py``, and videos
 		are decoded with PyAV.
+	warm_start_root : Path | None
+		Parent of converted policy directories (``scripts/training/ckpt_to_warm_start.py``). Required when the recipe
+		names ``warm_start``; SmolVLA then loads that directory's weights instead of ``lerobot/smolvla_base``, and
+		normalisation statistics still come from this run's training data.
 
 	Returns
 	-------
@@ -247,6 +267,11 @@ def build_plan(
 		validation = sorted(random.Random(recipe["split_seed"]).sample(range(total), count))  # noqa: S311
 		episodes = {"validation": validation, "training": sorted(set(range(total)) - set(validation))}
 	model = dict(recipe["model"])
+	warm_start = recipe.get("warm_start")
+	if warm_start is not None:
+		if warm_start_root is None:
+			raise ValueError("recipe names warm_start; pass warm_start_root")
+		model["pretrained_name_or_path"] = str(warm_start_root / warm_start)
 	if recipe["policy"] == "smolvla":
 		model.update(
 			image_key_reorder_map={
@@ -273,8 +298,8 @@ def build_plan(
 				"data_format": "physicalai",
 				"train_batch_size": recipe["batch_size"],
 				"val_batch_size": recipe["batch_size"],
-				"num_workers": 0,
-				"persistent_workers": False,
+				"num_workers": recipe.get("num_workers", 0),
+				"persistent_workers": recipe.get("num_workers", 0) > 0,
 				"val_split": recipe["val_split"],
 				"val_split_seed": recipe["split_seed"],
 				"force_cache_sync": False,
@@ -282,7 +307,7 @@ def build_plan(
 		},
 		"trainer": {
 			"accelerator": "gpu",
-			"devices": [0],
+			"devices": [0] if recipe.get("devices", 1) == 1 else recipe["devices"],
 			"precision": recipe["precision"],
 			"max_steps": recipe["max_steps"],
 			"max_epochs": -1,
@@ -305,10 +330,25 @@ def build_plan(
 						"save_top_k": 1,
 						"save_last": True,
 					},
-				}
+				},
+				{
+					# Validation runs once per epoch; this keeps a recent restart point between epochs.
+					"class_path": "lightning.pytorch.callbacks.ModelCheckpoint",
+					"init_args": {
+						"dirpath": str(output / "checkpoints"),
+						"filename": "periodic",
+						"every_n_train_steps": _PERIODIC_CHECKPOINT_STEPS,
+						"save_top_k": 1,
+						"save_last": False,
+					},
+				},
 			],
 		},
 	}
+	if recipe.get("devices", 1) > 1:
+		# Data parallel: one model copy per GPU. Unused trainable parameters (SmolVLA's target-time MLP without
+		# SnapFlow) must not stall the gradient reduction.
+		config["trainer"]["strategy"] = "ddp_find_unused_parameters_true"
 	if platform == "win32":
 		# torchcodec needs FFmpeg shared libraries that its Windows wheels do not ship; PyAV bundles its decoders.
 		config["data"]["init_args"]["video_backend"] = "pyav"
@@ -316,6 +356,8 @@ def build_plan(
 		"recipe": recipe["name"],
 		"experimental": recipe["experimental"],
 		"dataset": asdict(dataset),
+		"warm_start": warm_start,
+		"devices": recipe.get("devices", 1),
 		"dataset_status": "metadata_validated" if info is not None else "missing",
 		"episodes": episodes,
 		"output_dir": str(output),
@@ -351,6 +393,30 @@ def build_plan(
 			"Joint units are an operator declaration: LeRobot metadata does not prove their physical convention. Keep units, joint order and camera calibration identical during deployment.",
 		],
 	}
+
+
+def warm_start_state_dict(state_dict: dict[str, Any]) -> dict[str, Any]:
+	"""Select the policy-model weights of a Lightning SmolVLA checkpoint for a warm start.
+
+	``SmolVLA._initialize_model`` loads ``model.safetensors`` into ``policy.model`` after renaming a leading
+	``model.`` to ``_model.``. Lightning stores the same tensors as ``model.<policy.model key>``, so stripping the first
+	``model.`` gives keys that load unchanged. Pre- and postprocessor buffers (old normalisation statistics) are dropped:
+	the new run computes them from its own training data.
+
+	Parameters
+	----------
+	state_dict : dict[str, Any]
+		``checkpoint["state_dict"]`` of a SmolVLA Lightning checkpoint; values are passed through untouched.
+
+	Returns
+	-------
+	dict[str, Any]
+		``policy.model`` weights keyed as ``SmolVLA`` expects in ``model.safetensors``.
+	"""
+	weights = {key.removeprefix("model."): value for key, value in state_dict.items() if key.startswith("model.")}
+	if not weights:
+		raise ValueError("checkpoint holds no policy weights under model.")
+	return weights
 
 
 def run_training(plan: dict[str, Any]) -> int:
@@ -416,6 +482,7 @@ def main(argv: list[str] | None = None) -> int:
 	parser.add_argument("--run-name", required=True)
 	parser.add_argument("--project-root", type=Path, default=Path(__file__).resolve().parents[2])
 	parser.add_argument("--uv", default="uv")
+	parser.add_argument("--warm-start-root", type=Path, default=Path("artifacts/warm-start"))
 	args = parser.parse_args(argv)
 	logging.basicConfig(level=logging.INFO)
 	try:
@@ -426,6 +493,7 @@ def main(argv: list[str] | None = None) -> int:
 			args.run_name,
 			args.project_root,
 			uv=args.uv,
+			warm_start_root=args.warm_start_root.resolve(),
 		)
 		if args.mode == "plan":
 			sys.stdout.write(json.dumps(plan, indent=2, allow_nan=False) + "\n")
