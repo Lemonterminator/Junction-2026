@@ -92,6 +92,22 @@ The Volume `junction-training` holds `datasets/<name>` (uploaded recordings),
    The simulated batch dataset uses the same steps with
    `--recipe configs/training/smolvla_sim_batch_v1.toml --dataset configs/training/dataset.sim_batch_v1.toml --dataset-name sim-batch-v1`.
 
+   Warm start. A SmolVLA recipe may name `warm_start = "<name>"`: the run then
+   loads the weights of an earlier run instead of `lerobot/smolvla_base`
+   (normalisation statistics still come from the new training data). Convert the
+   earlier checkpoint once in the Studio backend environment and upload it; the
+   dry run prints the upload line and the remote run refuses to start without it:
+
+   ```bash
+   uv run --project external/physical-ai-studio/application/backend --extra cuda --frozen python scripts/training/ckpt_to_warm_start.py artifacts/training/sort-depth-v2-10k/checkpoints/best.ckpt artifacts/warm-start/sort-depth-v2-10k
+   ```
+
+   ```bash
+   modal volume put junction-training artifacts/warm-start/sort-depth-v2-10k /warm-start/sort-depth-v2-10k
+   ```
+
+   Local runs read the same directory from `artifacts/warm-start/` (`--warm-start-root`).
+
 5. Download and log to MLflow:
 
    ```bash

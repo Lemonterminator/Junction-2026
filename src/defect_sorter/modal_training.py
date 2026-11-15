@@ -1,7 +1,7 @@
 """Volume layout and cost bounds for training on Modal, without importing the Modal SDK.
 
 The Modal app (``scripts/modal/train.py``) mounts one Volume at :data:`VOLUME_MOUNT`. Recordings live under
-``datasets/<name>`` and every run writes a fresh ``runs/<run-name>`` directory with the same contents as a local
+``datasets/<name>``, converted warm-start policies under ``warm-start/<name>``, and every run writes a fresh ``runs/<run-name>`` directory with the same contents as a local
 ``training.py run`` (``plan.json``, ``config.json``, Lightning CSV metrics, checkpoints), so the existing MLflow logger
 reads a downloaded run unchanged.
 """
@@ -57,6 +57,11 @@ class VolumeLayout:
 		"""Parent of all run directories inside the container."""
 		return str(VOLUME_MOUNT / "runs")
 
+	@property
+	def container_warm_start(self) -> str:
+		"""Parent of converted warm-start policy directories inside the container."""
+		return str(VOLUME_MOUNT / "warm-start")
+
 	def upload_command(self, local_root: str) -> list[str]:
 		"""Return the CLI command that copies a local recording into the Volume."""
 		return ["modal", "volume", "put", VOLUME_NAME, local_root, self.dataset_path]
@@ -64,6 +69,24 @@ class VolumeLayout:
 	def download_command(self, local_parent: str = "artifacts/training") -> list[str]:
 		"""Return the CLI command that copies the finished run directory back."""
 		return ["modal", "volume", "get", VOLUME_NAME, self.run_path, local_parent]
+
+
+def warm_start_upload_command(local_dir: str, name: str) -> list[str]:
+	"""Return the CLI command that copies a converted warm-start policy directory into the Volume.
+
+	Parameters
+	----------
+	local_dir : str
+		Directory written by ``scripts/training/ckpt_to_warm_start.py``.
+	name : str
+		The recipe's ``warm_start`` name.
+
+	Returns
+	-------
+	list[str]
+		``modal volume put`` command targeting ``/warm-start/<name>``.
+	"""
+	return ["modal", "volume", "put", VOLUME_NAME, local_dir, f"/warm-start/{_safe_name(name, 'warm start')}"]
 
 
 def volume_dataset(dataset: DatasetSpec, layout: VolumeLayout) -> DatasetSpec:

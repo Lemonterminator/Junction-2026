@@ -86,7 +86,7 @@ Test ownership:
 - `tests/test_robot_pose.py` owns `defect_sorter.robot_pose` (table/base frames, base-marker link and relocation, readings vs model angles, calibration files).
 - `tests/test_webview.py` owns `defect_sorter.webview` (frame buffer, page, frame polling and action endpoints).
 - `packages/armkit/tests/` owns the standalone `armkit` library (one test module per library module: `test_model.py`, `test_collision.py`, `test_poses.py`, `test_guard.py`, `test_endstop.py`, `test_guarded_motion.py`, `test_procedure.py`, `test_check.py`, `test_park.py`, `test_measure.py`, `test_feetech.py`, `test_simulation.py`, `test_calibration.py`, `test_so101_profile.py`, `test_cli.py`, `test_independence.py`). The library must not name or import this project.
-- `tests/test_training.py` owns `defect_sorter.training` and `defect_sorter.training_preflight` (local policy recipes, dataset contracts, plans, task validation and training launch preflight).
+- `tests/test_training.py` owns `defect_sorter.training` and `defect_sorter.training_preflight` (local policy recipes, dataset contracts, plans, task validation and training launch preflight, warm-start recipes and checkpoint weight selection).
 - `tests/test_inspection.py` owns `defect_sorter.inspection` (score to normal/defective/uncertain decision, crops, brick isolation, colour purity, grouped folds, threshold choice).
 - `tests/test_closed_loop.py` owns `defect_sorter.closed_loop` (label-to-task mapping, attempt state machine, records).
 - `tests/test_planner.py` owns `defect_sorter.planner` (closed action set, rule planner, validation, LLM proposal parsing and fallback).
@@ -95,7 +95,7 @@ Test ownership:
 - `tests/test_offline_pipeline.py` owns `defect_sorter.offline_pipeline` and the pure part of `defect_sorter.lerobot_export` (demo recording, anomaly crops, twin evaluation, LeRobot features, privileged sim labels).
 - `tests/test_tracking.py` owns `defect_sorter.tracking` (reading run and evaluation directories into MLflow records).
 - `tests/test_model_release.py` owns `defect_sorter.model_release` (release manifest and download verification).
-- `tests/test_modal_training.py` owns `defect_sorter.modal_training` (Modal Volume layout, recording root on the Volume, GPU cost ceiling).
+- `tests/test_modal_training.py` owns `defect_sorter.modal_training` (Modal Volume layout, recording root on the Volume, warm-start upload, GPU cost ceiling).
 - `tests/test_studio_preview_patch.py` owns `docker/studio-patches` (Studio live-preview rate, JPEG quality and skipped cameras).
 - `tests/test_system_metrics.py` owns `defect_sorter.system_metrics` (cross-platform CPU/RAM with fake native counters, plus Linux Intel DRM/NPU and package power with synthetic procfs/sysfs fixtures).
 - `tests/test_dashboard.py` owns `defect_sorter.dashboard` (static files, audio byte ranges, cached host resources, read-only snapshot file and path isolation).

@@ -2,7 +2,13 @@ from pathlib import Path
 
 import pytest
 
-from defect_sorter.modal_training import VOLUME_NAME, VolumeLayout, cost_ceiling, volume_dataset
+from defect_sorter.modal_training import (
+	VOLUME_NAME,
+	VolumeLayout,
+	cost_ceiling,
+	volume_dataset,
+	warm_start_upload_command,
+)
 from defect_sorter.training import DatasetSpec
 
 DATASET = DatasetSpec(
@@ -65,3 +71,18 @@ def test_cost_ceiling_is_rate_times_timeout():
 def test_cost_ceiling_rejects_unbounded_or_invalid_input(rate, hours):
 	with pytest.raises(ValueError, match="finite and positive"):
 		cost_ceiling(rate, hours)
+
+
+def test_warm_start_policies_live_beside_datasets_in_the_volume():
+	layout = VolumeLayout("sim-batch-v1", "smolvla-sim-v1-01")
+	assert layout.container_warm_start == "/vol/warm-start"
+	assert warm_start_upload_command("artifacts/warm-start/sort-depth-v2-10k", "sort-depth-v2-10k") == [
+		"modal",
+		"volume",
+		"put",
+		VOLUME_NAME,
+		"artifacts/warm-start/sort-depth-v2-10k",
+		"/warm-start/sort-depth-v2-10k",
+	]
+	with pytest.raises(ValueError, match="warm start"):
+		warm_start_upload_command("x", "../x")

@@ -35,7 +35,13 @@ ROOT = Path(__file__).resolve().parents[2] if modal.is_local() else Path(REMOTE)
 if str(ROOT / "src") not in sys.path:
 	sys.path.insert(0, str(ROOT / "src"))
 
-from defect_sorter.modal_training import VOLUME_MOUNT, VOLUME_NAME, VolumeLayout, cost_ceiling  # noqa: E402
+from defect_sorter.modal_training import (  # noqa: E402
+	VOLUME_MOUNT,
+	VOLUME_NAME,
+	VolumeLayout,
+	cost_ceiling,
+	warm_start_upload_command,
+)
 from defect_sorter.training import load_dataset, load_recipe, validate_dataset  # noqa: E402
 
 # USD per GPU hour from `modal billing rates` on 2026-11-15; re-check before large runs.
@@ -69,7 +75,15 @@ def _container_plan(recipe: dict, dataset: dict, dataset_name: str, run_name: st
 
 	layout = VolumeLayout(dataset_name, run_name)
 	spec = volume_dataset(DatasetSpec(**dataset), layout)
-	return build_plan(recipe, spec, Path(layout.container_runs), run_name, Path(REMOTE), platform="linux")
+	return build_plan(
+		recipe,
+		spec,
+		Path(layout.container_runs),
+		run_name,
+		Path(REMOTE),
+		platform="linux",
+		warm_start_root=Path(layout.container_warm_start),
+	)
 
 
 @app.function(image=image, volumes={str(VOLUME_MOUNT): volume}, timeout=600)
@@ -127,7 +141,11 @@ def _local_summary(recipe_path: str, dataset_path: str, dataset_name: str, run_n
 		"gpu_usd_per_hour": GPU_RATES[gpu],
 		"max_hours": max_hours,
 		"gpu_cost_ceiling_usd": round(cost_ceiling(GPU_RATES[gpu], max_hours), 2),
+		"warm_start": recipe["warm_start"],
 	}
+	if recipe["warm_start"] is not None:
+		local_warm = ROOT / "artifacts" / "warm-start" / recipe["warm_start"]
+		summary["warm_start_upload"] = " ".join(warm_start_upload_command(str(local_warm), recipe["warm_start"]))
 	return recipe, dataset, layout, summary
 
 
