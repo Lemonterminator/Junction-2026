@@ -87,6 +87,12 @@ bus so far.
 
 ## Local policy training and digital twin
 
+[Inspect-then-sort plan / 先检查再分拣](docs/plans/INSPECT_THEN_SORT_PLAN.md)
+defines the proposed three-skill loop: pick and inspect, hold for the Anomalib
+decision, then place in green or pink. It includes a 50-cycle recording pilot,
+skill handoff contracts, failure handling and acceptance gates. This is a plan;
+the current controller still inspects before a complete pick-and-place policy.
+
 [Local training guide](docs/infrastructure/TRAINING.md) provides ACT imitation-learning,
 SmolVLA expert fine-tuning, and experimental Pi0.5 LoRA recipes for a separate CUDA
 environment. Plan generation and synthetic metadata/task tests run in the light

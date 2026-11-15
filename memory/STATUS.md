@@ -1,5 +1,31 @@
 # Current status
 
+## Update 2026-11-15 — inspect-then-sort implementation plan
+
+- Added the detailed [three-skill plan](../docs/plans/INSPECT_THEN_SORT_PLAN.md):
+  pick and inspect, controlled holding handoff, Anomalib decision, green/pink
+  held-placement and physical outcome verification. The current controller still
+  scores before executing a complete pick-and-place task; no runtime behavior changed.
+- Defined a 50-source-cycle / 100-skill-clip pilot, grouped train/validation/test
+  splits, inspection coverage and quality gates, stale action/result cancellation,
+  threshold validation, module/test ownership and staged acceptance targets.
+- Linked README, the overall plan, dataset protocol and training guide. Existing
+  full-task recordings and recipes keep their original semantics; no new Studio
+  dataset, recipe or checkpoint was created.
+- Documentation only; no new behavior tests were added. No camera access, arm
+  motion, training or device deployment.
+- Verification on Windows: `uv sync --locked` passed; `uv run pytest -q` finished
+  with 571 passed, 2 failed and 1 skipped (the optional pyarrow episode-loader test).
+  Both failures are in unchanged baseline code:
+  `tests/test_depth_bridge.py::TestMjpegStream::test_each_part_carries_its_publish_time_for_latency_checks`
+  rounds the HTTP timestamp to six decimals, below the test's full-precision lower
+  bound; `tests/test_uvc_controls.py::test_find_device_picks_the_capture_node_of_the_named_camera`
+  expects `/dev/video12` but Windows returns a path with backslash separators. A diagnostic
+  `uv run pytest -q -x` also reproduced the timestamp failure (58 passed before it).
+- `uv run ruff check src tests packages` passed; `uv run ruff format --check src tests packages`
+  passed (89 files). All 96 local links across the six changed documents resolve;
+  `git diff --check` passed. No source, test or dependency lock files changed.
+
 Updated: 2026-11-14 (Europe/Helsinki). The source integration, shared memory, and
 Docker preparation below are included in this revision. The user requested commit
 and push on 14 November. Use `git status` and the remote branch to check the current
@@ -515,10 +541,38 @@ base, the front camera or the bowls needs no new training.
 - Full suite: 499 passed, 2 failed in `test_training.py` because the Studio submodule's working tree is missing
   `library/` (staged deletions inside the submodule, not from this change).
 
+## Update 2026-11-14 evening: sort-depth-v2 dataset and SmolVLA training
+
+- Studio dataset `sort-depth-v2` (35 episodes, 37,515 frames, 23 green-bowl + 12 pink-bowl, cameras front/wrist
+  640×480 and top_rgb_v2/top_depth_v2 512×416, AV1) was copied read-only to the RTX 5090 training PC. No long frozen
+  video runs (longest 2 repeated frames); top_rgb_v2 effectively ~23 fps. Older Studio datasets (practice-1, sort-v1,
+  sort-depth-v1) are no longer listed in Studio; check whether that was intended.
+- Run `sort-depth-v2-3k` (SmolVLA expert, 3k steps, 19 min): train loss 0.31 → 0.15 per 500-step average, still
+  falling; shorter than one epoch, so no validation and only `last.ckpt`. Logged to MLflow (`defect-sorter-training`).
+- Run `sort-depth-v2-10k` started 20:24 UTC with `configs/training/smolvla_sort_depth_v2.toml` (validation episodes
+  6, 15, 19, 25, 30). Handoff and what to do when it finishes:
+  [handoff](handoffs/2026-11-14-camera-latency-and-sort-depth-training.md).
+
 ## 2026-11-14: simulation augmentation and LLM planner (Linan)
 
-- MuJoCo sorting cell in WSL2 (`scripts/sim/so101_sort_sim.py`). It simulates once and stores full 3D state per frame, then renders many random but plausible cameras into the `offline_pipeline` format. The real layout prior comes from the first and last frames of sort-depth-v2. Calibration of the top camera from real data (`config/sim/`, `scripts/sim/calibration/`) is coarse: about 1 cm near the brick.
+- MuJoCo sorting cell in WSL2 (`scripts/sim/so101_sort_sim.py`). It simulates once and stores full 3D state per frame, then renders many random but plausible cameras into the `offline_pipeline` format. The real layout prior comes from the first and last frames of sort-depth-v2. Calibration of the top camera from real data (`config/sim/`, `scripts/sim/calibration/`) is coarse: about 1 cm near the brick; the joint fit `config/sim/top_camera_joint.json` (height 0.513 m, tilt 26.1°, IoU 0.38, grasp median error 12.5 px) is the one to use.
 - `defect_sorter.planner`: closed action set, deterministic validator, rule fallback. Local Qwen (vLLM) takes about 0.6 s per decision, and the validator caught 3 unsafe proposals.
 - `lerobot_export.py --video --robot-type` writes cameras as video like Studio recordings.
 - Open: expert grasp success, the 30 fps batch plus export, and the front camera fit. Details are in `docs/sim/SIM_AUGMENTATION.md` and `memory/handoffs/2026-11-14-sim-augmentation-handoff.md`.
 - Full suite: 587 passed, 1 failed (`test_uvc_controls.py::test_find_device_picks_the_capture_node_of_the_named_camera`, which also fails on Windows without this change).
+
+## Update 2026-11-15 — sort-depth-v2 10k run finished
+
+Read from the run directory on the training PC (`artifacts/training/sort-depth-v2-10k/`, Git-ignored) and the local
+MLflow server; no new training, camera access or arm motion.
+
+- The run reached `max_steps=10000` and wrote `best.ckpt` and `last.ckpt` (1.7 GB each). MLflow has it as FINISHED
+  next to the 3k run.
+- Train loss, mean per 2000 steps: 0.280, 0.186, 0.132, 0.101, 0.080; the last step reads 0.025.
+- Held-out `val/loss` (5 episodes, one value per epoch of ~4120 steps): 0.292 after epoch 0, 0.303 after epoch 1.
+  Train loss kept falling while validation loss did not move, so the model fits the 35 recorded episodes but there is
+  no sign yet that it generalises to unseen ones. Loss is not a sorting success rate.
+- Not checked: which step `best.ckpt` holds, a comparison with the 3k run (it had no validation), the OpenVINO
+  export, a model release, and any run of the policy on the arm (needs a person asking for that motion).
+- Open from the handoff: about 10 more pink-bowl episodes to balance the tasks (23 green, 12 pink), and whether
+  Studio's older datasets disappeared on purpose.

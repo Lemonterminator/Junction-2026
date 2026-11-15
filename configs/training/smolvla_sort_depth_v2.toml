@@ -1,0 +1,20 @@
+# SmolVLA action-expert fine-tune on sort-depth-v2 (configs/training/dataset.sort_depth_v2.toml).
+# 10k steps cover more than one epoch, so validation runs and best.ckpt is written.
+# val_split 0.15 with split_seed 4 holds out episodes [6, 15, 19, 25, 30]: three green-bowl, two pink-bowl.
+name = "smolvla-sort-depth-v2-10k"
+policy = "smolvla"
+experimental = false
+batch_size = 4
+max_steps = 10000
+val_split = 0.15
+split_seed = 4
+precision = "bf16-mixed"
+accumulate_grad_batches = 2
+
+[model]
+pretrained_name_or_path = "lerobot/smolvla_base"
+optimizer_lr = 0.0001
+freeze_vision_encoder = true
+train_expert_only = true
+train_state_proj = true
+compile_model = false
