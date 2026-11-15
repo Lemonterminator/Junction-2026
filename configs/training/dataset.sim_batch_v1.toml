@@ -1,0 +1,11 @@
+# Simulated batch dataset sim-batch-v1 (MuJoCo cell rendered on Modal, exported with lerobot_export).
+# 172 episodes, 117,172 frames at 30 fps; features, shapes and robot_type match sort-depth-v2, meta/source.json
+# says mujoco-sim. Keep runs on it tagged as simulated and never pool their scores with real ones.
+# Root is relative to THIS file, inside the Git-ignored data/ folder.
+root = "../../data/sim/lerobot_batch_v1"
+repo_id = "local/sim-batch-v1"
+fps = 30
+# Same view order as sort-depth-v2 so a policy trained here can be fine-tuned on the real recording.
+camera_keys = ["observation.images.top_rgb_v2", "observation.images.wrist", "observation.images.front", "observation.images.top_depth_v2"]
+joint_names = ["shoulder_pan.pos", "shoulder_lift.pos", "elbow_flex.pos", "wrist_flex.pos", "wrist_roll.pos", "gripper.pos"]
+joint_units = ["normalized_-100_100", "normalized_-100_100", "normalized_-100_100", "normalized_-100_100", "normalized_-100_100", "normalized_0_100"]

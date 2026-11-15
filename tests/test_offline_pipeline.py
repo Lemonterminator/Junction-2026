@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from defect_sorter.closed_loop import DEFAULT_TASKS
-from defect_sorter.lerobot_export import lerobot_features
+from defect_sorter.lerobot_export import lerobot_features, privileged_rows
 from defect_sorter.offline_pipeline import evaluate, oracle_inspector, record_episodes, summarise, write_crops
 from defect_sorter.twin import STATE_NAMES, STATE_UNITS
 
@@ -92,3 +92,25 @@ def test_lerobot_features_can_store_cameras_as_video_like_studio_recordings():
 	assert features["observation.images.top_depth_v2"]["dtype"] == "video"
 	assert features["observation.images.top_depth_v2"]["shape"] == (416, 512, 3)
 	assert features["observation.state"]["dtype"] == "float32"
+
+
+def test_privileged_rows_align_sim_labels_with_dataset_frames():
+	data = {
+		"state": np.zeros((3, 6)),
+		"phase": np.array([0, 5, 5], np.uint8),
+		"defect_px": np.array([0, 12, 40], np.int32),
+		"brick_px": np.array([300, 280, 250], np.int32),
+	}
+	rows = privileged_rows(data, episode_index=4, first_index=100, length=3)
+	assert rows == {
+		"episode_index": [4, 4, 4],
+		"frame_index": [0, 1, 2],
+		"index": [100, 101, 102],
+		"phase": [0, 5, 5],
+		"defect_px": [0, 12, 40],
+		"brick_px": [300, 280, 250],
+	}
+
+
+def test_privileged_rows_are_empty_for_recordings_without_labels():
+	assert privileged_rows({"state": np.zeros((2, 6))}, episode_index=0, first_index=0, length=2) == {}

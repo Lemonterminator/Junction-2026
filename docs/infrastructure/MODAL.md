@@ -89,6 +89,9 @@ The Volume `junction-training` holds `datasets/<name>` (uploaded recordings),
    The container commits the run directory to the Volume every 10 minutes, so
    `metrics/` and `last.ckpt` can be fetched while it runs.
 
+   The simulated batch dataset uses the same steps with
+   `--recipe configs/training/smolvla_sim_batch_v1.toml --dataset configs/training/dataset.sim_batch_v1.toml --dataset-name sim-batch-v1`.
+
 5. Download and log to MLflow:
 
    ```bash

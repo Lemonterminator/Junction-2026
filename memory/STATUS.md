@@ -13,6 +13,17 @@ Branch `feat/async-inference-pipeline`; full report in [ASYNC_PIPELINE_BENCHMARK
   - Concurrent GPU SmolVLA + NPU PaDiM + CPU capture added only `+3.57 %` VLA and `+2.43 %` inspect contention overhead. Overlapped async execution reduced steady-state `policy.act()` to **`0.0071 ms` median (`0.0309 ms` p95)** vs **`193.78 ms` (`5.16 Hz`)** serial end-to-end (`175.11 ms` cold step 0; `413.17 ms` step-100 `reset` drain+reinfer).
 - **Still open**: connecting live wrist/front camera streams alongside `:8092` D415, larger validation-set parity check for PaDiM `GPU_f16`, real `cell.outcome()` verification, and guarded real-arm `Cell` wiring under operator authorization.
 
+## Update 2026-11-15 — SmolVLA on the simulated batch dataset (Modal)
+
+- `configs/training/dataset.sim_batch_v1.toml` and `smolvla_sim_batch_v1.toml`: SmolVLA
+  action expert on sim-batch-v1 (172 simulated episodes, 117,172 frames, same features
+  as sort-depth-v2), 15k steps at an effective batch of 16, 10 % held-out episodes. The
+  dataset root is `data/sim/lerobot_batch_v1` (Git-ignored). Intended as a sim-pretrained
+  start for a fine-tune on sort-depth-v2; its scores are simulated and never pooled with
+  real ones.
+- The Modal spend limit is now raised (the sim render ran there). The dataset sits in the
+  Volume at `/datasets/sim-batch-v1`; run `smolvla-sim-v1-01` on L40S, capped at 4 h.
+
 ## Update 2026-11-15 — Modal as overflow GPU
 
 - `scripts/modal/train.py` runs the `defect_sorter.training` plan on a Modal GPU in
@@ -689,6 +700,12 @@ to the existing dashboard pull request on 2026-11-15; use Git and the PR to chec
 - `defect_sorter.planner`: closed action set, deterministic validator, rule fallback. Local Qwen (vLLM) takes about 0.6 s per decision, and the validator caught 3 unsafe proposals.
 - `lerobot_export.py --video --robot-type` writes cameras as video like Studio recordings.
 - Open: expert grasp success, the 30 fps batch plus export, and the front camera fit. Details are in `docs/sim/SIM_AUGMENTATION.md` and `memory/handoffs/2026-11-14-sim-augmentation-handoff.md`.
+
+## 2026-11-15: brick presentation in the simulation (Linan)
+
+- The MuJoCo expert now picks, presents the brick to the top (inspection) camera, moves to a fixed holding pose and then places it. The defect sits on a random face; show poses are searched over wrist flex x roll at reachable points 0.3 to 0.5 m in front of the camera and ordered by visible defect pixels x cosine (geometry in `defect_sorter.presentation`, `tests/test_presentation.py`).
+- Rendered frames carry privileged labels (`phase`, `defect_px`, `brick_px`); `lerobot_export.py` writes them to `meta/privileged.parquet` and the provenance to `meta/source.json`, so the dataset features stay identical to sort-depth-v2.
+- 40-episode check: 36 grasped, 36 presented, 35 sorted correctly. 120-episode batch (seed 7): 92 sorted correctly. Details in `docs/sim/SIM_AUGMENTATION.md`.
 - Full suite: 587 passed, 1 failed (`test_uvc_controls.py::test_find_device_picks_the_capture_node_of_the_named_camera`, which also fails on Windows without this change).
 
 ## Update 2026-11-15 — sort-depth-v2 10k run finished

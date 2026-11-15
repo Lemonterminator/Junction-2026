@@ -91,8 +91,9 @@ Test ownership:
 - `tests/test_closed_loop.py` owns `defect_sorter.closed_loop` (label-to-task mapping, attempt state machine, records).
 - `tests/test_planner.py` owns `defect_sorter.planner` (closed action set, rule planner, validation, LLM proposal parsing and fallback).
 - `tests/test_async_pipeline.py` owns `defect_sorter.async_pipeline` (SmolVLA manifest/preprocessing, `LatestSlot`, async frame/inspection threads, `DryRunCell`, `AsyncChunkPolicy` prefetch and `stage_generation` invalidation, OpenVINO runner and FP16 IR compression).
+- `tests/test_presentation.py` owns `defect_sorter.presentation` (defect faces and cross strokes, show points in front of a camera, view cosine, show-pose order, camera height/direction/arm-clearance check).
 - `tests/test_twin.py` owns `defect_sorter.twin` (kinematic twin: TCP, IK, rate limits, grasp/release, cameras, scripted expert).
-- `tests/test_offline_pipeline.py` owns `defect_sorter.offline_pipeline` and the pure part of `defect_sorter.lerobot_export` (demo recording, anomaly crops, twin evaluation, LeRobot features).
+- `tests/test_offline_pipeline.py` owns `defect_sorter.offline_pipeline` and the pure part of `defect_sorter.lerobot_export` (demo recording, anomaly crops, twin evaluation, LeRobot features, privileged sim labels).
 - `tests/test_tracking.py` owns `defect_sorter.tracking` (reading run and evaluation directories into MLflow records).
 - `tests/test_model_release.py` owns `defect_sorter.model_release` (release manifest and download verification).
 - `tests/test_modal_training.py` owns `defect_sorter.modal_training` (Modal Volume layout, recording root on the Volume, GPU cost ceiling).
@@ -134,6 +135,7 @@ Extend the owning module by default. Add a new test file only for a new stable m
 - `closed_loop.py`: one sorting attempt (observe → inspect → plan → execute → verify) over replaceable `Cell`, inspector and `Policy` protocols; defect labels map to fixed task texts.
 - `planner.py`: high-level action for one brick from a closed set (sort green/pink, re-inspect, retry grasp, skip and alert, stop); rules decide by default, an LLM may propose, `validate` always checks, failures fall back to the rules. Never joint commands.
 - `async_pipeline.py`: asynchronous camera-to-policy pipeline (`AsyncFrameSource`, `AsyncInspectionStage`, `AsyncChunkPolicy` with chunk prefetch and monotonic `stage_generation` invalidation, `OpenVinoSmolVlaRunner`, `compress_ir_to_fp16`) and open-loop `DryRunCell` (`Cell` adapter without `/dev/ttyACM*` access).
+- `presentation.py`: pure geometry for presenting a held brick to the inspection camera, used by the MuJoCo cell (`scripts/sim/so101_sort_sim.py`): defect on any face, reachable show points near the camera's optical axis, pose order by visible defect, camera acceptance.
 - `twin.py`: kinematic digital twin of the cell (no physics engine) implementing `Cell`, plus a privileged scripted expert. Twin results are tagged `mode = twin` and never pooled with real ones.
 - `offline_pipeline.py`: hardware-free CLI (record demos, write anomaly crops, evaluate the loop); `lerobot_export.py`: demos → LeRobot v3, run in the Studio backend environment.
 - `tracking.py`: logs finished training runs and twin evaluations to MLflow (`tracking` extra), tagged by data source.
