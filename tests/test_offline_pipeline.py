@@ -84,3 +84,11 @@ def test_lerobot_features_follow_the_recording_index():
 		"names": ["height", "width", "channels"],
 	}
 	assert set(features) == {"observation.state", "action", "observation.images.top", "observation.images.wrist"}
+
+
+def test_lerobot_features_can_store_cameras_as_video_like_studio_recordings():
+	index = {"state_names": list(STATE_NAMES), "cameras": {"top_depth_v2": [416, 512, 3]}}
+	features = lerobot_features(index, video=True)
+	assert features["observation.images.top_depth_v2"]["dtype"] == "video"
+	assert features["observation.images.top_depth_v2"]["shape"] == (416, 512, 3)
+	assert features["observation.state"]["dtype"] == "float32"

@@ -89,6 +89,7 @@ Test ownership:
 - `tests/test_training.py` owns `defect_sorter.training` and `defect_sorter.training_preflight` (local policy recipes, dataset contracts, plans, task validation and training launch preflight).
 - `tests/test_inspection.py` owns `defect_sorter.inspection` (score to normal/defective/uncertain decision, crops).
 - `tests/test_closed_loop.py` owns `defect_sorter.closed_loop` (label-to-task mapping, attempt state machine, records).
+- `tests/test_planner.py` owns `defect_sorter.planner` (closed action set, rule planner, validation, LLM proposal parsing and fallback).
 - `tests/test_twin.py` owns `defect_sorter.twin` (kinematic twin: TCP, IK, rate limits, grasp/release, cameras, scripted expert).
 - `tests/test_offline_pipeline.py` owns `defect_sorter.offline_pipeline` and the pure part of `defect_sorter.lerobot_export` (demo recording, anomaly crops, twin evaluation, LeRobot features).
 - `tests/test_tracking.py` owns `defect_sorter.tracking` (reading run and evaluation directories into MLflow records).
@@ -129,6 +130,7 @@ Extend the owning module by default. Add a new test file only for a new stable m
 - `anomaly_smoke.py`: Anomalib → OpenVINO toolchain check and per-device latency benchmark.
 - `inspection.py`: anomaly score → normal/defective/uncertain with an explicit threshold; OpenVINO scorer for Anomalib exports; Padim training on a crop folder.
 - `closed_loop.py`: one sorting attempt (observe → inspect → plan → execute → verify) over replaceable `Cell`, inspector and `Policy` protocols; defect labels map to fixed task texts.
+- `planner.py`: high-level action for one brick from a closed set (sort green/pink, re-inspect, retry grasp, skip and alert, stop); rules decide by default, an LLM may propose, `validate` always checks, failures fall back to the rules. Never joint commands.
 - `twin.py`: kinematic digital twin of the cell (no physics engine) implementing `Cell`, plus a privileged scripted expert. Twin results are tagged `mode = twin` and never pooled with real ones.
 - `offline_pipeline.py`: hardware-free CLI (record demos, write anomaly crops, evaluate the loop); `lerobot_export.py`: demos → LeRobot v3, run in the Studio backend environment.
 - `tracking.py`: logs finished training runs and twin evaluations to MLflow (`tracking` extra), tagged by data source.

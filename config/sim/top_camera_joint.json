@@ -1,0 +1,14 @@
+{
+  "camera": {
+    "x": 0.6316786298823824,
+    "y": 0.1792581582165632,
+    "height": 0.513181431049307,
+    "yaw_deg": 197.54223683730126,
+    "tilt_deg": 26.129282701325813,
+    "roll_deg": 0.38020344719156063,
+    "focal_px": 612.4744615391282
+  },
+  "iou": 0.38373821615825915,
+  "grasp_median_px": 12.508332227906354,
+  "method": "arm silhouette IoU + grasp reprojection, priors from plane-v2 height/tilt and D415 focal"
+}

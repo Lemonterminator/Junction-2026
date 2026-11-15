@@ -657,3 +657,26 @@ silent mode and mobile width with no page errors. Desktop/mobile screenshots rev
 synthetic coverage only; real Intel Linux accelerator readings remain unverified here. No robot, cameras,
 Studio service or inference workload was touched. The user requested an additional commit and publication
 to the existing dashboard pull request on 2026-11-15; use Git and the PR to check synchronization state.
+## 2026-11-14: simulation augmentation and LLM planner (Linan)
+
+- MuJoCo sorting cell in WSL2 (`scripts/sim/so101_sort_sim.py`). It simulates once and stores full 3D state per frame, then renders many random but plausible cameras into the `offline_pipeline` format. The real layout prior comes from the first and last frames of sort-depth-v2. Calibration of the top camera from real data (`config/sim/`, `scripts/sim/calibration/`) is coarse: about 1 cm near the brick; the joint fit `config/sim/top_camera_joint.json` (height 0.513 m, tilt 26.1°, IoU 0.38, grasp median error 12.5 px) is the one to use.
+- `defect_sorter.planner`: closed action set, deterministic validator, rule fallback. Local Qwen (vLLM) takes about 0.6 s per decision, and the validator caught 3 unsafe proposals.
+- `lerobot_export.py --video --robot-type` writes cameras as video like Studio recordings.
+- Open: expert grasp success, the 30 fps batch plus export, and the front camera fit. Details are in `docs/sim/SIM_AUGMENTATION.md` and `memory/handoffs/2026-11-14-sim-augmentation-handoff.md`.
+- Full suite: 587 passed, 1 failed (`test_uvc_controls.py::test_find_device_picks_the_capture_node_of_the_named_camera`, which also fails on Windows without this change).
+
+## Update 2026-11-15 — sort-depth-v2 10k run finished
+
+Read from the run directory on the training PC (`artifacts/training/sort-depth-v2-10k/`, Git-ignored) and the local
+MLflow server; no new training, camera access or arm motion.
+
+- The run reached `max_steps=10000` and wrote `best.ckpt` and `last.ckpt` (1.7 GB each). MLflow has it as FINISHED
+  next to the 3k run.
+- Train loss, mean per 2000 steps: 0.280, 0.186, 0.132, 0.101, 0.080; the last step reads 0.025.
+- Held-out `val/loss` (5 episodes, one value per epoch of ~4120 steps): 0.292 after epoch 0, 0.303 after epoch 1.
+  Train loss kept falling while validation loss did not move, so the model fits the 35 recorded episodes but there is
+  no sign yet that it generalises to unseen ones. Loss is not a sorting success rate.
+- Not checked: which step `best.ckpt` holds, a comparison with the 3k run (it had no validation), the OpenVINO
+  export, a model release, and any run of the policy on the arm (needs a person asking for that motion).
+- Open from the handoff: about 10 more pink-bowl episodes to balance the tasks (23 green, 12 pink), and whether
+  Studio's older datasets disappeared on purpose.

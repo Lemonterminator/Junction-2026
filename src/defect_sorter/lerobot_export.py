@@ -1,8 +1,10 @@
 """Convert recorded episodes (``offline_pipeline record`` output) into a LeRobot v3 dataset.
 
 Runs inside the pinned Studio backend environment, which provides ``lerobot`` 0.6; the root environment only uses
-:func:`lerobot_features`. Images are stored as image features, not MP4, so no video encoder is needed. Only
-successful episodes are written unless ``--include-failures`` is given. The output directory must not exist::
+:func:`lerobot_features`. Images are stored as image features by default, so no video encoder is needed; ``--video``
+stores them as encoded video like Studio recordings, so the result has the same feature types as a real dataset and
+the two can be trained together. ``--robot-type`` sets the dataset's robot type (Studio writes ``SO101_Follower``).
+Only successful episodes are written unless ``--include-failures`` is given. The output directory must not exist::
 
 	uv run --project external/physical-ai-studio/application/backend --extra cuda --frozen \
 		python src/defect_sorter/lerobot_export.py data/twin/demos data/twin/lerobot --repo-id local/twin-sorting
@@ -20,21 +22,31 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-def lerobot_features(index: dict[str, Any]) -> dict[str, dict[str, Any]]:
-	"""LeRobot feature specification for a recording index (state/action names and camera shapes)."""
+def lerobot_features(index: dict[str, Any], video: bool = False) -> dict[str, dict[str, Any]]:
+	"""LeRobot feature specification for a recording index (state/action names and camera shapes).
+
+	With ``video`` the cameras are declared as video features, as in Studio recordings.
+	"""
 	names = list(index["state_names"])
 	vector = {"dtype": "float32", "shape": (len(names),), "names": names}
 	features: dict[str, dict[str, Any]] = {"observation.state": dict(vector), "action": dict(vector)}
 	for camera, shape in index["cameras"].items():
 		features[f"observation.images.{camera}"] = {
-			"dtype": "image",
+			"dtype": "video" if video else "image",
 			"shape": tuple(shape),
 			"names": ["height", "width", "channels"],
 		}
 	return features
 
 
-def export(record_dir: Path, out: Path, repo_id: str, include_failures: bool = False) -> int:
+def export(
+	record_dir: Path,
+	out: Path,
+	repo_id: str,
+	include_failures: bool = False,
+	video: bool = False,
+	robot_type: str = "so101_follower",
+) -> int:
 	"""Write the episodes under ``record_dir`` to a new LeRobot dataset at ``out``; returns the episode count."""
 	import numpy as np
 	from lerobot.datasets.lerobot_dataset import LeRobotDataset
@@ -45,10 +57,10 @@ def export(record_dir: Path, out: Path, repo_id: str, include_failures: bool = F
 	dataset = LeRobotDataset.create(
 		repo_id=repo_id,
 		fps=index["fps"],
-		features=lerobot_features(index),
+		features=lerobot_features(index, video=video),
 		root=out,
-		robot_type="so101_follower",
-		use_videos=False,
+		robot_type=robot_type,
+		use_videos=video,
 		image_writer_threads=8,
 	)
 	written = 0
@@ -75,9 +87,11 @@ def main(argv: list[str] | None = None) -> int:
 	parser.add_argument("out", type=Path)
 	parser.add_argument("--repo-id", default="local/twin-sorting")
 	parser.add_argument("--include-failures", action="store_true")
+	parser.add_argument("--video", action="store_true", help="store cameras as video like Studio recordings")
+	parser.add_argument("--robot-type", default="so101_follower")
 	args = parser.parse_args(argv)
 	logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-	count = export(args.record_dir, args.out, args.repo_id, args.include_failures)
+	count = export(args.record_dir, args.out, args.repo_id, args.include_failures, args.video, args.robot_type)
 	sys.stdout.write(f"{count} episodes written to {args.out}\n")
 	return 0
 
