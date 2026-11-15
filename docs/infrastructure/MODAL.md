@@ -108,6 +108,13 @@ The Volume `junction-training` holds `datasets/<name>` (uploaded recordings),
 
    Local runs read the same directory from `artifacts/warm-start/` (`--warm-start-root`).
 
+   Several GPUs. `devices = N` in a recipe runs Lightning DDP on N GPUs of one
+   container (`--gpu L40S` with `devices = 8` asks Modal for `L40S:8`; at most 8
+   per container), `num_workers` sets data loader processes per GPU, and the cost
+   ceiling counts all N GPUs. The effective batch grows N times: shorten
+   `max_steps` and scale the learning rate with it. Every run writes
+   `checkpoints/periodic.ckpt` every 500 steps as a restart point between epochs.
+
 5. Download and log to MLflow:
 
    ```bash

@@ -34,7 +34,8 @@ _RECIPE_KEYS = {
 	"accumulate_grad_batches",
 	"model",
 }
-_OPTIONAL_RECIPE_KEYS = {"warm_start"}
+_OPTIONAL_RECIPE_KEYS = {"warm_start", "devices", "num_workers"}
+_PERIODIC_CHECKPOINT_STEPS = 500
 _NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
 
 
@@ -117,6 +118,12 @@ def load_recipe(path: Path) -> dict[str, Any]:
 	recipe = _read_toml(path)
 	if not _RECIPE_KEYS <= set(recipe) <= _RECIPE_KEYS | _OPTIONAL_RECIPE_KEYS:
 		raise ValueError(f"recipe requires exactly {sorted(_RECIPE_KEYS)}, optionally {sorted(_OPTIONAL_RECIPE_KEYS)}")
+	devices = recipe.setdefault("devices", 1)
+	if isinstance(devices, bool) or not isinstance(devices, int) or devices < 1:
+		raise ValueError("devices must be a positive integer")
+	workers = recipe.setdefault("num_workers", 0)
+	if isinstance(workers, bool) or not isinstance(workers, int) or workers < 0:
+		raise ValueError("num_workers must be a nonnegative integer")
 	warm_start = recipe.setdefault("warm_start", None)
 	if warm_start is not None:
 		if recipe["policy"] != "smolvla":
@@ -291,8 +298,8 @@ def build_plan(
 				"data_format": "physicalai",
 				"train_batch_size": recipe["batch_size"],
 				"val_batch_size": recipe["batch_size"],
-				"num_workers": 0,
-				"persistent_workers": False,
+				"num_workers": recipe.get("num_workers", 0),
+				"persistent_workers": recipe.get("num_workers", 0) > 0,
 				"val_split": recipe["val_split"],
 				"val_split_seed": recipe["split_seed"],
 				"force_cache_sync": False,
@@ -300,7 +307,7 @@ def build_plan(
 		},
 		"trainer": {
 			"accelerator": "gpu",
-			"devices": [0],
+			"devices": [0] if recipe.get("devices", 1) == 1 else recipe["devices"],
 			"precision": recipe["precision"],
 			"max_steps": recipe["max_steps"],
 			"max_epochs": -1,
@@ -323,10 +330,25 @@ def build_plan(
 						"save_top_k": 1,
 						"save_last": True,
 					},
-				}
+				},
+				{
+					# Validation runs once per epoch; this keeps a recent restart point between epochs.
+					"class_path": "lightning.pytorch.callbacks.ModelCheckpoint",
+					"init_args": {
+						"dirpath": str(output / "checkpoints"),
+						"filename": "periodic",
+						"every_n_train_steps": _PERIODIC_CHECKPOINT_STEPS,
+						"save_top_k": 1,
+						"save_last": False,
+					},
+				},
 			],
 		},
 	}
+	if recipe.get("devices", 1) > 1:
+		# Data parallel: one model copy per GPU. Unused trainable parameters (SmolVLA's target-time MLP without
+		# SnapFlow) must not stall the gradient reduction.
+		config["trainer"]["strategy"] = "ddp_find_unused_parameters_true"
 	if platform == "win32":
 		# torchcodec needs FFmpeg shared libraries that its Windows wheels do not ship; PyAV bundles its decoders.
 		config["data"]["init_args"]["video_backend"] = "pyav"
@@ -335,6 +357,7 @@ def build_plan(
 		"experimental": recipe["experimental"],
 		"dataset": asdict(dataset),
 		"warm_start": warm_start,
+		"devices": recipe.get("devices", 1),
 		"dataset_status": "metadata_validated" if info is not None else "missing",
 		"episodes": episodes,
 		"output_dir": str(output),

@@ -86,7 +86,7 @@ Test ownership:
 - `tests/test_robot_pose.py` owns `defect_sorter.robot_pose` (table/base frames, base-marker link and relocation, readings vs model angles, calibration files).
 - `tests/test_webview.py` owns `defect_sorter.webview` (frame buffer, page, frame polling and action endpoints).
 - `packages/armkit/tests/` owns the standalone `armkit` library (one test module per library module: `test_model.py`, `test_collision.py`, `test_poses.py`, `test_guard.py`, `test_endstop.py`, `test_guarded_motion.py`, `test_procedure.py`, `test_check.py`, `test_park.py`, `test_measure.py`, `test_feetech.py`, `test_simulation.py`, `test_calibration.py`, `test_so101_profile.py`, `test_cli.py`, `test_independence.py`). The library must not name or import this project.
-- `tests/test_training.py` owns `defect_sorter.training` and `defect_sorter.training_preflight` (local policy recipes, dataset contracts, plans, task validation and training launch preflight, warm-start recipes and checkpoint weight selection).
+- `tests/test_training.py` owns `defect_sorter.training` and `defect_sorter.training_preflight` (local policy recipes, dataset contracts, plans, task validation and training launch preflight, warm-start recipes, checkpoint weight selection, multi-GPU and data-worker settings, periodic checkpoints).
 - `tests/test_inspection.py` owns `defect_sorter.inspection` (score to normal/defective/uncertain decision, crops, brick isolation, colour purity, grouped folds, threshold choice).
 - `tests/test_closed_loop.py` owns `defect_sorter.closed_loop` (label-to-task mapping, attempt state machine, records).
 - `tests/test_planner.py` owns `defect_sorter.planner` (closed action set, rule planner, validation, LLM proposal parsing and fallback).

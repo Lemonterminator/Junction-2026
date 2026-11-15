@@ -11,7 +11,8 @@ Three steps, each cheaper than the next is expensive (see docs/infrastructure/MO
 
 	modal run scripts/modal/train.py --recipe ... --dataset ... --dataset-name sort-depth-v2 --run-name modal-smoke-01
 
-3. Real GPU training, bounded by ``--max-hours``::
+3. Real GPU training, bounded by ``--max-hours``. A recipe with ``devices = N`` runs data parallel on N GPUs of one
+   container (``--gpu`` names the type) and the cost ceiling counts all N::
 
 	modal run scripts/modal/train.py ... --gpu L40S --max-hours 4 --go
 
@@ -138,9 +139,10 @@ def _local_summary(recipe_path: str, dataset_path: str, dataset_name: str, run_n
 		"upload": " ".join(layout.upload_command(dataset.root)),
 		"download": " ".join(layout.download_command()),
 		"gpu": gpu,
-		"gpu_usd_per_hour": GPU_RATES[gpu],
+		"gpus": recipe["devices"],
+		"gpu_usd_per_hour": GPU_RATES[gpu] * recipe["devices"],
 		"max_hours": max_hours,
-		"gpu_cost_ceiling_usd": round(cost_ceiling(GPU_RATES[gpu], max_hours), 2),
+		"gpu_cost_ceiling_usd": round(cost_ceiling(GPU_RATES[gpu] * recipe["devices"], max_hours), 2),
 		"warm_start": recipe["warm_start"],
 	}
 	if recipe["warm_start"] is not None:
@@ -175,7 +177,15 @@ def main(
 	if not go:
 		print("dry run only; add --go to train on the GPU")  # noqa: T201
 		return
-	result = train.with_options(gpu=gpu, timeout=int(max_hours * 3600)).remote(
+	gpus = recipe_["devices"]
+	# Data loader workers decode video on CPU: give each GPU's workers their own cores and memory.
+	cpu = max(8, gpus * (recipe_["num_workers"] + 1))
+	result = train.with_options(
+		gpu=gpu if gpus == 1 else f"{gpu}:{gpus}",
+		cpu=cpu,
+		memory=max(32768, cpu * 4096),
+		timeout=int(max_hours * 3600),
+	).remote(
 		recipe_, asdict(dataset_), dataset_name, run_name
 	)
 	print(json.dumps(result, indent=2))  # noqa: T201

@@ -14,6 +14,12 @@
   `best.ckpt` (step 4120); loading it was checked locally: no missing keys, weights equal
   to the checkpoint up to SmolVLA's bf16 rounding. Tests in `tests/test_training.py` and
   `tests/test_modal_training.py`, written first.
+- Data parallel: recipes may set `devices` (DDP with unused-parameter detection when > 1) and
+  `num_workers` (data loader processes); every run also keeps `checkpoints/periodic.ckpt`
+  every 500 steps, because validation and best/last checkpoints come only once per epoch.
+  The sim recipe now runs on 8 x L40S in one Modal container (effective batch 64, 3,750
+  steps, lr 2e-4, warm-up 250). A first single-GPU run was stopped after ~600 steps
+  without a checkpoint, before this change.
 - The Modal spend limit is now raised (the sim render ran there). The Volume holds
   `/datasets/sim-batch-v1` and `/warm-start/sort-depth-v2-10k`.
 
