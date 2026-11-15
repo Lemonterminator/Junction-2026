@@ -676,6 +676,12 @@ to the existing dashboard pull request on 2026-11-15; use Git and the PR to chec
 - `defect_sorter.planner`: closed action set, deterministic validator, rule fallback. Local Qwen (vLLM) takes about 0.6 s per decision, and the validator caught 3 unsafe proposals.
 - `lerobot_export.py --video --robot-type` writes cameras as video like Studio recordings.
 - Open: expert grasp success, the 30 fps batch plus export, and the front camera fit. Details are in `docs/sim/SIM_AUGMENTATION.md` and `memory/handoffs/2026-11-14-sim-augmentation-handoff.md`.
+
+## 2026-11-15: brick presentation in the simulation (Linan)
+
+- The MuJoCo expert now picks, presents the brick to the top (inspection) camera, moves to a fixed holding pose and then places it. The defect sits on a random face; show poses are searched over wrist flex x roll at reachable points 0.3 to 0.5 m in front of the camera and ordered by visible defect pixels x cosine (geometry in `defect_sorter.presentation`, `tests/test_presentation.py`).
+- Rendered frames carry privileged labels (`phase`, `defect_px`, `brick_px`); `lerobot_export.py` writes them to `meta/privileged.parquet` and the provenance to `meta/source.json`, so the dataset features stay identical to sort-depth-v2.
+- 40-episode check: 36 grasped, 36 presented, 35 sorted correctly. 120-episode batch (seed 7): 92 sorted correctly. Details in `docs/sim/SIM_AUGMENTATION.md`.
 - Full suite: 587 passed, 1 failed (`test_uvc_controls.py::test_find_device_picks_the_capture_node_of_the_named_camera`, which also fails on Windows without this change).
 
 ## Update 2026-11-15 — sort-depth-v2 10k run finished

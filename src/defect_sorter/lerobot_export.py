@@ -4,6 +4,10 @@ Runs inside the pinned Studio backend environment, which provides ``lerobot`` 0.
 :func:`lerobot_features`. Images are stored as image features by default, so no video encoder is needed; ``--video``
 stores them as encoded video like Studio recordings, so the result has the same feature types as a real dataset and
 the two can be trained together. ``--robot-type`` sets the dataset's robot type (Studio writes ``SO101_Follower``).
+Per-frame privileged labels of simulated episodes (``phase``, ``defect_px``, ``brick_px``) are not dataset features,
+so sim and real datasets keep the same features; they go to ``meta/privileged.parquet``, keyed by the dataset's
+``episode_index``, ``frame_index`` and global ``index``. The recording's provenance (``source``, e.g. ``mujoco-sim``)
+is copied to ``meta/source.json`` so a simulated dataset stays tagged.
 Only successful episodes are written unless ``--include-failures`` is given. The output directory must not exist::
 
 	uv run --project external/physical-ai-studio/application/backend --extra cuda --frozen \
@@ -39,6 +43,27 @@ def lerobot_features(index: dict[str, Any], video: bool = False) -> dict[str, di
 	return features
 
 
+PRIVILEGED = ("phase", "defect_px", "brick_px")
+
+
+def privileged_rows(data: Any, episode_index: int, first_index: int, length: int) -> dict[str, list[int]]:
+	"""Columns of privileged per-frame labels for one episode, aligned with the dataset's frame indices.
+
+	Returns an empty dict when the recording has none of :data:`PRIVILEGED`.
+	"""
+	keys = [k for k in PRIVILEGED if k in data]
+	if not keys:
+		return {}
+	rows: dict[str, list[int]] = {
+		"episode_index": [episode_index] * length,
+		"frame_index": list(range(length)),
+		"index": list(range(first_index, first_index + length)),
+	}
+	for k in keys:
+		rows[k] = [int(v) for v in data[k][:length]]
+	return rows
+
+
 def export(
 	record_dir: Path,
 	out: Path,
@@ -64,19 +89,33 @@ def export(
 		image_writer_threads=8,
 	)
 	written = 0
+	frames_written = 0
+	privileged: dict[str, list[int]] = {}
 	for entry in index["episodes"]:
 		if not entry["success"] and not include_failures:
 			continue
-		data = np.load(record_dir / entry["file"])
+		with np.load(record_dir / entry["file"]) as archive:
+			data = {key: archive[key] for key in archive.files}
 		for t in range(entry["length"]):
 			frame = {"observation.state": data["state"][t], "action": data["action"][t], "task": entry["task"]}
 			for camera in index["cameras"]:
 				frame[f"observation.images.{camera}"] = data[camera][t]
 			dataset.add_frame(frame)
 		dataset.save_episode()
+		for k, v in privileged_rows(data, written, frames_written, entry["length"]).items():
+			privileged.setdefault(k, []).extend(v)
+		frames_written += entry["length"]
 		written += 1
 		logger.info("wrote %s (%d frames)", entry["file"], entry["length"])
 	dataset.finalize()
+	if privileged:
+		import pyarrow as pa
+		import pyarrow.parquet as pq
+
+		pq.write_table(pa.table(privileged), out / "meta" / "privileged.parquet")
+	provenance = {k: index[k] for k in ("source", "menagerie_commit", "privileged") if k in index}
+	if provenance:
+		(out / "meta" / "source.json").write_text(json.dumps(provenance, indent=2) + "\n", encoding="utf-8")
 	return written
 
 

@@ -62,7 +62,18 @@ For the GPU path, use `MUJOCO_GL=egl MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA`; wi
 - `tests/test_uvc_controls.py::test_find_device_picks_the_capture_node_of_the_named_camera` fails on Windows. It already failed before this change; it is Linux-only behaviour.
 - The scripts under `scripts/sim/calibration/` are research scripts with hard-coded WSL paths. Run them from WSL.
 
-## New requirement (Linan, 2026-11-14): present the brick to the inspection camera
+## Update 2026-11-15: presentation implemented, batch v1
+
+- Done: layout prior re-measured with the joint camera (`~/sim/out/prior_joint.json`), presentation stage, fixed
+  holding pose, privileged labels, export of labels and provenance. See "Presentation stage" in
+  `docs/sim/SIM_AUGMENTATION.md`.
+- Batch v1 in WSL: `~/sim/out/batch_v1/sim` (120 episodes, seed 7, 92 sorted correctly) and
+  `~/sim/out/batch_v1/render` (2 views each, seed 11, stride 1 = 30 fps). Scripts used: `/mnt/c/tmp/simjobs/*.sh`.
+- Render memory: an episode holds about 2 GB of frames while rendering and WSL has 30 GB; 24 workers were OOM-killed.
+  Use at most 10 workers. `render` resumes into an existing output directory (finished episodes have a `.json`).
+- Logs of spawned workers only appear because the pool initialiser now configures logging.
+
+## Requirement (Linan, 2026-11-14): present the brick to the inspection camera (implemented 2026-11-15)
 
 The arm should deliberately rotate the brick so the main inspection camera sees its faces. All cameras sit above the table.
 
