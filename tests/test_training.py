@@ -389,7 +389,11 @@ def scaled_recipe(tmp_path: Path, extra: str) -> Path:
 
 def test_default_recipe_trains_on_one_gpu_in_process_with_periodic_checkpoints(tmp_path):
 	plan = build_plan(
-		load_recipe(RECIPES / "smolvla_expert.toml"), load_dataset(dataset_spec(tmp_path)), tmp_path / "runs", "one", ROOT
+		load_recipe(RECIPES / "smolvla_expert.toml"),
+		load_dataset(dataset_spec(tmp_path)),
+		tmp_path / "runs",
+		"one",
+		ROOT,
 	)
 	trainer = plan["config"]["trainer"]
 	assert trainer["devices"] == [0]
@@ -422,5 +426,5 @@ def test_several_devices_use_ddp_and_data_workers_keep_running(tmp_path):
 
 @pytest.mark.parametrize("extra", ["devices = 0\n", "devices = 1.5\n", "num_workers = -1\n", "num_workers = true\n"])
 def test_device_and_worker_counts_must_be_whole_numbers(tmp_path, extra):
-	with pytest.raises(ValueError, match="devices|num_workers"):
+	with pytest.raises(ValueError, match=r"devices|num_workers"):
 		load_recipe(scaled_recipe(tmp_path, extra))

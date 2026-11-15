@@ -185,9 +185,7 @@ def main(
 		cpu=cpu,
 		memory=max(32768, cpu * 4096),
 		timeout=int(max_hours * 3600),
-	).remote(
-		recipe_, asdict(dataset_), dataset_name, run_name
-	)
+	).remote(recipe_, asdict(dataset_), dataset_name, run_name)
 	print(json.dumps(result, indent=2))  # noqa: T201
 	print(f"download with:\n  {summary['download']}")  # noqa: T201
 
