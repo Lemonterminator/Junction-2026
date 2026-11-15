@@ -807,3 +807,91 @@ def test_policy_run_uses_the_task_chosen_by_the_pre_control_check():
 	run.step_until_running()
 	assert sock.sends[-1]["control"]["task"] == "Pick up the brick and place it in the pink bowl."
 	assert run.phase == "running"
+
+
+def test_a_camera_is_found_by_id_or_by_name():
+	hub, _, _ = _hub()
+	hub.state()
+	assert hub.camera_id("c1") == "c1"
+	assert hub.camera_id("top") == "c1", "names match without case"
+	assert hub.camera_id("front") is None
+
+
+def test_inspect_fresh_waits_for_a_frame_taken_after_the_arm_stopped():
+	clock = [1000.0]
+	inspector = FakeInspector("normal", 0.2)
+	hub, _client, _runs = _hub(inspector=inspector, clock=lambda: clock[0])
+	hub.state()
+	relay = hub.relays["c1"]
+	relay.receive_frame(b"\xff\xd8moving")  # taken while the arm was still moving
+	waits = []
+
+	def sleep(s):
+		waits.append(s)
+		clock[0] += 0.1
+		if len(waits) == 3:
+			relay.receive_frame(b"\xff\xd8still")
+
+	status, body = hub.inspect_fresh("c1", newer_than=1000.0, timeout_s=2.0, sleep=sleep)
+	assert status == 200
+	assert body["label"] == "normal"
+	assert inspector.seen == [b"\xff\xd8still"], "only the frame taken after the arm stopped is scored"
+
+
+def test_inspect_fresh_gives_up_without_a_new_frame():
+	clock = [1000.0]
+	inspector = FakeInspector("normal", 0.2)
+	hub, _client, _runs = _hub(inspector=inspector, clock=lambda: clock[0])
+	hub.state()
+	hub.relays["c1"].receive_frame(b"\xff\xd8old")
+
+	def sleep(s):
+		clock[0] += 0.5
+
+	status, body = hub.inspect_fresh("c1", newer_than=1000.0, timeout_s=2.0, sleep=sleep)
+	assert status == 409
+	assert "fresh" in body["error"]
+	assert inspector.seen == []
+	no_inspector, _, _ = _hub(inspector=None)
+	assert no_inspector.inspect_fresh("c1", newer_than=0.0)[0] == 409
+
+
+def test_run_active_covers_a_running_run_and_none_after_it_ended():
+	hub, _, runs = _hub()
+	hub.state()
+	assert not hub.run_active()
+	request = {"action": "SORT_GREEN", "environment_id": "e1", "model_id": "m1", "backend": "openvino"}
+	assert hub.start_run(request)[0] == 202
+	assert hub.run_active()
+	runs[0].phase = "stopped"
+	assert not hub.run_active()
+
+
+def test_fresh_frames_collects_distinct_frames_taken_after_the_arm_stopped():
+	clock = [1000.0]
+	hub, _client, _runs = _hub(clock=lambda: clock[0])
+	hub.state()
+	relay = hub.relays["c1"]
+	relay.receive_frame(b"\xff\xd8moving")
+	calls = []
+
+	def sleep(s):
+		calls.append(s)
+		clock[0] += 0.05
+		if len(calls) in (2, 4, 5):
+			relay.receive_frame(b"\xff\xd8f%d" % len(calls))
+
+	frames = hub.fresh_frames("c1", newer_than=1000.0, count=2, timeout_s=2.0, sleep=sleep)
+	assert [f.jpeg for f in frames] == [b"\xff\xd8f2", b"\xff\xd8f4"]
+
+
+def test_fresh_frames_returns_what_it_has_at_the_timeout():
+	clock = [1000.0]
+	hub, _client, _runs = _hub(clock=lambda: clock[0])
+	hub.state()
+
+	def sleep(s):
+		clock[0] += 0.5
+
+	assert hub.fresh_frames("c1", newer_than=1000.0, count=3, timeout_s=1.0, sleep=sleep) == []
+	assert hub.fresh_frames("nope", newer_than=0.0, count=1) == []
