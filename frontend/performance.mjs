@@ -44,6 +44,40 @@ export class InferenceWindow {
 	}
 }
 
+/** Per-core load and the busiest processes, like a task manager; both stay empty when counters are missing or stale. */
+function renderCores(el, view) {
+	if (!el) return;
+	const cores = !view.stale && Array.isArray(view.per_cpu_percent) ? view.per_cpu_percent : null;
+	if (!cores) { el.innerHTML = '<span class="note">Shown on Linux.</span>'; return; }
+	if (el.children.length !== cores.length || el.querySelector('.note')) {
+		el.replaceChildren(...cores.map((_, i) => {
+			const core = el.ownerDocument.createElement('div');
+			core.className = 'core'; core.innerHTML = `<i></i><span>${i}</span>`; return core;
+		}));
+	}
+	cores.forEach((value, i) => {
+		const core = el.children[i];
+		core.querySelector('i').style.height = value === null ? '0' : `${Math.max(2, value)}%`;
+		core.title = `Core ${i}: ${value === null ? 'unavailable' : value.toFixed(0) + '%'}`;
+	});
+}
+
+function renderProcesses(table, view) {
+	if (!table) return;
+	const body = table.tBodies[0];
+	const rows = !view.stale && Array.isArray(view.processes) ? view.processes : null;
+	if (!rows || !rows.length) { body.innerHTML = '<tr><td colspan="4" class="note">Shown on Linux.</td></tr>'; return; }
+	const doc = table.ownerDocument;
+	body.replaceChildren(...rows.map(p => {
+		const tr = doc.createElement('tr');
+		if (/python|openvino|uvicorn|studio|anomalib|sorter/i.test(p.name)) tr.className = 'hot';
+		for (const text of [p.name, String(p.pid), `${p.cpu_percent.toFixed(0)}%`, `${(p.memory_bytes / 2 ** 20).toFixed(0)} MiB`]) {
+			const td = doc.createElement('td'); td.textContent = text; tr.append(td);
+		}
+		return tr;
+	}));
+}
+
 export function mountPerformance(browser = window, doc = document) {
 	const history = new ResourceHistory();
 	const $ = id => doc.getElementById(id);
@@ -52,7 +86,7 @@ export function mountPerformance(browser = window, doc = document) {
 		const view = history.view();
 		const hasCounters = Boolean(view.cpu_model || view.memory_total_bytes || view.gpu_percent !== null || view.npu_percent !== null);
 		const platform = view.platform === 'Darwin' ? 'macOS' : view.platform ?? 'Linux';
-		$('resource-status').textContent = view.stale ? (failure ?? 'Monitor data stale') : hasCounters ? 'Live host counters' : 'Host counters unavailable';
+		$('resource-status').textContent = view.stale ? (failure ?? 'Monitor data stale') : hasCounters ? 'Live' : 'Unavailable';
 		$('resource-status').classList.toggle('resource-live', !view.stale && hasCounters);
 		if (!view.stale) $('resource-host').textContent = `${platform} · ${view.cpu_model ?? 'Processor'} · ${view.logical_cpus} logical cores · dashboard server host`;
 		for (const card of doc.querySelectorAll('[data-resource]')) {
@@ -75,10 +109,12 @@ export function mountPerformance(browser = window, doc = document) {
 			card.querySelector('path').setAttribute('d', segments.join(' '));
 			card.querySelector('svg').setAttribute('aria-label', `${card.dataset.resource} history, ${value === null ? 'unavailable' : value.toFixed(1) + ' percent currently'}`);
 		}
+		renderCores($('cpu-cores'), view);
+		renderProcesses($('process-table'), view);
 		$('resource-memory').textContent = !view.stale && view.memory_total_bytes
 			? `${(view.memory_used_bytes/2**30).toFixed(1)} / ${(view.memory_total_bytes/2**30).toFixed(1)} GiB used` : 'Used / total RAM · unavailable';
-		$('resource-power').textContent = `CPU package power: ${view.package_power_w === null ? '—' : view.package_power_w.toFixed(1) + ' W'}`;
-		$('resource-note').textContent = 'Host resources include other workloads; GPU coverage depends on readable process counters. Missing or restricted counters stay empty. Model device and latency come from sorting telemetry.';
+		$('resource-power').textContent = `Package power: ${view.package_power_w === null ? '—' : view.package_power_w.toFixed(1) + ' W'}`;
+		$('resource-note').textContent = 'Includes everything running on this computer.';
 	}
 	async function pollSystem() {
 		try {

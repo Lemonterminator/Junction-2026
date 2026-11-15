@@ -1,15 +1,15 @@
 /** A captioned product story. Illustrations describe the concept, not measured results. */
 export const STORY = [
-	{key:'problem', audio:'assets/intro/problem.wav', label:'01 / THE PROBLEM', title:'Small defects. Expensive consequences.',
+	{key:'problem', audio:'assets/intro/problem.wav', label:'The problem', title:'Small defects. Expensive consequences.',
 		caption:'Catch the problem before it becomes a return.', duration:10500,
 		narration:'One small defect can mean a returned order, wasted material, and another inspection. Checking every part by hand takes time. For people doing repetitive work, it’s easy to miss something.'},
-	{key:'inspect', audio:'assets/intro/inspect.wav', label:'02 / THE SOLUTION', title:'Give every part a second look.',
+	{key:'inspect', audio:'assets/intro/inspect.wav', label:'The solution', title:'Give every part a second look.',
 		caption:'See the part. Inspect it. Choose the next action.', duration:10000,
-		narration:'Physic AI brings inspection and sorting into one cell. Cameras see the part. An anomaly model looks for defects. Then the system chooses the next action and asks the robot to sort it.'},
-	{key:'human', audio:'assets/intro/human.wav', label:'03 / THE HUMAN', title:'When it’s unsure, people decide.',
+		narration:'Armigo brings inspection and sorting into one cell. Cameras see the part. An anomaly model looks for defects. Then the system chooses the next action and asks the robot to sort it.'},
+	{key:'human', audio:'assets/intro/human.wav', label:'The human', title:'When it’s unsure, people decide.',
 		caption:'Good parts move on. Defects go aside. Uncertainty gets a human.', duration:9500,
 		narration:'Good parts move on. Defective parts go aside. When the result is uncertain, sorting pauses for a person to take a second look. Your team keeps the judgment. The robot handles the repetition.'},
-	{key:'edge', audio:'assets/intro/edge.wav', label:'04 / THE EDGE', title:'Intelligence, close to the work.',
+	{key:'edge', audio:'assets/intro/edge.wav', label:'The edge', title:'Intelligence, close to the work.',
 		caption:'Designed for local Intel inference. Performance you can inspect.', duration:11000,
 		narration:'The goal is practical automation on an Intel laptop, with inference close to the work. See measured inference time alongside processor and memory use. Start with one cell, measure the results, and build from there.'},
 ];

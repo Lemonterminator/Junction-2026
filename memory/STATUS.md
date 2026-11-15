@@ -32,6 +32,38 @@ Branch `feat/async-inference-pipeline`; full report in [ASYNC_PIPELINE_BENCHMARK
 - PatchCore 10 % and Padim fold-0 exports are in MLflow experiment `defect-sorter-anomaly` (tag `status = baseline`).
   Nothing has been copied to the Intel workstation; guide in `docs/infrastructure/MODEL_RELEASES.md`.
 
+## Update 2026-11-15 — Armigo dashboard and live Studio link
+
+- The dashboard is now **Armigo** (plain dark style with system fonts and a cropped photo of the cell; the 3D model mirrors the real table, arm, plates and brick): product pitch, narrated intro (narration
+  regenerated for the new name), a 7-step guided tour that drives the 3D cell, the decision panel and the
+  score meter with pinned annotations, the brick from four viewpoints with the defect marked, live Studio
+  camera tiles, a typed command console, in-browser recording/replay, and an edge monitor with per-core
+  load and the busiest processes. three.js r160 is vendored; no CDN at runtime.
+- `sorter-dashboard --studio-url` links Physical AI Studio (`studio_link.py`): camera previews through
+  Studio's own socket, live inspection of the newest frame (`live_inspection.py`, `--anomaly-model` on a
+  chosen OpenVINO device or `--purity`) with separately measured decode/isolate/inference times.
+- Arm motion only with `--studio-control` at startup, the operator checkbox and a same-origin JSON request:
+  one runtime session loads a saved environment and model export and runs one of the fixed
+  `DEFAULT_TASKS`; it holds the arm on STOP, on `--max-run-s`, or on any failed component, never retrying.
+- Tests written first and seen failing: `tests/test_studio_link.py` (19), `tests/test_live_inspection.py` (5),
+  new cases in `tests/test_system_metrics.py` and `tests/test_dashboard.py`, `frontend/tests/command.test.mjs`
+  and `frontend/tests/studio.test.mjs`.
+- Checked on a Mac only, against a local stand-in that serves Studio's API routes with synthetic frames:
+  inspect, a run with the fixed pink task, time-limit stop and operator STOP each sent the expected
+  commands, and the previews recovered after the session ended. **Not yet run against the real Studio, its
+  cameras or the arm**; the Studio message shapes come from the pinned submodule source. Per-core/process
+  counters were tested with synthetic procfs only.
+- Review fixes (PR #21, tests written first and seen failing): bounded websocket reads keep STOP and the
+  run time limit effective while only pings or half a frame arrive; the run slot is reserved atomically and
+  STOP cancels a start still preparing; inspection refuses disconnected cameras and frames older than
+  `--max-frame-age-s`; inspect-then-sort scores a fresh session frame after model loading and holds the arm
+  unless that evidence is younger than `--evidence-ttl-s`; relays release a continuously streaming camera
+  when the last viewer leaves; the page routes STOP before view/health checks, keeps the run bar in every
+  view and distinguishes a requested from a confirmed stop; Live never draws an unmeasured defect location.
+- Next: on the workstation, start with `--studio-url` and no `--studio-control`, confirm camera tiles and
+  live inspection (camera choice, `IsolateConfig` and threshold for the real wrist view); only then try one
+  operator-attended run with a short `--max-run-s`.
+
 ## Update 2026-11-15 — Modal as overflow GPU
 
 - `scripts/modal/train.py` runs the `defect_sorter.training` plan on a Modal GPU in

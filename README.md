@@ -9,6 +9,7 @@ This repository contains the Python pipeline, a standalone dashboard, the `armki
 | Goal | Start here | Requirements |
 | --- | --- | --- |
 | Preview the UI | [Run the dashboard](#run-the-dashboard) | uv, Python 3.12; no Docker or devices |
+| Show the live cell | [Armigo live link](docs/infrastructure/DASHBOARD.md#armigo-sources-live-studio-link-and-replay) | Running Studio; `anomaly` extra for model scoring |
 | Develop/test Python | [Set up a checkout](#set-up-a-checkout) | Git, Git LFS, uv, Python 3.12 |
 | Generate simulated demonstrations | [Hardware-free pipeline](#run-the-hardware-free-pipeline) | Default Python environment |
 | Start your own Studio | [Separate Studio instance](#start-a-separate-studio-instance) | Docker Linux engine, initialized submodule |
@@ -68,9 +69,9 @@ Pytest includes both `tests/` and `packages/armkit/tests/`. Tests use synthetic 
 uv run sorter-dashboard
 ```
 
-Open **http://127.0.0.1:8080/**. Choose a scenario and use **Play demo** or **Inspect next part**. Cases cover perfect, defective, human review and arm fault. Drag the cell to rotate it, use arrow keys while the canvas is focused, or use the reset-view button. Ctrl+C stops the server.
+Open **http://127.0.0.1:8080/**. The dashboard is **Armigo**: use **Inspect next part**, the **Guided tour** or **Watch the story**, or type a command such as “sort this brick”. To show Physical AI Studio's cameras, live inspection and (with `--studio-control`, operator present) policy runs, start it with `--studio-url`; see the [Armigo live link](docs/infrastructure/DASHBOARD.md#armigo-sources-live-studio-link-and-replay). Choose a scenario and use **Play demo** for the illustrative cycle. Cases cover perfect, defective, human review and arm fault. Drag the cell to rotate it, use arrow keys while the canvas is focused, or use the reset-view button. Ctrl+C stops the server.
 
-Use **Meet PhysicAI**, then **Play intro**, for the animated business intro: problem, solution, human review and local inference. One fixed English narrator is bundled with the UI; playback needs no installed browser voice or voice service. Pause/resume, replay and a narration on/off toggle are available. Captions and chapter transcripts remain available. Closing the intro stops its audio.
+Use **Watch the story**, then **Play intro**, for the animated business intro: problem, solution, human review and local inference. One fixed English narrator is bundled with the UI; playback needs no installed browser voice or voice service. Pause/resume, replay and a narration on/off toggle are available. Captions and chapter transcripts remain available. Closing the intro stops its audio.
 
 Run the server **on the computer you want to monitor**. CPU, memory, processor identity and core count are supported on Linux, macOS and Windows. These show the server host, including other workloads. Linux GPU coverage is limited to readable Intel DRM clients; NPU and package-power counters depend on kernel support and permissions. GPU/NPU/power counters on macOS/Windows remain unavailable. Monitoring never opens a camera or commands the arm. CPU/GPU/NPU load does not prove model deployment or accuracy.
 

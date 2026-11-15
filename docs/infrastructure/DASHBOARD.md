@@ -1,6 +1,35 @@
 # PhysicAI sorting dashboard
 
-The standalone UI in [`frontend/`](../../frontend/) presents the sorting cell, inspection evidence, decision, progress, cycle timings, host resources and a captioned product intro. It uses browser-native HTML, CSS, ES modules, SVG and canvas; it has no frontend package installation, build step or runtime CDN dependency. It leaves the pinned Studio submodule unchanged.
+The standalone UI in [`frontend/`](../../frontend/) is **Armigo**: a plain dark dashboard with a short pitch and a photo of our cell (`frontend/assets/cell.jpg`, cropped to the robot and table, no people), a narrated intro, a guided tour over a 3D model of the cell (white table, blue SO-101, green and pink plates, light-blue 2×2 brick), the inspected brick from four viewpoints, live Physical AI Studio cameras, a typed command console, recording and replay, and an edge-performance monitor. It uses browser-native HTML, CSS and ES modules with system fonts, plus a vendored three.js r160 build (`frontend/vendor/`, MIT); there is no package installation, build step or runtime CDN dependency. It leaves the pinned Studio submodule unchanged.
+
+## Armigo: sources, live Studio link and replay
+
+The header switches between three sources, and every panel says which one it shows:
+
+- **Demo**: illustrative playback (`telemetry.mjs` demo states). Demo parts carry no timings.
+- **Live**: Physical AI Studio through the dashboard server. Start it on the laptop that runs Studio:
+
+  ```bash
+  # cameras, lists and live inspection; the arm cannot move
+  uv run sorter-dashboard --studio-url http://127.0.0.1:7860 --anomaly-model models/padim/model.xml --anomaly-device NPU --threshold 0.5
+  # colour-purity baseline instead of a model (threshold on the off-colour share)
+  uv run sorter-dashboard --studio-url http://127.0.0.1:7860 --purity --threshold 0.1
+  # operator present at the cell: also allow policy runs (each stops itself after --max-run-s)
+  uv run sorter-dashboard --studio-url http://127.0.0.1:7860 --anomaly-model models/padim/model.xml --anomaly-device NPU --studio-control --max-run-s 45
+  ```
+
+  `--anomaly-model` needs the `anomaly` extra (`uv run --extra anomaly sorter-dashboard …`). `--studio-project` picks a project; the default is Studio's first project.
+- **Replay**: the last up to 90 s that the browser recorded in Live (camera tiles, decision and run status, 4 frames per second), labelled REPLAY everywhere. It is the fallback when the venue link or the hardware fails during a pitch. Recordings stay in that browser tab.
+
+Camera tiles use Studio's own preview socket (`/api/cameras/ws`). A relay connects only while the page asks for frames and releases the camera 15 s after the last request; expiry is checked on every receive, so a camera that streams continuously is still released. While a Studio runtime session holds a camera, Studio refuses the preview and the tile says **In use by Studio**; during a run started from Armigo, the tiles show the run's own session frames instead.
+
+**Typed commands** (`command.mjs`) map to a closed set: inspect, inspect-then-sort, sort to the green or pink bowl, stop. Unclear, negated or unrelated prompts are refused with a reason. The server checks the action again and only ever sends `closed_loop.DEFAULT_TASKS` texts to the policy.
+
+**Evidence freshness**: *Inspect* scores only a frame from a live camera that is at most `--max-frame-age-s` old (default 1 s); a disconnected camera or an old cached frame is refused with 409, not scored. *Inspect-then-sort* does not reuse an earlier score: after the environment and model are loaded, the run waits up to 3 s for a session frame newer than that moment, scores it, and enables model control only if the result is `normal` or `defective` and the frame is at most `--evidence-ttl-s` old (default 2 s). Otherwise the run ends **held** with the reason and control is never enabled. The four-view brick is illustrative in Live: inspection returns a score and a crop, not a defect location, so no defect mark is drawn.
+
+**Arm control safeguards**: runs need `--studio-control` on the command line (the browser cannot enable it), the operator checkbox, a same-origin JSON request with the `X-Armigo-Request` header (a cross-site page cannot send one), and at most one run: the slot is reserved before any slow work, so concurrent starts get 409, and STOP cancels a start that is still preparing. Each run sets Studio's model control with a 3 s grace and holds the arm (`set_control: null`) on STOP, on its time limit, or when any session component reports `failed`; it never retries. Its socket reads are bounded (pings and half-received frames are buffered, not waited on), so STOP and the time limit act within about 0.2 s. In the page, STOP is handled before any view or health check: it is sent whenever the dashboard has a Studio link, from Demo and Replay too and while Studio's REST lists are failing; the run bar stays visible in every view and says *Stop requested* until the server reports the run stopped or held. Leaving Live while a run may move stops it. Studio's own action limits stay in force. The dashboard still never opens a camera or a servo bus itself.
+
+**Inspection timings** are measured on the dashboard host: decode, isolation and inference separately. The device shown is the one the scorer was compiled for. The pitch card keeps the 14 November workstation benchmark (Padim, NPU, 8.5 ms) until measured live cycles are available.
 
 ## Local development
 
@@ -96,13 +125,13 @@ are not labeled Intel. Host clocks still need to agree with the browser for fres
 
 Sources: [Linux procfs documentation](https://www.kernel.org/doc/html/v5.15/filesystems/proc.html), [DRM usage stats](https://www.kernel.org/doc/html/latest/gpu/drm-usage-stats.html), [Xe driver counters](https://www.kernel.org/doc/html/latest/gpu/xe/xe-drm-usage-stats.html), [Intel NPU sysfs ABI](https://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux/+/8c13415c8a4383447c21ec832b20b3b283f0e01a/Documentation/ABI/testing/sysfs-driver-ivpu), [powercap](https://www.kernel.org/doc/html/latest/power/powercap/powercap.html).
 
-The frontend holds 60 resource samples. Values older than 3.5 seconds, implausibly ahead of browser time, missing, malformed or restricted stay empty; keep host/browser clocks synchronized. CPU/RAM can work while GPU/NPU/power remain unavailable. The UI makes no automatic performance-quality judgment. Cross-platform API reference: [psutil](https://psutil.io/).
+On Linux each sample also lists per-core CPU load (from the `cpuN` lines of `/proc/stat`) and the eight busiest processes (user+system ticks from `/proc/<pid>/stat` over the sample interval, resident memory), shown as a per-core grid and a process table. Other platforms leave both null. The frontend holds 60 resource samples. Values older than 3.5 seconds, implausibly ahead of browser time, missing, malformed or restricted stay empty; keep host/browser clocks synchronized. CPU/RAM can work while GPU/NPU/power remain unavailable. The UI makes no automatic performance-quality judgment. Cross-platform API reference: [psutil](https://psutil.io/).
 
 Median/p95 inference uses at most 60 distinct **completed, measured, non-demo episodes**, grouped by mode and runtime-reported device. Repeated snapshots of one episode do not increase the count. Percentiles use nearest rank; the sample count is always shown. Only `timings_ms.inference` contributes: capture, combined inspection and robot motion are not relabeled inference. These recent observations are not a controlled benchmark. Missing timings produce no statistic; device activity alone does not establish model execution, correctness or accelerator deployment.
 
 ## Product introduction
 
-**Meet PhysicAI** opens a four-chapter animated SVG explainer: the cost of missed defects, inspection and sorting in one cell, human review when uncertain, and the goal of local Intel inference. It describes the concept without invented ROI, accuracy or latency claims. It does not start sorting or change the dashboard's data source.
+**Watch the story** opens a four-chapter animated SVG explainer: the cost of missed defects, inspection and sorting in one cell, human review when uncertain, and the goal of local Intel inference. It describes the concept without invented ROI, accuracy or latency claims. It does not start sorting or change the dashboard's data source.
 
 The viewer opens the intro, then presses **Play intro**. Narration uses four bundled PCM WAV clips in
 `frontend/assets/intro/`, with one fixed English voice and no voice selector or browser speech-synthesis
