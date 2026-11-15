@@ -1,5 +1,18 @@
 # Current status
 
+## Update 2026-11-15 — async camera-to-policy pipeline & FP16 Intel benchmark (Linan)
+
+Branch `feat/async-inference-pipeline`; full report in [ASYNC_PIPELINE_BENCHMARK.md](../docs/infrastructure/ASYNC_PIPELINE_BENCHMARK.md) (`scripts/hardware_profiling/bench_async_pipeline.py`, raw output in ignored `artifacts/async_pipeline_benchmark.json`). Zero `/dev/ttyACM*` arm motion (`DryRunCell` only) and zero `/dev/video*` camera takeover (reads live `:8092` `depth_bridge` streams + recorded `sort-depth-v2` observations).
+
+- **New module**: `src/defect_sorter/async_pipeline.py` (tests written first in `tests/test_async_pipeline.py`) adds `LatestSlot`, `AsyncFrameSource`, `AsyncInspectionStage`, `DryRunCell`, `AsyncChunkPolicy` (step-25 background prefetch + monotonic `stage_generation` reset cancellation), `OpenVinoSmolVlaRunner` (matching `sort-depth-v2-10k-candidate/manifest.json`), and `compress_ir_to_fp16`.
+- **Precision limit respected (max half precision, FP32 → FP16)**: `compress_to_fp16=True` shrank PaDiM (`2.00×`, `168.3 → 84.2 MB`) and PatchCore (`1.9992×`, `267.7 → 134.0 MB`), and folded 2 `Bucketize` ops in SmolVLA (`smolvla_fp16` `.bin` `1.0083×`, `793.6 → 787.0 MB`).
+- **Real-data OpenVINO benchmarks on Intel Core Ultra X9 388H (`dev2@100.76.18.70`, OpenVINO `2026.4.1`)**:
+  - Live `:8092` HTTP D415 capture (`top.jpg` + `top_depth.jpg`): `3.97 ms` median (`9.32 ms` p95).
+  - SmolVLA `GPU_f16`: `149.43 ms` median (`smolvla_fp32` IR) / `153.86 ms` median, `156.54 ms` p95 (`smolvla_fp16` IR) vs `3889.83 ms` on `CPU_f32` (~26× speedup), `cosine_similarity >= 0.99991` vs CPU FP32 and preserved green vs pink task divergence.
+  - PaDiM on 8 real `sort-depth-v2` crops: `GPU_f16` `1.776 ms` median (`0.999996` corr, `8/8` accuracy) and `NPU_f16` `10.923 ms` (`1.0` corr, `8/8`); PatchCore fails NPU compilation (`ZE_RESULT_ERROR_INVALID_ARGUMENT`).
+  - Concurrent GPU SmolVLA + NPU PaDiM + CPU capture added only `+3.57 %` VLA and `+2.43 %` inspect contention overhead. Overlapped async execution reduced steady-state `policy.act()` to **`0.0071 ms` median (`0.0309 ms` p95)** vs **`193.78 ms` (`5.16 Hz`)** serial end-to-end (`175.11 ms` cold step 0; `413.17 ms` step-100 `reset` drain+reinfer).
+- **Still open**: connecting live wrist/front camera streams alongside `:8092` D415, larger validation-set parity check for PaDiM `GPU_f16`, real `cell.outcome()` verification, and guarded real-arm `Cell` wiring under operator authorization.
+
 ## Update 2026-11-15 — Modal as overflow GPU
 
 - `scripts/modal/train.py` runs the `defect_sorter.training` plan on a Modal GPU in

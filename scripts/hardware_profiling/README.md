@@ -1,9 +1,12 @@
 # Hardware profiling scripts
 
 Manual, inference-only checks used for the first-round profiling in
-[`docs/infrastructure/HARDWARE_PROFILING.md`](../../docs/infrastructure/HARDWARE_PROFILING.md).
-They run on the Intel workstation, not in the default test suite. Inputs are fixed-seed
-synthetic tensors or synthetic images: no script opens a camera or moves the arm.
+[`docs/infrastructure/HARDWARE_PROFILING.md`](../../docs/infrastructure/HARDWARE_PROFILING.md)
+and the second-round async closed-loop benchmark in
+[`docs/infrastructure/ASYNC_PIPELINE_BENCHMARK.md`](../../docs/infrastructure/ASYNC_PIPELINE_BENCHMARK.md).
+They run on the Intel workstation, not in the default test suite. First-round inputs are fixed-seed
+synthetic tensors or synthetic images; `bench_async_pipeline.py` reads live `:8092` HTTP `depth_bridge`
+streams alongside recorded `sort-depth-v2` tensors without claiming exclusive `/dev/video*` cameras or moving the arm.
 
 The SmolVLA scripts need the `physicalai` environment of `external/physical-ai-studio`
 (`library/.venv`, OpenVINO 2026.4). `anomalib_device_parity.py` needs the `anomaly` extra.
@@ -20,6 +23,7 @@ Run each in its own virtual environment so the Studio container and its environm
 | `fix_bucketize.py <export_dir> <out_dir>` | Replace each `Bucketize` with the constant ids PyTorch computes (GPU plugin workaround). |
 | `patch_bucketize.py <export_dir> <out_dir>` | Narrow `Bucketize` outputs to i32 so the NPU compiler accepts them. |
 | `anomalib_device_parity.py <workdir>` | Compare a Padim OpenVINO model on CPU, GPU FP16, GPU FP32 and NPU. |
+| `bench_async_pipeline.py` | FP16 IR compression, real-observation SmolVLA/PaDiM/PatchCore parity, CPU/GPU/NPU contention, serial vs async `DryRunCell` benchmark into `results.json`. |
 
 Benchmark all three devices for one export, one process per device so a compile failure
 or timeout on the NPU cannot hide the other results:

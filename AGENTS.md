@@ -90,6 +90,7 @@ Test ownership:
 - `tests/test_inspection.py` owns `defect_sorter.inspection` (score to normal/defective/uncertain decision, crops, brick isolation, colour purity, grouped folds, threshold choice).
 - `tests/test_closed_loop.py` owns `defect_sorter.closed_loop` (label-to-task mapping, attempt state machine, records).
 - `tests/test_planner.py` owns `defect_sorter.planner` (closed action set, rule planner, validation, LLM proposal parsing and fallback).
+- `tests/test_async_pipeline.py` owns `defect_sorter.async_pipeline` (SmolVLA manifest/preprocessing, `LatestSlot`, async frame/inspection threads, `DryRunCell`, `AsyncChunkPolicy` prefetch and `stage_generation` invalidation, OpenVINO runner and FP16 IR compression).
 - `tests/test_twin.py` owns `defect_sorter.twin` (kinematic twin: TCP, IK, rate limits, grasp/release, cameras, scripted expert).
 - `tests/test_offline_pipeline.py` owns `defect_sorter.offline_pipeline` and the pure part of `defect_sorter.lerobot_export` (demo recording, anomaly crops, twin evaluation, LeRobot features).
 - `tests/test_tracking.py` owns `defect_sorter.tracking` (reading run and evaluation directories into MLflow records).
@@ -132,6 +133,7 @@ Extend the owning module by default. Add a new test file only for a new stable m
 - `inspection.py`: anomaly score → normal/defective/uncertain with an explicit threshold; brick isolation (saturation, convex hull, constant fill) and a colour-purity score; grouped folds and threshold choice for evaluations; OpenVINO scorer for Anomalib exports; Padim training on a crop folder. The real-data experiment is `scripts/anomaly/real_baseline.py`.
 - `closed_loop.py`: one sorting attempt (observe → inspect → plan → execute → verify) over replaceable `Cell`, inspector and `Policy` protocols; defect labels map to fixed task texts.
 - `planner.py`: high-level action for one brick from a closed set (sort green/pink, re-inspect, retry grasp, skip and alert, stop); rules decide by default, an LLM may propose, `validate` always checks, failures fall back to the rules. Never joint commands.
+- `async_pipeline.py`: asynchronous camera-to-policy pipeline (`AsyncFrameSource`, `AsyncInspectionStage`, `AsyncChunkPolicy` with chunk prefetch and monotonic `stage_generation` invalidation, `OpenVinoSmolVlaRunner`, `compress_ir_to_fp16`) and open-loop `DryRunCell` (`Cell` adapter without `/dev/ttyACM*` access).
 - `twin.py`: kinematic digital twin of the cell (no physics engine) implementing `Cell`, plus a privileged scripted expert. Twin results are tagged `mode = twin` and never pooled with real ones.
 - `offline_pipeline.py`: hardware-free CLI (record demos, write anomaly crops, evaluate the loop); `lerobot_export.py`: demos → LeRobot v3, run in the Studio backend environment.
 - `tracking.py`: logs finished training runs and twin evaluations to MLflow (`tracking` extra), tagged by data source.

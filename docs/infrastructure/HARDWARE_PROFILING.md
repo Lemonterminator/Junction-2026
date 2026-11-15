@@ -149,3 +149,12 @@ shared-memory contention and power are all open.
 5. Re-run Padim on real good-object captures; calibrate the NPU threshold; investigate the GPU FP16
    failure or document FP32/CPU as the supported path.
 6. Measure Anomalib on the NPU concurrently with the policy on the GPU, with the capture loop running.
+
+## Update 2026-11-15 — Real-observation FP16, NPU contention & async pipeline follow-up
+
+See [ASYNC_PIPELINE_BENCHMARK.md](ASYNC_PIPELINE_BENCHMARK.md) for the second-round hardware run (`scripts/hardware_profiling/bench_async_pipeline.py`) addressing items 1, 2, 5, and 6 without touching `/dev/ttyACM*` or USB `/dev/video*` cameras (reading live `:8092` `depth_bridge` streams and recorded `sort-depth-v2-10k` observations, precision reduction capped at FP32 → FP16):
+
+- Folded `2` `Bucketize` ops in the `sort-depth-v2-10k-candidate` SmolVLA IR and compressed weights to FP16 (`compress_to_fp16=True`: PaDiM `2.00×`, PatchCore `1.9992×`, SmolVLA `.bin` `1.0083×`).
+- **SmolVLA `sort-depth-v2` on GPU FP16** ran at **149.43 ms** median (`smolvla_fp32` IR) and **153.86 ms** (`smolvla_fp16` IR, p95 `156.54 ms`), vs **3889.83 ms** on CPU FP32 (~26× speedup), with `cosine_similarity >= 0.99991` and preserved green vs pink task action separation.
+- **PaDiM on 8 real held-brick crops** (`4` normal, `4` defective): `GPU_f16` did not collapse on real crops (`1.776 ms` median, `0.999996` correlation vs CPU FP32, `8/8` accuracy) and `NPU_f16` matched CPU FP32 (`10.923 ms` median, `1.0` correlation, `8/8` accuracy); PatchCore failed NPU compilation (`ZE_RESULT_ERROR_INVALID_ARGUMENT`). Larger held-out validation-set parity for PaDiM `GPU_f16` remains open.
+- **Concurrent GPU + NPU + CPU**: running `smolvla_fp16` (`GPU_f16`) alongside `padim_fp16` (`NPU`) and live `:8092` HTTP capture added only `+2.43 %` inspection overhead and `+3.57 %` VLA overhead vs solo runs; wrapping execution in `AsyncChunkPolicy` + `AsyncInspectionStage` reduced steady-state `policy.act()` latency to **0.0071 ms** median (`p95 = 0.0309 ms`) vs **193.78 ms** (`5.16 Hz`) synchronous serial end-to-end.
