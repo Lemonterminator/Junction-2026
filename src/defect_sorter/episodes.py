@@ -6,6 +6,7 @@ body joint angles, gripper value) so it is testable without Studio or the arm:
 
 * :func:`find_hover_pause` — the still interval right before the grasp, where a hybrid grasp clip starts;
 * :func:`find_grasp` — when the gripper starts closing and when it starts opening again;
+* :func:`find_hold` — the frames with the gripper closed on the brick (absolute gripper band), for inspection crops;
 * :func:`grasp_clip` — frame range from the hover pause to shortly after the close (the lift);
 * :func:`review_episode` — problems that make an episode unusable, and warnings that only limit its use;
 * :func:`load_episodes` — read a LeRobot v3 dataset as Studio writes it (needs the ``dataset`` extra).
@@ -148,6 +149,23 @@ def find_hover_pause(ep: EpisodeData, cfg: ReviewConfig) -> tuple[int, int] | No
 		if a > moving[0] and b < limit and t[b] - t[a] >= cfg.min_pause_s
 	]
 	return runs[-1] if runs else None
+
+
+def find_hold(ep: EpisodeData, band: tuple[float, float], min_s: float = 0.5) -> tuple[int, int] | None:
+	"""Longest run of frames with the gripper reading inside ``band`` (inclusive), as (first, last) frame.
+
+	A gripper closed on a brick stops short of closing fully, so its reading rests in a band that an empty
+	close or an open gripper does not reach. Unlike :func:`find_grasp` this needs the band of the actual
+	follower and brick; it returns None when no run lasts ``min_s``.
+	"""
+	g = np.asarray(ep.gripper, dtype=float)
+	runs = _still_runs((g >= band[0]) & (g <= band[1]))
+	if not runs:
+		return None
+	start, end = max(runs, key=lambda r: r[1] - r[0])
+	if ep.timestamps_s[end] - ep.timestamps_s[start] < min_s:
+		return None
+	return start, end
 
 
 def grasp_clip(ep: EpisodeData, cfg: ReviewConfig) -> tuple[int, int] | None:

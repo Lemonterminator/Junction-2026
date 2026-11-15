@@ -43,9 +43,7 @@ teammate heard otherwise.
   a remap.
 - **A 5090 as Studio remote trainer counts** as valid training. The Studio Training Targets route in plan
   §4.4 stays the preferred path.
-- **A defect is a cross drawn with a marker pen on a Lego brick.** Anomalib must therefore detect a small
-  hand-drawn mark, not a shape or colour change; the open details (pen colour, face, brick colours) are in
-  the handoff. Status: adopted as the working definition.
+- **A defect is a cross drawn with a marker pen on a Lego brick.** Superseded on 2026-11-15, see below.
 
 ## 2026-11-14 — Python package and workstation runtime
 
@@ -83,3 +81,10 @@ Calibration by hand in Studio is slow and error-prone, so end stops are found by
 (goal leash plus low torque limit), step back on a rapid load rise and retry slower rather than fail, park the other
 joints by the 3D model's collision shapes before each sweep, never run a plan with issues, previous calibration is backed
 up and restored on failure, servo faults stop everything and are never retried. Status: adopted; simulation-tested only.
+
+## 2026-11-15 — Defect definition: a brick that is not one solid colour
+
+A brick is defective when it is not a single solid colour; marker marks and stuck-on tape both count. The bricks
+recorded so far carry scraps of grey duct tape on any face, and come in red, orange, yellow, lime and teal. The
+table is covered in the same grey tape, so inspection isolates the brick (saturation mask, convex hull, constant
+fill outside) instead of removing tape, which would also remove the defect. Status: adopted (linan).

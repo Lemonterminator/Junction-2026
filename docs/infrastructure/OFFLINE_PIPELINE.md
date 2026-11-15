@@ -43,8 +43,9 @@ gripper closes with the TCP within 12 mm of it and is carried rigidly until the
 gripper opens; driving the TCP below the table raises `ArmFaultError`. Kinematics come
 from `kinematics.py`; the TCP is the URDF `gripper_frame_joint` origin. The cameras
 are orthographic drawings (top: 312×240, wrist: 240×320 following the TCP); the
-inspection crop is a 128×128 close view of the brick. A defect is a dark marker
-cross on the brick's top face, as in the kickoff definition.
+inspection crop is a 128×128 close view of the brick. The twin draws a defect as a dark
+marker cross on the brick's top face; the real bricks carry grey tape on any face (see `memory/DECISIONS.md`),
+so twin crops are a pipeline check, not training data for the real inspector.
 
 Assumptions to check against the real cell before mixing data: table top at
 `base_link` z = 0; gripper 0 = closed, 100 = open; bowl positions

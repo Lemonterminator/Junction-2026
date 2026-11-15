@@ -1,6 +1,6 @@
 # PhysicAI · Junction 2026
 
-Defect inspection and sorting with an SO-101 arm: **PERCEIVE → DETECT → REASON → ACT → OPTIMIZE**. A camera locates a Lego brick, Anomalib inspects it for a marker-pen cross, and the decision selects a fixed sorting task for the robot policy. Intel deployment and measured performance are part of the challenge.
+Defect inspection and sorting with an SO-101 arm: **PERCEIVE → DETECT → REASON → ACT → OPTIMIZE**. A camera locates a Lego brick, Anomalib inspects it for anything that breaks its solid colour (tape, marker marks), and the decision selects a fixed sorting task for the robot policy. Intel deployment and measured performance are part of the challenge.
 
 This repository contains the Python pipeline, a standalone dashboard, the `armkit` workspace library, the pinned Physical AI Studio submodule, and the challenge research archive. Local development can start without the shared workstation or robot.
 
@@ -107,7 +107,7 @@ uv run python -m defect_sorter.offline_pipeline evaluate --out artifacts/twin/fi
 
 Recording writes `index.json` and compressed episode `.npz` files. Evaluation writes `episodes.jsonl` and `summary.json`. Without `--model`, evaluation uses twin ground truth and a privileged scripted expert: it checks plumbing, not learned detection/policy quality. Results retain `mode = twin` and stay separate from real measurements. These outputs do not automatically appear in the dashboard.
 
-For Padim training, OpenVINO scoring, LeRobot export and recorded twin-training smoke results, follow the [offline pipeline guide](docs/infrastructure/OFFLINE_PIPELINE.md). Anomaly training needs the heavy `anomaly` extra and may download weights; export uses the separate Studio backend environment. Keep datasets, weights and exports under ignored `data/`, `models/`, `artifacts/` or `checkpoints/` directories.
+For Padim training, OpenVINO scoring, LeRobot export and recorded twin-training smoke results, follow the [offline pipeline guide](docs/infrastructure/OFFLINE_PIPELINE.md). The first real-recording anomaly baseline (wrist crops of held bricks, Padim, PatchCore and a colour-purity score, grouped 5-fold evaluation) is in [ANOMALY_REAL_BASELINE](docs/infrastructure/ANOMALY_REAL_BASELINE.md). Anomaly training needs the heavy `anomaly` extra and may download weights; export uses the separate Studio backend environment. Keep datasets, weights and exports under ignored `data/`, `models/`, `artifacts/` or `checkpoints/` directories.
 
 The user described two LeRobot v3.0 episodes under `datasets/50815c02-…` (`SO101_Follower`) as simulated, while the newer [offline pipeline notes](docs/infrastructure/OFFLINE_PIPELINE.md) identify that same recording as real Studio data. This dashboard work has not inspected the files, so provenance requires confirmation before replay. Newer sources also define the separate `sort-v1` and `sort-depth-v2` datasets. See [recorded datasets](#review-recorded-datasets) and the [replay handoff](docs/infrastructure/DASHBOARD.md#candidate-studio-dataset-for-replay).
 

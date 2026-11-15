@@ -68,8 +68,8 @@ What changed from v1 and why:
 
 | Brick | Bowl | Task text |
 | --- | --- | --- |
-| Good (no mark) | green | `Pick up the brick and place it in the green bowl.` |
-| Defective (marker-pen cross) | pink | `Pick up the brick and place it in the pink bowl.` |
+| Good (one solid colour) | green | `Pick up the brick and place it in the green bowl.` |
+| Defective (not one solid colour: tape, marker marks) | pink | `Pick up the brick and place it in the pink bowl.` |
 
 Type or paste the string when starting the episode; nothing else, no variations. A wrong text can be corrected
 afterwards per episode (`PATCH /api/dataset/<id>/episodes/<index>`), so a mistake is not a reason to re-record.
