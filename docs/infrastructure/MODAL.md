@@ -125,5 +125,6 @@ so it is not set up.
   frame need the team's agreement before upload.
 - The image is built from the local submodule checkout; after bumping the
   submodule the next `modal run` rebuilds it.
-- Neither a remote plan nor a GPU run has been executed yet: the workspace spend
-  limit blocked the first GPU check.
+- Verified on 2026-11-15: the T4 check allocated a Tesla T4 (15 GB), and the
+  training image built in about 2.5 minutes (torch 2.11 cu128, $0.03 of CPU).
+  No recording has been uploaded, so no remote plan or GPU training has run.
