@@ -92,6 +92,29 @@ The Volume `junction-training` holds `datasets/<name>` (uploaded recordings),
    The simulated batch dataset uses the same steps with
    `--recipe configs/training/smolvla_sim_batch_v1.toml --dataset configs/training/dataset.sim_batch_v1.toml --dataset-name sim-batch-v1`.
 
+   Warm start. A SmolVLA recipe may name `warm_start = "<name>"`: the run then
+   loads the weights of an earlier run instead of `lerobot/smolvla_base`
+   (normalisation statistics still come from the new training data). Convert the
+   earlier checkpoint once in the Studio backend environment and upload it; the
+   dry run prints the upload line and the remote run refuses to start without it:
+
+   ```bash
+   uv run --project external/physical-ai-studio/application/backend --extra cuda --frozen python scripts/training/ckpt_to_warm_start.py artifacts/training/sort-depth-v2-10k/checkpoints/best.ckpt artifacts/warm-start/sort-depth-v2-10k
+   ```
+
+   ```bash
+   modal volume put junction-training artifacts/warm-start/sort-depth-v2-10k /warm-start/sort-depth-v2-10k
+   ```
+
+   Local runs read the same directory from `artifacts/warm-start/` (`--warm-start-root`).
+
+   Several GPUs. `devices = N` in a recipe runs Lightning DDP on N GPUs of one
+   container (`--gpu L40S` with `devices = 8` asks Modal for `L40S:8`; at most 8
+   per container), `num_workers` sets data loader processes per GPU, and the cost
+   ceiling counts all N GPUs. The effective batch grows N times: shorten
+   `max_steps` and scale the learning rate with it. Every run writes
+   `checkpoints/periodic.ckpt` every 500 steps as a restart point between epochs.
+
 5. Download and log to MLflow:
 
    ```bash
