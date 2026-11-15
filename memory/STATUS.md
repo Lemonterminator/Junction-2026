@@ -6,7 +6,13 @@
   register one fold model of the real baseline with its CPU threshold, cross-fold results and latency; new release
   status `baseline`. Tests written first in `tests/test_tracking.py` and `tests/test_model_release.py`.
 - PatchCore 10 % and Padim fold-0 exports are in MLflow experiment `defect-sorter-anomaly` (tag `status = baseline`).
-  Nothing has been copied to the Intel workstation; guide in `docs/infrastructure/MODEL_RELEASES.md`.
+  Both are private pre-releases `anomaly-patchcore-baseline-1` and `anomaly-padim-baseline-1` (status `baseline`).
+- On the Intel workstation: models in `~/models/anomaly/`, crops/scripts/results in `~/models/anomaly-calib/`, and
+  `~/models/studio-anomaly-models.override.yaml` (read-only mount at `/app/models/anomaly`, `physical-ai-studio-xpu`
+  recreated with it, healthy). `scripts/anomaly/calibrate_devices.py` chose a threshold per device: scores were
+  identical across CPU, iGPU (FP32) and NPU for Padim (NPU at most 0.23 % lower) and CPU/iGPU for PatchCore; PatchCore
+  does not compile on the NPU. The fold-0 test fold has 7 episodes, so this is a smoke check. Details in
+  `docs/infrastructure/MODEL_RELEASES.md`.
 
 ## Update 2026-11-15 — Modal as overflow GPU
 
