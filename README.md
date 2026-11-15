@@ -172,6 +172,17 @@ An operator-coordinated Linux perception session uses the `camera` extra and `so
 ## Plan training
 
 With the submodule initialized, inspect a SmolVLA plan in the light environment:
+[Inspect-then-sort plan / 先检查再分拣](docs/plans/INSPECT_THEN_SORT_PLAN.md)
+defines the proposed three-skill loop: pick and inspect, hold for the Anomalib
+decision, then place in green or pink. It includes a 50-cycle recording pilot,
+skill handoff contracts, failure handling and acceptance gates. This is a plan;
+the current controller still inspects before a complete pick-and-place policy.
+
+[Local training guide](docs/infrastructure/TRAINING.md) provides ACT imitation-learning,
+SmolVLA expert fine-tuning, and experimental Pi0.5 LoRA recipes for a separate CUDA
+environment. Plan generation and synthetic metadata/task tests run in the light
+project environment; no real dataset, model training, GPU-memory fit, or exported
+policy has been validated by these tests.
 
 ```bash
 uv run python -m defect_sorter.training plan \

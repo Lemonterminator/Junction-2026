@@ -1,5 +1,10 @@
 # Local policy training on RTX 5090
 
+For the proposed three-skill pick-inspect / held-place dataset, follow the
+[inspect-then-sort plan](../plans/INSPECT_THEN_SORT_PLAN.md). Preserve source-cycle
+groups across derived skill clips and verify all three tasks in each split.
+The existing complete pick-and-place recipes do not implement that control split.
+
 Updated: 2026-11-14. This is an executable preparation path for the pinned Studio
 revision `17714488fa9c7d098a056da83f7c220cf983957d`. The default project environment
 does not import PyTorch or download weights. Real data and CUDA execution are not
