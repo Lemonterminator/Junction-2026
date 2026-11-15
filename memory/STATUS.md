@@ -541,6 +541,56 @@ base, the front camera or the bowls needs no new training.
 - Full suite: 499 passed, 2 failed in `test_training.py` because the Studio submodule's working tree is missing
   `library/` (staged deletions inside the submodule, not from this change).
 
+## Update 2026-11-14 — initial sorting dashboard
+
+Work prepared on `feat/sorting-dashboard`; check Git and the remote for publication state. Added a standalone dashboard in
+`frontend/` with an illustrative cell, synthetic crop, score gauge, decision panel and sorting stages.
+Demo scenarios cover normal, defective, uncertain and arm-fault states; missing timings remain blank.
+The v1 telemetry model keeps backend decisions authoritative and distinguishes demo, twin, replay and real sources.
+
+The [dashboard guide](../docs/infrastructure/DASHBOARD.md) records local startup, the snapshot fields,
+the in-page adapter boundary and backend integration tasks. README and AGENTS test ownership are updated.
+The initial UI has no live transport, calibrated real-joint rendering or hardware command integration.
+No camera, arm, Studio service or shared workstation was touched. Validation: thirteen frontend regression tests passed;
+`uv run pytest -q` passed 165 tests in 24.04 s; `uv run ruff check src tests` passed; and
+`uv run ruff format --check src tests` reported 34 files already formatted. Module syntax checks and local
+preview HTTP 200 passed. Headless Firefox could not open its temporary profile; browser visual and interaction
+QA remains unverified. The initial fetch was blocked by GitHub 403. After account authentication was fixed,
+the branch was rebased onto the latest main, preserving the armkit, camera, dataset and training changes.
+
+The PR review added complete-image loading with newest-frame coalescing, error recovery and resets, avoiding
+cancelled downloads at high telemetry rates. README now separates checkout setup, the local dashboard,
+hardware-free generation/evaluation, a fresh CPU Studio deployment, shared-workstation access and training plans.
+It documents Git LFS, Python/Node prerequisites, expected outputs and the working-directory 404 fix.
+README smoke checks passed with temporary outputs: two twin demonstrations completed, crop generation wrote
+20 training and eight test images, two oracle-evaluated attempts completed with `mode = twin`, and the example
+training plan reported missing data and null metrics without creating a run. These are pipeline checks, not
+learned-policy or physical-task evidence. All 43 local README/dashboard links and anchors resolve.
+
+The user reports a Studio-volume dataset `datasets/50815c02-…`, LeRobot v3.0, robot type
+`SO101_Follower`, containing two episodes described as simulated. The newer offline pipeline guide describes the
+same shortened identifier as the first real recording used in a training smoke run. Confirm the full identifier and
+provenance before replay integration; this dashboard work has not accessed or validated the files. Next: obtain
+the export location, inspect metadata, joint units, media and time alignment, then add replay preserving confirmed
+source provenance. No anomaly scores, model timings or verified outcomes may
+be inferred merely from the presence of a recording; the reader and calibrated playback remain unimplemented.
+
+After rebase onto main `79e38b9`: 573 Python tests passed, one existing optional PyArrow episode test skipped
+(45.78 s); thirteen frontend tests and four module syntax checks passed. Ruff checks over `src tests packages`
+passed, with all 89 files formatted. No hardware was touched during verification.
+
+## Update 2026-11-14 — dashboard telemetry corrections
+
+An unavailable verified outcome no longer marks a completed cycle as placed or confirmed. Snapshot thresholds and
+joint readings may be null, with absent thresholds shown explicitly and without coloured gauge arcs; joint units
+must be null with absent joints. Regression tests cover unverified completion and missing measurements. Dashboard
+transport and real robot integration remain unimplemented.
+
+Validation on Windows: 15 frontend tests passed; Ruff check and format check passed. After initializing the pinned
+Studio submodule, the full Python suite reported 572 passed, one skipped and one failure: the existing
+`test_find_device_picks_the_capture_node_of_the_named_camera` compares a Windows-formatted `Path` to a POSIX path.
+No hardware was touched.
+
 ## Update 2026-11-14 evening: sort-depth-v2 dataset and SmolVLA training
 
 - Studio dataset `sort-depth-v2` (35 episodes, 37,515 frames, 23 green-bowl + 12 pink-bowl, cameras front/wrist
@@ -553,6 +603,60 @@ base, the front camera or the bowls needs no new training.
   6, 15, 19, 25, 30). Handoff and what to do when it finishes:
   [handoff](handoffs/2026-11-14-camera-latency-and-sort-depth-training.md).
 
+## Update 2026-11-15 — dashboard host performance and product intro
+
+Prepared on the existing `feat/sorting-dashboard` branch at the user's request. No commit or push requested.
+
+- Added `sorter-dashboard`, a loopback-by-default server for frontend assets, one-second cached
+  `/api/system` samples and optional read-only `/api/telemetry` from `--telemetry-file`.
+- Linux resource cards show CPU, RAM, visible Intel GPU clients (i915 nanoseconds and Xe busy/total cycles),
+  NPU job activity and CPU package watts where readable. Counters use procfs/sysfs only, with null values for
+  unavailable/reset/restricted data. Charts retain 60 samples; stale readings clear. GPU client coverage and
+  server-host scope are explicit. Monitoring does not prove model execution or correctness.
+- Inference median/p95 use up to 60 measured completed episodes per source/device, deduplicated by episode id;
+  demo values never contribute. Actual timings/device reporting still require backend instrumentation and a
+  v1 snapshot producer. The file bridge is transport, not a real-cell adapter or frame proxy.
+- Added **Meet PhysicAI**, an optional four-chapter animated SVG introduction: missed-defect business costs,
+  inspection/sorting, human review and local Intel inference. Browser narration has an English voice selector,
+  captions, transcripts, silent/error fallback, cancellation on close and reduced-motion support. No recorded
+  narration/video file is bundled; voice quality depends on the browser/OS. The local voiceover app service
+  was unreachable, so no external voice asset was produced.
+- Updated README, dashboard guide and AGENTS architecture/test ownership. New deterministic regression tests
+  were run red then green for resource math, duplicate handles/cycle counters/counter dips, HTTP path isolation,
+  snapshot reads, stale data, timing provenance and intro playback/cancellation/error fallback.
+
+Validation: `uv run pytest -q` **583 passed, 1 skipped (47.76 s)**; `node --test frontend/tests/*.test.mjs`
+**22 passed**; `uv run ruff check src tests packages` passed; `uv run ruff format --check src tests packages`
+reported **93 files already formatted**. Module syntax/whitespace checks and local HTTP smoke checks passed.
+Firefox could not open its temporary profile, so browser visual/interaction and voice-quality QA remain
+unverified. No shared workstation, cameras, arm or inference workload was touched; Linux hardware sampling
+remains to be verified on the inference laptop. Launch from the checkout root with `uv run sorter-dashboard`.
+
+## Update 2026-11-15 — intro playback fix and portable system resources
+
+Supersedes the intro voice-selector and non-Linux resource limitations in the previous entry.
+
+- Reproduced Chromium's `Illegal invocation` on Play: default browser timers were called with the player
+  as their receiver. Added a failing receiver regression and fixed timer wrappers.
+- Replaced speech synthesis with four bundled English PCM narration clips and one fixed default voice.
+  **Meet PhysicAI** opens paused; **Play intro** starts audio. Removed the voice selector. Pause/resume,
+  chapter navigation, replay, close/Escape and silent captions have explicit handling. The server now
+  serves WAV and byte ranges; browser end-seeking initially exposed the missing range support, covered
+  by a failing HTTP regression before implementation. Transcript-driven regeneration is in
+  `scripts/build_intro_audio.mjs` (macOS-only build tooling; playback is portable).
+- Added small `psutil` dependency/lock update for native CPU/RAM on macOS/Windows and other supported OSes,
+  with OS/CPU/core identity. Linux retains procfs/sysfs accelerator readings. Unsupported non-Linux
+  GPU/NPU/power stay null and are not labeled Intel. Native counter failures preserve other available data.
+- Updated README, dashboard guide and AGENTS test/architecture notes.
+
+Validation: new failures observed before fixes; **27 frontend tests passed**; full `uv run pytest -q`
+**587 passed, 1 skipped (47.94 s)**; Ruff check passed; Ruff format check reported **93 files already formatted**.
+Module syntax and four non-silent PCM asset checks passed. Actual Chromium checks (speech synthesis disabled)
+passed for live macOS CPU/RAM, all chapters/audio, pause/resume, seeking/completion, replay, Escape, reopening,
+silent mode and mobile width with no page errors. Desktop/mobile screenshots reviewed. Windows counters have
+synthetic coverage only; real Intel Linux accelerator readings remain unverified here. No robot, cameras,
+Studio service or inference workload was touched. The user requested an additional commit and publication
+to the existing dashboard pull request on 2026-11-15; use Git and the PR to check synchronization state.
 ## 2026-11-14: simulation augmentation and LLM planner (Linan)
 
 - MuJoCo sorting cell in WSL2 (`scripts/sim/so101_sort_sim.py`). It simulates once and stores full 3D state per frame, then renders many random but plausible cameras into the `offline_pipeline` format. The real layout prior comes from the first and last frames of sort-depth-v2. Calibration of the top camera from real data (`config/sim/`, `scripts/sim/calibration/`) is coarse: about 1 cm near the brick; the joint fit `config/sim/top_camera_joint.json` (height 0.513 m, tilt 26.1°, IoU 0.38, grasp median error 12.5 px) is the one to use.

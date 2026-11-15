@@ -13,6 +13,7 @@ dependencies = [
 	"pillow>=13.0.0",
 	"scipy>=1.18.1",
 	"armkit",
+	"psutil>=7.2,<8",
 ]
 
 [project.optional-dependencies]
@@ -39,6 +40,7 @@ dataset = [
 ]
 
 [project.scripts]
+sorter-dashboard = "defect_sorter.dashboard:main"
 sorter-live-demo = "defect_sorter.live_demo:main"
 sorter-anomalib-smoke = "defect_sorter.anomaly_smoke:main"
 sorter-marker-sheet = "defect_sorter.markers:main"

@@ -95,6 +95,13 @@ Test ownership:
 - `tests/test_tracking.py` owns `defect_sorter.tracking` (reading run and evaluation directories into MLflow records).
 - `tests/test_model_release.py` owns `defect_sorter.model_release` (release manifest and download verification).
 - `tests/test_studio_preview_patch.py` owns `docker/studio-patches` (Studio live-preview rate, JPEG quality and skipped cameras).
+- `tests/test_system_metrics.py` owns `defect_sorter.system_metrics` (cross-platform CPU/RAM with fake native counters, plus Linux Intel DRM/NPU and package power with synthetic procfs/sysfs fixtures).
+- `tests/test_dashboard.py` owns `defect_sorter.dashboard` (static files, audio byte ranges, cached host resources, read-only snapshot file and path isolation).
+
+- `frontend/tests/telemetry.test.mjs` owns `frontend/telemetry.mjs` and the state-driven pose behavior of `frontend/scene.mjs` (demo transitions, telemetry validation, missing data, display state and fault freeze); run with `node --test frontend/tests/telemetry.test.mjs`.
+- `frontend/tests/image-loader.test.mjs` owns `frontend/image-loader.mjs` (complete-image loading, newest-frame coalescing, errors and resets). Run all frontend tests with `node --test frontend/tests/*.test.mjs`.
+- `frontend/tests/performance.test.mjs` owns `frontend/performance.mjs` (resource validation/history, stale values and measured inference percentiles by source/device).
+- `frontend/tests/intro.test.mjs` owns `frontend/intro.mjs` (product story, browser timer receivers, bundled narration, pause/resume, silent/error playback, chapter navigation and cancellation).
 
 Extend the owning module by default. Add a new test file only for a new stable module boundary, and update this map in the same change.
 
@@ -118,6 +125,8 @@ Extend the owning module by default. Add a new test file only for a new stable m
 - `motion.py`: slow, checked jaws-down moves (`sorter-move`, dry run unless `--go`): IK goal, rise first when low, speed-limited joint steps, floor/reach/servo-range checks on every waypoint, stop-and-hold on tracking lag. Limits have hard caps.
 - `targeting.py`: brick targets for scripted hovers: top-face pose (centre, long-axis yaw, size) in the table frame from one detected object, brick selection, the hover point above it and the wrist roll that closes the jaws across its short side (`sorter-move --above-brick`).
 - `webview.py`: shared HTTP plumbing for the live pages; the browser pulls one complete JPEG at a time, so a slow link cannot freeze the view.
+- `system_metrics.py`: read-only host CPU/RAM on Linux/macOS/Windows, using procfs or native psutil counters, plus Linux visible Intel DRM clients, NPU busy time and RAPL package power. Missing/restricted counters stay null; host activity does not establish model deployment.
+- `dashboard.py`: serves the standalone frontend, cached host samples and an optional backend-written snapshot JSON file. It never commands hardware or starts perception/model workloads.
 - `anomaly_smoke.py`: Anomalib → OpenVINO toolchain check and per-device latency benchmark.
 - `inspection.py`: anomaly score → normal/defective/uncertain with an explicit threshold; OpenVINO scorer for Anomalib exports; Padim training on a crop folder.
 - `closed_loop.py`: one sorting attempt (observe → inspect → plan → execute → verify) over replaceable `Cell`, inspector and `Policy` protocols; defect labels map to fixed task texts.

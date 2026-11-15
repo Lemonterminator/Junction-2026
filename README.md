@@ -1,92 +1,177 @@
-# Junction 2026
+# PhysicAI · Junction 2026
 
-Hack Junction 2026 challenge research, Intel Physical AI development environment, shared AI memory, and historical challenge archive (2017–2025).
+Defect inspection and sorting with an SO-101 arm: **PERCEIVE → DETECT → REASON → ACT → OPTIMIZE**. A camera locates a Lego brick, Anomalib inspects it for a marker-pen cross, and the decision selects a fixed sorting task for the robot policy. Intel deployment and measured performance are part of the challenge.
 
-## Intel Physical AI development
+This repository contains the Python pipeline, a standalone dashboard, the `armkit` workspace library, the pinned Physical AI Studio submodule, and the challenge research archive. Local development can start without the shared workstation or robot.
 
-- [Full Physical AI Studio source](external/physical-ai-studio/) — Git submodule,
-  `junction2026`, pinned at `17714488fa9c7d098a056da83f7c220cf983957d`.
-- [Docker setup](docs/infrastructure/DOCKER.md) — CPU Studio, isolated Anomalib,
-  and explicit Linux Intel/robot device overlays. Runtime validation is pending.
-- [Shared AI memory](memory/README.md) — start with [project context](memory/PROJECT.md),
-  [status](memory/STATUS.md), and [decisions](memory/DECISIONS.md). AI entry points:
-  [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md).
-- [Upstream guide / 中文](docs/2026/silver/zh/intel_physical_ai_studio_guide.md) /
-  [English](docs/2026/silver/en/intel_physical_ai_studio_guide.md).
-- [Repository review / 中文](docs/2026/silver/zh/open_edge_platform_repositories.md) /
-  [English](docs/2026/silver/en/open_edge_platform_repositories.md).
-- [Creative options / 中文](docs/2026/gold/zh/intel_physical_ai_creativity_options.md) /
-  [English](docs/2026/gold/en/intel_physical_ai_creativity_options.md).
+## Choose a workflow
 
-Initialize the upstream checkout with `git submodule update --init --recursive`
-(or clone this repository with `--recurse-submodules`). The GitHub event guide and
-PDF contain different judging rubrics; both are retained pending organizer confirmation.
+| Goal | Start here | Requirements |
+| --- | --- | --- |
+| Preview the UI | [Run the dashboard](#run-the-dashboard) | uv, Python 3.12; no Docker or devices |
+| Develop/test Python | [Set up a checkout](#set-up-a-checkout) | Git, Git LFS, uv, Python 3.12 |
+| Generate simulated demonstrations | [Hardware-free pipeline](#run-the-hardware-free-pipeline) | Default Python environment |
+| Start your own Studio | [Separate Studio instance](#start-a-separate-studio-instance) | Docker Linux engine, initialized submodule |
+| Use the shared robot | [Shared workstation](#use-the-shared-workstation) | Team access and on-site operator coordination |
+| Prepare policy training | [Plan training](#plan-training) | Submodule; actual training additionally needs data and CUDA |
+| Review recordings | [Recorded datasets](#review-recorded-datasets) | Exported LeRobot v3 data; optional `dataset` extra |
+| Inspect calibration planning | [armkit library](#armkit-library) | Default workspace environment; plan opens no device |
+| Share trained models | [Tracking and model releases](#tracking-and-model-releases) | Optional `tracking` extra or authenticated release access |
+| Connect dashboard data | [Backend handoff](docs/infrastructure/DASHBOARD.md) | Read-only snapshot JSON; controller adapter still needed |
 
----
+## Current capabilities
 
-## 📂 Project Structure
+The Python package includes scene detection, marker/table alignment, camera-based joint calibration, guarded scripted motion, camera-control profiles, a Studio colour/depth bridge, anomaly inspection, a closed-loop controller over replaceable interfaces, and a kinematic twin with a scripted expert. `armkit` supplies reusable kinematics, collision checks and guarded calibration. Team notes record physical calibration and teleoperation, scripted hover and guarded calibration checks, Intel inference profiling, a twin-data training smoke run and a first Studio-recording SmolVLA export. These are separate pieces of evidence, not a demonstrated autonomous real-cell sorting loop.
 
-- **`docs/2026/`**:
-  - **`bronze/`**: Raw intelligence, multi-modal scraper outputs, and official LinkedIn announcements.
-  - **`silver/`**: Cleaned partner profiles and challenge alignments (bilingual English / Chinese), plus archived challenge briefs and page-by-page transcripts.
-  - **`gold/`**: Source-backed strategic insights and challenge synthesis (bilingual English / Chinese).
-- **`docs/past/`**:
-  - **`bronze/`**: Historical challenge catalog, bilingual translation mappings, and deep-dive winner retrospective reports (`winner_mateirals/`).
-  - **`silver/`**: Comprehensive historical archive covering 147 challenges across 2017–2025 remapped into track categories (AI Infrastructure, Agentic AI, Data, Hardware, Healthcare, FinTech) in both English and Chinese editions.
-  - **`gold/`**: Production-grade benchmark datasets for verified 2024–2025 landmark winners across the 6 tracks with strict 21-column schema (English & Chinese editions).
+The dashboard starts with **illustrative demo playback** and an optional captioned product intro with a fixed narrator. Its resource monitor reads CPU/RAM on Linux, macOS and Windows; accessible Intel GPU/NPU counters and CPU package power are additionally supported on Linux. Missing counters and inference timings stay empty. Backend-written snapshot JSON can supply sorting telemetry and measured inference median/p95; controller instrumentation, calibrated joint rendering, Studio replay and physical actions remain integration work. See [current status](memory/STATUS.md) for dated evidence and limitations.
 
-## Code: `defect_sorter`
+## Set up a checkout
 
-Python package for the Intel Physical AI Challenge pipeline (PERCEIVE → DETECT → REASON → ACT → OPTIMIZE). Agent and contributor rules (TDD, uv, tabs, hardware safety) are in [AGENTS.md](AGENTS.md).
+Prerequisites: Git, [Git LFS](https://git-lfs.com/), [uv](https://docs.astral.sh/uv/getting-started/installation/), and Python **3.12**. uv can provision the interpreter pinned in `.python-version`. Node **22 or newer** is needed only for frontend tests; the UI has no Node build or package installation.
 
-| Module | Role |
-| :--- | :--- |
-| `src/defect_sorter/geometry.py` | Camera intrinsics, deprojection, RANSAC table plane, height above table |
-| `src/defect_sorter/scene.py` | Bowls by colour, objects by height, object-in-bowl relation (`detect_scene`) |
-| `src/defect_sorter/realsense.py` | D415 aligned colour + depth with fixed white balance and a static or motion depth-filter profile |
-| `src/defect_sorter/uvc_controls.py` | Locks USB camera exposure, white balance, focus and mains frequency (`sorter-camera-lock`, profile `config/camera_controls.json`) |
-| `src/defect_sorter/depth_bridge.py` | Colour + layered height-above-table depth as MJPEG streams for Studio (`sorter-depth-bridge`) |
-| `src/defect_sorter/live_demo.py` | Live MJPEG debug page for the top camera |
-| `src/defect_sorter/markers.py` | Printed ArUco marker set, print sheet (`sorter-marker-sheet`), marker pose detection |
-| `src/defect_sorter/alignment.py` | Depth-refined marker poses, a level table frame (camera tilt corrected), drift against a saved reference |
-| `src/defect_sorter/alignment_page.py` | Live alignment page: markers in the table frame, drift (`sorter-alignment`) |
-| `src/defect_sorter/kinematics.py` | SO-101 forward kinematics (joint table from the `so101_new_calib` URDF) |
-| `src/defect_sorter/joint_calibration.py`, `calibration_capture.py` | Camera-based joint calibration, measure only (`sorter-joint-calibration capture/solve`) |
-| `src/defect_sorter/motion.py` | Slow, checked jaws-down moves of the follower, dry run unless `--go` (`sorter-move --to / --above-marker / --above-brick`) |
-| `src/defect_sorter/targeting.py` | Brick pose on the table from the top camera, hover target and grasp wrist roll |
-| `src/defect_sorter/anomaly_smoke.py` | Anomalib → OpenVINO export and CPU/GPU/NPU latency check |
-| `src/defect_sorter/inspection.py` | Anomaly score → normal / defective / uncertain; OpenVINO scorer; Padim training on crops |
-| `src/defect_sorter/closed_loop.py` | One sorting attempt (observe → inspect → plan → execute → verify) over replaceable cell, inspector and policy |
-| `src/defect_sorter/twin.py` | Kinematic digital twin of the cell (SO-101 FK/IK, grasp, rendered cameras) and a scripted expert |
-| `src/defect_sorter/offline_pipeline.py`, `lerobot_export.py` | Hardware-free pipeline: twin demos → LeRobot v3, anomaly crops, twin evaluation ([guide](docs/infrastructure/OFFLINE_PIPELINE.md)) |
-| `src/defect_sorter/tracking.py` | Logs finished training runs and twin evaluations to MLflow, tagged by data source |
-| `src/defect_sorter/model_release.py` | Release manifest (hashes, training run, status) and download check for private model releases ([guide](docs/infrastructure/MODEL_RELEASES.md)) |
+For a fresh checkout:
 
 ```bash
-uv sync                                   # light install: tests run anywhere
-uv run pytest -q && uv run ruff check . && uv run ruff format --check .
-
-# on the Intel workstation (Ubuntu, Python 3.12)
-uv sync --extra camera --extra anomaly
-uv run sorter-live-demo --host <tailscale-ip> --port 8090
-uv run sorter-anomalib-smoke --workdir data/smoke
+git lfs install
+git clone https://github.com/Lemonterminator/Junction-2026.git
+cd Junction-2026
+git submodule update --init --recursive
+uv sync --locked
 ```
 
-How the printed markers and the self-levelling table frame work: [docs/infrastructure/MARKER_ALIGNMENT.md](docs/infrastructure/MARKER_ALIGNMENT.md).
+For an existing checkout, first change into its root, initialize the submodule if needed, then run `uv sync --locked`. The default environment includes the local `armkit` workspace member, pytest and Ruff without installing camera SDKs, Torch or Anomalib. Root Python is 3.12; Studio's backend uses a separate Python 3.13 environment. Optional extras separate `camera`, `anomaly`, `dataset` (Parquet episode review) and `tracking` (MLflow) dependencies from this default.
 
-First-round CPU/GPU/NPU profiling of SmolVLA and Anomalib, with the scripts used: [docs/infrastructure/HARDWARE_PROFILING.md](docs/infrastructure/HARDWARE_PROFILING.md).
+The Studio submodule is pinned to `17714488fa9c7d098a056da83f7c220cf983957d` on the upstream `junction2026` line. Keep that pin during setup; do not use `git submodule update --remote`. Git LFS is required by upstream assets. The standalone dashboard can run without the submodule, but the full test suite and training planner inspect upstream files.
 
-Only one process can open the D415: stop the live demo before Physical AI Studio previews, records or runs a policy. Workstation setup is tracked in [docs/infrastructure/SETUP_STATUS.md](docs/infrastructure/SETUP_STATUS.md). The proposed (not yet applied) Tailscale layout for remote Studio and SSH access is in [docs/infrastructure/TAILSCALE_REMOTE_OPERATION.md](docs/infrastructure/TAILSCALE_REMOTE_OPERATION.md).
+Run checks from the repository root:
 
-## Library: `armkit`
+```bash
+uv run pytest -q
+uv run ruff check src tests packages
+uv run ruff format --check src tests packages
+node --test frontend/tests/*.test.mjs
+```
 
-`packages/armkit/` is a standalone, project-agnostic library (kinematics, collision model, guarded automatic joint
-calibration for Feetech servo arms, SO-101 profile). `uv run armkit-calibrate plan` prints the collision-aware
-calibration plan without touching hardware; see `packages/armkit/README.md`. It has only been run against a simulated
-bus so far.
+If your shell does not expand the wildcard (for example PowerShell), list the files explicitly:
 
-## Local policy training and digital twin
+```bash
+node --test frontend/tests/telemetry.test.mjs frontend/tests/image-loader.test.mjs
+```
 
+Pytest includes both `tests/` and `packages/armkit/tests/`. Tests use synthetic data and never open cameras or move the arm. Contributor rules, TDD and hardware boundaries are in [AGENTS.md](AGENTS.md).
+
+## Run the dashboard
+
+**Run this from the repository root**, where `frontend/index.html` exists:
+
+```bash
+uv run sorter-dashboard
+```
+
+Open **http://127.0.0.1:8080/**. Choose a scenario and use **Play demo** or **Inspect next part**. Cases cover perfect, defective, human review and arm fault. Drag the cell to rotate it, use arrow keys while the canvas is focused, or use the reset-view button. Ctrl+C stops the server.
+
+Use **Meet PhysicAI**, then **Play intro**, for the animated business intro: problem, solution, human review and local inference. One fixed English narrator is bundled with the UI; playback needs no installed browser voice or voice service. Pause/resume, replay and a narration on/off toggle are available. Captions and chapter transcripts remain available. Closing the intro stops its audio.
+
+Run the server **on the computer you want to monitor**. CPU, memory, processor identity and core count are supported on Linux, macOS and Windows. These show the server host, including other workloads. Linux GPU coverage is limited to readable Intel DRM clients; NPU and package-power counters depend on kernel support and permissions. GPU/NPU/power counters on macOS/Windows remain unavailable. Monitoring never opens a camera or commands the arm. CPU/GPU/NPU load does not prove model deployment or accuracy.
+
+To display backend-written sorting snapshots and timings, use `uv run sorter-dashboard --telemetry-file /path/to/snapshot.json`. The backend must publish snapshot v1 atomically; see the [dashboard guide](docs/infrastructure/DASHBOARD.md). A static-only preview still works with `uv run python -m http.server 8080 --bind 127.0.0.1 --directory frontend`, with the resource monitor unavailable.
+
+For example, if the checkout is under your Documents folder, change into it first:
+
+```bash
+cd ~/Documents/Dev/Junction-2026
+```
+
+Use your own checkout path on another machine. No frontend installation, build, model download or hardware service is required. Use the HTTP URL rather than double-clicking `index.html`; browser ES modules require HTTP.
+
+### Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| Frontend not found / `404` at `/` | Run from the checkout root, or pass `--frontend /path/to/checkout/frontend`. |
+| `Address already in use` | Stop your earlier server with Ctrl+C, or add `--port 8082` and use that port in the browser URL. |
+| Blocked modules or empty page | Use the HTTP URL, not `file:`, and inspect the browser console. |
+| Changes do not appear | Refresh without cache and confirm the server serves this checkout. |
+| No live feed or real arm movement | Expected: controls operate the demo only. See the [integration guide](docs/infrastructure/DASHBOARD.md). |
+| Missing GPU/NPU or power readings | The driver/counter may be unavailable or restricted. Keep the missing reading; do not run the dashboard as root or change host permissions for the presentation. |
+
+## Run the hardware-free pipeline
+
+From the root, generate two twin demonstrations, a small synthetic crop set, and an oracle evaluation. Use **new output directories** for later experiments; these commands can overwrite their own outputs.
+
+```bash
+uv run python -m defect_sorter.offline_pipeline record --out data/twin/first-demos --episodes 2
+uv run python -m defect_sorter.offline_pipeline crops --out data/twin/first-crops --train 20 --test 4
+uv run python -m defect_sorter.offline_pipeline evaluate --out artifacts/twin/first-eval --episodes 2
+```
+
+Recording writes `index.json` and compressed episode `.npz` files. Evaluation writes `episodes.jsonl` and `summary.json`. Without `--model`, evaluation uses twin ground truth and a privileged scripted expert: it checks plumbing, not learned detection/policy quality. Results retain `mode = twin` and stay separate from real measurements. These outputs do not automatically appear in the dashboard.
+
+For Padim training, OpenVINO scoring, LeRobot export and recorded twin-training smoke results, follow the [offline pipeline guide](docs/infrastructure/OFFLINE_PIPELINE.md). Anomaly training needs the heavy `anomaly` extra and may download weights; export uses the separate Studio backend environment. Keep datasets, weights and exports under ignored `data/`, `models/`, `artifacts/` or `checkpoints/` directories.
+
+The user described two LeRobot v3.0 episodes under `datasets/50815c02-…` (`SO101_Follower`) as simulated, while the newer [offline pipeline notes](docs/infrastructure/OFFLINE_PIPELINE.md) identify that same recording as real Studio data. This dashboard work has not inspected the files, so provenance requires confirmation before replay. Newer sources also define the separate `sort-v1` and `sort-depth-v2` datasets. See [recorded datasets](#review-recorded-datasets) and the [replay handoff](docs/infrastructure/DASHBOARD.md#candidate-studio-dataset-for-replay).
+
+## Review recorded datasets
+
+The [sort-v1 dataset card](docs/datasets/SORT_V1.md) defines the exact green/pink task strings, recording protocol, 56-episode collection plan, review criteria and Studio identifiers. It also documents the current `sort-depth-v2` setup. A collection plan and dataset entry do not establish how many usable episodes have been recorded.
+
+For depth sessions, `sorter-depth-bridge` owns the D415 and supplies colour and layered height-above-table MJPEG streams to Studio IP cameras. The v2 encoding uses fine height in R, coarse height in G and depth validity in B; its fixed plane, crop, camera keys and scales are part of the recording contract. The earlier `sort-depth-v1` entry was deleted with no episodes. Coordinate camera ownership before starting any bridge or changing camera controls; the dashboard does not launch them.
+
+Copy an authorized dataset export into ignored `data/` storage before review. For an existing export at `data/sorting`, run:
+
+```bash
+uv run --extra dataset sorter-episodes data/sorting
+```
+
+This reads recorded Parquet data; it does not command hardware. The review reports task/camera issues, grasp/release events and hover pauses. It does not write a new clipped dataset or replay episodes in the dashboard. Verify camera names, units, timestamps and simulated/real provenance before building the replay adapter.
+
+## armkit library
+
+[`packages/armkit/`](packages/armkit/README.md) is a reusable library for serial-bus servo arms: kinematics, URDF loading, collision checks, guarded motion, calibration planning and Feetech/simulated buses. The root package uses it through the uv workspace.
+
+The model-only calibration plan opens no device:
+
+```bash
+uv run armkit-calibrate plan
+```
+
+Team notes now include user-authorized real-arm checks and proposed calibration files, superseding the earlier simulated-only status. They also record faults and limitations; a model-only plan is not evidence that a physical sweep is clear. Follow the library guide and latest team status for measured frames, joint directions, bus ownership and operator authorization. This dashboard exposes no calibration or motion commands.
+
+## Start a separate Studio instance
+
+This creates **your own CPU deployment** from the pinned source, separate from the existing shared workstation. Initialize the submodule and follow [Docker setup](docs/infrastructure/DOCKER.md) for first-time ignored configuration files, host settings and secrets. Create configuration files only if absent; preserve existing settings. Docker needs a working Linux engine and Compose with `additional_contexts` and optional `env_file` support.
+
+From the root:
+
+```bash
+docker compose config --quiet
+docker compose build studio
+docker compose up -d --wait studio
+docker compose ps
+```
+
+Open **http://127.0.0.1:7860/** once healthy. The first build is large and needs network access. CPU defaults map no robot/camera devices. Studio's UI/API and persistent storage are separate from the dashboard on port 8080. Configuration parsing does not establish build/runtime success; this change does not validate a Docker deployment.
+
+```bash
+docker compose logs --tail 100 studio
+docker compose down
+```
+
+`down` retains named volumes. Adding `-v` deletes stored data. Use the same project name and overlays throughout a deployment. Intel GPU/NPU and device overlays are explicit opt-ins in the Docker guide; listing a device does not prove model correctness on it.
+
+## Use the shared workstation
+
+Read the [team connection guide](docs/infrastructure/TEAM_CONNECTION_GUIDE.md), [hardware access guide](docs/infrastructure/HARDWARE_ACCESS.md), and latest [team status](memory/STATUS.md). Confirm the current account, host and service owner: access documents contain dated observations.
+
+The recorded workstation setup uses `~/junction` and Studio's **submodule Compose deployment**, project `docker`, with a prebuilt XPU image that differs from the pinned source. Root Compose commands are not its management commands. Coordinate restarts/deployments with the on-site lead, especially during recording.
+
+Only one process can own a camera or servo bus. Studio recording, the depth bridge, alignment and perception demos must not compete for the D415; Studio's follower worker and armkit must not share a serial port. Hardware checks are manual and outside tests. Arm motion requires an on-site operator and explicit authorization for that motion; retain limits, stop on faults and do not automatically retry.
+
+An operator-coordinated Linux perception session uses the `camera` extra and `sorter-live-demo`, which opens the D415; follow the access guide before launching. See [marker alignment](docs/infrastructure/MARKER_ALIGNMENT.md) for print sheets/alignment and [hardware profiling](docs/infrastructure/HARDWARE_PROFILING.md) for inference correctness/latency evidence. [Tailscale changes](docs/infrastructure/TAILSCALE_REMOTE_OPERATION.md) remain proposals unless the latest status records otherwise.
+
+## Plan training
+
+With the submodule initialized, inspect a SmolVLA plan in the light environment:
 [Inspect-then-sort plan / 先检查再分拣](docs/plans/INSPECT_THEN_SORT_PLAN.md)
 defines the proposed three-skill loop: pick and inspect, hold for the Anomalib
 decision, then place in green or pink. It includes a 50-cycle recording pilot,
@@ -105,27 +190,54 @@ uv run python -m defect_sorter.training plan \
   --dataset configs/training/dataset.example.toml --run-name smolvla-first
 ```
 
-The [hardware-free pipeline guide](docs/infrastructure/OFFLINE_PIPELINE.md) runs the whole chain on a kinematic twin: demos → LeRobot v3 → SmolVLA fine-tune, crops → Padim → OpenVINO, and the closed loop.
+In PowerShell, put the command on one line. Planning prints configuration and dataset status, leaves metrics null and creates no run/model. Missing data is allowed during planning.
 
-The [SO-101 digital twin study](docs/research/SO101_DIGITAL_TWIN.md) describes model
-sources, simulator choices, calibration, state synchronization, and validation gates.
+Execution needs a complete LeRobot v3 recording, verified camera keys, joint order/units and tasks, plus a separate Linux/WSL Python 3.13 CUDA environment. Follow the [training guide](docs/infrastructure/TRAINING.md) to prepare those contracts and run a short fit. Prefer Studio-managed remote training for team integration: the CLI does not create a Studio job or register its model automatically. A twin-data fit does not establish real-cell success.
 
-The [Physical AI execution plan](docs/plans/PHYSICAL_AI_EXECUTION_PLAN.md) turns the
-[historical hardware winner study](docs/research/PAST_HARDWARE_WINNERS_REUSE.md) into
-staged work packages: calibration and Studio recording, Studio-managed training on
-the local 5090, defect-conditioned SmolVLA, Intel Runtime deployment, clutter tests,
-and power/temperature measurements. Twin playback is capped at G3a after the core
-deliverables pass; [Gemini/RL research](docs/plans/DEFERRED_GEMINI_RL_EXPERIMENTS.md)
-is deferred. The plan includes dependencies, acceptance gates and scope reductions.
+## Tracking and model releases
 
-## Junction 2026 Challenge Briefs
+[`tracking.py`](src/defect_sorter/tracking.py) logs completed training runs and twin evaluations to MLflow through the optional `tracking` extra, keeping source and run-kind tags. The [tracking guide](docs/infrastructure/TRAINING.md#experiment-tracking-with-mlflow) describes the local server and artifact storage; tracking is separate from training execution.
 
-Updated 2026-11-13. The Intel brief has been reviewed against all 15 rendered PDF pages, including image-based requirements and the 100-point judging table. Source facts, analysis recommendations, and unresolved event details are separated in Gold.
+The [model release guide](docs/infrastructure/MODEL_RELEASES.md) records the private `model-smolvla-studio-smoke-1` release: 50 SmolVLA steps on a first Studio recording with two green-bowl episodes, followed by OpenVINO export and a CPU run on synthetic input. Its status is `smoke-test`, explicitly **not for the arm**; it does not establish two-task sorting or physical policy success. The released state contract uses Studio-normalized body joints (`−100…100`) and gripper (`0…100`), unlike the twin's degree-valued body joints and the dashboard v1 contract. Do not feed those values directly into the illustrative viewer.
 
-| Challenge | Source archive (Silver) | Analysis (Gold) |
-| :--- | :--- | :--- |
-| Intel Physical AI Challenge | [Original PDF](docs/2026/silver/Intel_Physical%20AI%20Hackathon.pdf) / [English transcript](docs/2026/silver/intel_physical_ai_hackathon.md) | [中文](docs/2026/gold/zh/intel_physical_ai_challenge.md) / [English](docs/2026/gold/en/intel_physical_ai_challenge.md) |
+Authenticated collaborators can follow that guide to download release assets into ignored `models/` storage and verify their hashes with `defect_sorter.model_release`. Weights and captured recordings never belong in Git.
 
-- [2026 Silver index](docs/2026/silver/README.md)
-- [2026 Gold index](docs/2026/gold/README.md)
+## Repository map
 
+| Path | Purpose |
+| --- | --- |
+| `frontend/` | Dashboard, illustrative scene, demo model and frontend tests |
+| `src/defect_sorter/geometry.py`, `scene.py` | Camera geometry, table plane, objects and colour bowls |
+| `src/defect_sorter/realsense.py` | Aligned RealSense colour/depth adapter |
+| `src/defect_sorter/uvc_controls.py`, `config/camera_controls.json` | Fixed USB camera-control profiles (`sorter-camera-lock`) |
+| `src/defect_sorter/depth_bridge.py` | Studio colour and layered-height MJPEG camera bridge (`sorter-depth-bridge`) |
+| `src/defect_sorter/webview.py`, `live_demo.py` | Latest-frame JPEG polling and JSON state for debug pages |
+| `src/defect_sorter/markers.py`, `alignment.py` | Printed markers, depth-refined poses, table frame and drift |
+| `src/defect_sorter/kinematics.py`, `joint_calibration.py`, `calibration_capture.py` | SO-101 kinematics and measure-only calibration |
+| `src/defect_sorter/motion.py`, `robot_pose.py`, `targeting.py` | Checked scripted moves, measured robot/model mapping and top-camera brick hover targets |
+| `packages/armkit/` | Workspace library: kinematics, collision model, guarded motion/calibration and servo adapters |
+| `src/defect_sorter/inspection.py`, `closed_loop.py` | Anomaly decisions and observe/inspect/plan/execute/verify loop |
+| `src/defect_sorter/twin.py`, `offline_pipeline.py`, `lerobot_export.py` | Twin, synthetic demonstrations/evaluation and LeRobot export |
+| `src/defect_sorter/training.py`, `training_preflight.py` | Training plans, dataset contracts and launch preflight |
+| `src/defect_sorter/episodes.py`, `docs/datasets/SORT_V1.md` | Recorded-episode review, hover/grasp clip ranges and recording protocol |
+| `src/defect_sorter/tracking.py`, `model_release.py` | MLflow logging and hashed private-model release manifests |
+| `tests/`, `configs/training/` | Python tests, policy recipes and example dataset contracts |
+| `external/physical-ai-studio/` | Pinned upstream; keep integration outside this submodule |
+| `memory/` | [Context](memory/PROJECT.md), [status](memory/STATUS.md), [decisions](memory/DECISIONS.md) and handoffs |
+| `docs/infrastructure/` | Setup, deployment, hardware, training and collaboration how-tos |
+| `docs/2026/`, `docs/past/` | Bronze source archive, Silver summaries and Gold analysis |
+
+The [execution plan](docs/plans/PHYSICAL_AI_EXECUTION_PLAN.md) defines deliverables and acceptance gates. The [twin study](docs/research/SO101_DIGITAL_TWIN.md) covers sim-to-real limits; [winner reuse research](docs/research/PAST_HARDWARE_WINNERS_REUSE.md) informs the direction. [Gemini/RL work](docs/plans/DEFERRED_GEMINI_RL_EXPERIMENTS.md) is deferred.
+
+## Challenge sources
+
+The [archived Intel brief](docs/2026/silver/intel_physical_ai_hackathon.md) and [pinned Studio event guide](external/physical-ai-studio/JUNCTION2026.md) have different judging tables. Team-relayed kickoff answers adopt the GitHub rubric; both sources are preserved. See the [decision log](memory/DECISIONS.md) for attribution and evidence limits.
+
+| Source | English | 中文 |
+| --- | --- | --- |
+| Intel analysis | [Analysis](docs/2026/gold/en/intel_physical_ai_challenge.md) | [分析](docs/2026/gold/zh/intel_physical_ai_challenge.md) |
+| Studio guide | [Guide](docs/2026/silver/en/intel_physical_ai_studio_guide.md) | [指南](docs/2026/silver/zh/intel_physical_ai_studio_guide.md) |
+| Open Edge Platform review | [Review](docs/2026/silver/en/open_edge_platform_repositories.md) | [评估](docs/2026/silver/zh/open_edge_platform_repositories.md) |
+| Creative options | [Options](docs/2026/gold/en/intel_physical_ai_creativity_options.md) | [方案](docs/2026/gold/zh/intel_physical_ai_creativity_options.md) |
+
+Browse the [Silver index](docs/2026/silver/README.md) and [Gold index](docs/2026/gold/README.md) for the research archive.
