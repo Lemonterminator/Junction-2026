@@ -26,7 +26,10 @@ import argparse
 import asyncio
 import json
 import logging
+import os
+import signal
 import sys
+import threading
 import time
 import urllib.request
 import uuid
@@ -35,7 +38,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, TextIO
 
 from defect_sorter.joint_calibration import TICKS_PER_DEGREE
 
@@ -218,9 +221,10 @@ def offset_brick(brick: BrickPose, *, dx_mm: float, dy_mm: float) -> BrickPose:
 	return dataclasses.replace(brick, centre_m=brick.centre_m + np.array([dx_mm, dy_mm, 0.0]) / 1000.0)
 
 
-GRASP_CORRECTION_MM: tuple[float, float, float] = (-10.0, -17.0, 5.0)
-"""Median offset (table frame) from the planned grasp point to where operators closed the jaws in
-grasp-from-standoff-v2 (28 clean episodes, spread about 16 mm): the calibration's systematic error at the grasp."""
+GRASP_CORRECTION_MM: tuple[float, float, float] = (10.0, -10.0, 3.0)
+"""Offset (table frame) added to the planned grasp point: the calibration's systematic error near the middle of the
+table, measured by hovering the jaws over a table tag after the 2026-11-15 recalibration (the jaws stopped about 1 cm
+short toward the robot and 1 cm toward tag 16)."""
 
 
 def scripted_grasp_target(grasp_m: np.ndarray, correction_mm: tuple[float, float, float]) -> np.ndarray:
@@ -345,6 +349,134 @@ class ReleaseMonitor:
 		if t_s - self._t0 > self.timeout_s:
 			return PlaceOutcome.TIMEOUT
 		return None
+
+
+BOWLS = ("green", "pink")
+
+
+def _interrupt_self() -> None:
+	"""Deliver SIGINT to this process: the main thread then stops exactly as on Ctrl+C."""
+	os.kill(os.getpid(), signal.SIGINT)
+
+
+class ControlChannel:
+	"""Events for a supervising process (JSON lines on ``out``) and its replies and commands (JSON lines on ``inp``).
+
+	With ``--control stdio`` the dashboard runs the cycle as a child process: every step is an event, the show asks it
+	to inspect each view (``view``) and the cycle asks it which bowl to use (``decide``). A ``{"command": "stop"}``
+	line, or the end of ``inp`` while the cycle still runs (the supervisor died or closed the pipe), calls
+	``on_stop`` once. The default sends SIGINT to this process, which takes the Ctrl+C path everywhere: a scripted move
+	holds the present position (:func:`~defect_sorter.motion.execute`) and a policy run sets control to None.
+
+	Replies are ``{"reply": <question id>, ...}``; anything else on ``inp`` is ignored.
+	"""
+
+	def __init__(
+		self,
+		out: TextIO,
+		inp: TextIO,
+		*,
+		on_stop: Callable[[], None] = _interrupt_self,
+		clock: Callable[[], float] = time.time,
+	) -> None:
+		self._out = out
+		self._inp = inp
+		self._on_stop = on_stop
+		self._clock = clock
+		self._lock = threading.Lock()
+		self._replies: dict[str, dict[str, Any]] = {}
+		self._stopped = threading.Event()
+		self._stop_sent = False
+		self._closed = False
+
+	@property
+	def stopped(self) -> bool:
+		"""Whether a stop was requested or the supervisor went away."""
+		return self._stopped.is_set()
+
+	def emit(self, event: str, **fields: Any) -> None:
+		"""Write one event line and flush it; a supervisor that went away is not an error here (EOF stops)."""
+		line = json.dumps({"event": event, "t": self._clock(), **fields}, allow_nan=False, default=float)
+		with self._lock:
+			try:
+				self._out.write(line + "\n")
+				self._out.flush()
+			except (OSError, ValueError):
+				logger.warning("supervisor gone; event %s not delivered", event)
+
+	def ask(self, event: str, *, timeout_s: float, poll_s: float = 0.1, **fields: Any) -> dict[str, Any] | None:
+		"""Emit a question and wait for its reply; None on timeout or stop.
+
+		The wait is a loop of short waits, so a pending SIGINT reaches the main thread within ``poll_s``.
+		"""
+		qid = uuid.uuid4().hex
+		self.emit(event, id=qid, timeout_s=timeout_s, **fields)
+		end = time.monotonic() + timeout_s
+		while time.monotonic() < end and not self.stopped:
+			with self._lock:
+				reply = self._replies.pop(qid, None)
+			if reply is not None:
+				return reply
+			self._stopped.wait(poll_s)
+		return None
+
+	def _stop(self) -> None:
+		with self._lock:
+			if self._stop_sent:
+				return
+			self._stop_sent = True
+		# The interrupt first: when a waiting question sees the stop, SIGINT is already pending in the main thread,
+		# which then raises KeyboardInterrupt before it can run another line of the cycle.
+		self._on_stop()
+		self._stopped.set()
+
+	def handle_line(self, line: str) -> None:
+		"""Take one input line: a reply, a stop command, or noise (ignored)."""
+		try:
+			message = json.loads(line)
+		except ValueError:
+			return
+		if not isinstance(message, dict):
+			return
+		if message.get("command") == "stop":
+			self._stop()
+		elif isinstance(message.get("reply"), str):
+			with self._lock:
+				self._replies[message["reply"]] = message
+
+	def handle_eof(self) -> None:
+		"""The input ended: a stop, unless the cycle already finished (:meth:`close`)."""
+		if not self._closed:
+			self._stop()
+
+	def close(self) -> None:
+		"""The cycle is over: the input ending afterwards is no longer a stop."""
+		self._closed = True
+
+	def start(self) -> threading.Thread:
+		"""Read ``inp`` on a daemon thread until it ends.
+
+		With the default stop (SIGINT to this process) it first makes SIGINT raise KeyboardInterrupt: a process
+		started from a background shell job (``nohup ... &``) inherits SIGINT as ignored, and Python then installs no
+		handler, so a stop would do nothing. Call it from the main thread.
+		"""
+		if self._on_stop is _interrupt_self:
+			signal.signal(signal.SIGINT, signal.default_int_handler)
+
+		def read() -> None:
+			for line in self._inp:
+				self.handle_line(line)
+			self.handle_eof()
+
+		thread = threading.Thread(target=read, name="hybrid-control", daemon=True)
+		thread.start()
+		return thread
+
+
+def bowl_from_reply(reply: Mapping[str, Any] | None) -> str | None:
+	"""The bowl a ``decide`` reply names, if it is one of :data:`BOWLS`; None holds the brick for review."""
+	bowl = None if reply is None else reply.get("bowl")
+	return bowl if bowl in BOWLS else None
 
 
 def environment_draft(environment: Mapping[str, Any]) -> dict[str, Any]:
@@ -506,28 +638,11 @@ def run_policy(
 
 
 def main(argv: list[str] | None = None) -> None:
-	"""``sorter-hybrid``: one sort cycle; plans and measures only, unless ``--go``."""
-	import numpy as np
+	"""``sorter-hybrid``: one sort cycle; plans and measures only, unless ``--go``.
 
-	from defect_sorter.joint_calibration import angles_from_ticks
-	from defect_sorter.kinematics import tool_pose
-	from defect_sorter.motion import (
-		MotionLimits,
-		_heights,
-		_measure_bowls,
-		_measure_brick,
-		execute,
-		gripper_ticks,
-		plan_bowl_drop,
-		plan_brick_hover,
-		plan_joint_move,
-		plan_lift,
-		plan_move,
-		to_ticks,
-	)
-	from defect_sorter.robot_pose import load_calibration, model_from_readings
-	from defect_sorter.so101_reader import SO101Driver, SO101Reader
-
+	With ``--control stdio`` stdout carries only :class:`ControlChannel` events (the human-readable lines become
+	``log`` events) and the last event is always ``end``, whichever way the cycle finished.
+	"""
 	parser = argparse.ArgumentParser(description="Hybrid sort cycle: scripted hover, policy grasp, scripted show/place")
 	parser.add_argument("--port", required=True, help="follower serial port (/dev/serial/by-id/...)")
 	parser.add_argument("--bridge", required=True, metavar="URL", help="running sorter-depth-bridge, http://host:port")
@@ -538,7 +653,25 @@ def main(argv: list[str] | None = None) -> None:
 	parser.add_argument("--environment", default="82b8829f-799a-4457-bba0-4d64a3ff302d")
 	parser.add_argument("--model", required=True, help="Studio model id of the grasp policy")
 	parser.add_argument("--device", default="CPU", help="OpenVINO device for the policy")
-	parser.add_argument("--bowl", choices=("green", "pink"), required=True, help="where the brick goes")
+	parser.add_argument(
+		"--bowl",
+		choices=(*BOWLS, "auto"),
+		required=True,
+		help="where the brick goes; auto: the supervisor inspects each show view and chooses (needs --control stdio)",
+	)
+	parser.add_argument(
+		"--control",
+		choices=("none", "stdio"),
+		default="none",
+		help="stdio: JSON-line events on stdout, replies and stop on stdin; the end of stdin stops the cycle",
+	)
+	parser.add_argument("--view-timeout", type=float, default=8.0, help="seconds to wait for each view's inspection")
+	parser.add_argument(
+		"--decide-timeout",
+		type=float,
+		default=120.0,
+		help="seconds to hold the brick in front of the camera while the supervisor (or a person) chooses the bowl",
+	)
 	parser.add_argument("--attempts", type=int, default=3)
 	parser.add_argument("--speed", type=float, default=15.0, help="scripted moves, deg/s")
 	parser.add_argument(
@@ -546,6 +679,9 @@ def main(argv: list[str] | None = None) -> None:
 	)
 	parser.add_argument("--grasp-timeout", type=float, default=12.0, help="seconds the policy gets per attempt")
 	parser.add_argument("--no-show", action="store_true", help="skip the show to the front camera")
+	parser.add_argument(
+		"--near", type=float, nargs=2, metavar=("X", "Y"), help="with several bricks in view: take the one nearest (mm)"
+	)
 	parser.add_argument(
 		"--grasp",
 		choices=("policy", "script"),
@@ -592,11 +728,75 @@ def main(argv: list[str] | None = None) -> None:
 	args = parser.parse_args(argv)
 	if args.place == "policy" and not args.place_model:
 		parser.error("--place policy needs --place-model")
+	if args.bowl == "auto" and args.control != "stdio":
+		parser.error("--bowl auto needs --control stdio (a supervisor that inspects and chooses)")
+	if args.bowl == "auto" and args.no_show:
+		parser.error("--bowl auto inspects during the show; drop --no-show")
+	# with --control stdio, stdout is the event stream: logging goes to stderr either way
 	logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+	channel = ControlChannel(sys.stdout, sys.stdin) if args.control == "stdio" else None
+	if channel is None:
+		_cycle(args, None)
+		return
+	channel.start()
+	try:
+		_cycle(args, channel)
+	except KeyboardInterrupt:
+		# the arm already holds: a further SIGINT (a second stop, a key press) must not cut the report short
+		signal.signal(signal.SIGINT, signal.SIG_IGN)
+		channel.close()
+		channel.emit("end", ok=False, reason="stopped by the operator: the arm holds where it is")
+		sys.exit(130)
+	except SystemExit as stop:
+		channel.close()
+		ok = stop.code in (None, 0)
+		channel.emit("end", ok=ok, reason=None if ok else str(stop.code))
+		raise
+	except Exception as error:
+		channel.close()
+		channel.emit("end", ok=False, reason=f"{type(error).__name__}: {error}; the arm holds where it is")
+		raise
+	channel.close()
+	channel.emit("end", ok=True, reason=None)
+
+
+def _cycle(args: argparse.Namespace, channel: ControlChannel | None) -> None:
+	"""The cycle behind :func:`main`; ``channel`` is None without a supervisor."""
+	import numpy as np
+
+	from defect_sorter.joint_calibration import angles_from_ticks
+	from defect_sorter.kinematics import tool_pose
+	from defect_sorter.motion import (
+		MotionLimits,
+		_heights,
+		_measure_bowls,
+		_measure_brick,
+		execute,
+		gripper_ticks,
+		plan_bowl_drop,
+		plan_brick_hover,
+		plan_joint_move,
+		plan_lift,
+		plan_move,
+		to_ticks,
+	)
+	from defect_sorter.robot_pose import load_calibration, model_from_readings
+	from defect_sorter.so101_reader import SO101Driver, SO101Reader
 
 	def say(msg: str) -> None:
+		if channel is not None:
+			channel.emit("log", text=msg)
+			return
 		sys.stdout.write(f"{time.strftime('%H:%M:%S')} {msg}\n")
 		sys.stdout.flush()
+
+	def mark(name: str, **fields: Any) -> None:
+		"""A step of the cycle for the supervisor (nothing without one)."""
+		if channel is not None:
+			channel.emit("phase", name=name, **fields)
+
+	def table_mm(point_m: np.ndarray) -> list[float]:
+		return [round(float(v) * 1000, 1) for v in point_m]
 
 	cal = load_calibration(args.calibration)
 	limits = MotionLimits(max_speed_deg_s=args.speed, max_reach_m=args.reach / 1000)
@@ -643,9 +843,11 @@ def main(argv: list[str] | None = None) -> None:
 			here = lift.path[-1]
 		return paths
 
-	def plan_drop(start: dict[str, float], ranges: dict) -> tuple[list[list[dict[str, float]]], str]:
-		"""Paths to the drop point over the chosen bowl: directly, or via the level carry pose; (paths, reason)."""
-		bowl = bowls[args.bowl]
+	def plan_drop(
+		start: dict[str, float], ranges: dict, bowl_name: str | None = None
+	) -> tuple[list[list[dict[str, float]]], str]:
+		"""Paths to the drop point over a bowl (the chosen one by default): directly, or via the level carry pose."""
+		bowl = bowls[bowl_name or args.bowl]
 		direct, point, why = plan_bowl_drop(start, bowl, calibration=cal, limits=limits, ranges=ranges, dt_s=dt)
 		if point is not None:
 			return [direct.path], ""
@@ -691,12 +893,22 @@ def main(argv: list[str] | None = None) -> None:
 			sys.exit(f"refused: cannot return to rest: {rest.reason}")
 		run_path(arm, rest.path, ranges, gripper)
 
+	mark("measure", go=args.go, bowl=args.bowl, grasp=args.grasp, place=args.place)
 	bowls = _measure_bowls((16, 17), args.bridge, frame_file=args.frame_file)
-	if args.bowl not in bowls:
-		sys.exit(f"refused: the {args.bowl} bowl is not seen")
-	say(
-		f"{args.bowl} bowl at ({bowls[args.bowl].centre_m[0] * 1000:.0f}, {bowls[args.bowl].centre_m[1] * 1000:.0f}) mm"
-	)
+	if channel is not None:
+		channel.emit(
+			"bowls",
+			bowls={
+				c: {"centre_mm": table_mm(b.centre_m), "radius_mm": round(b.radius_m * 1000, 1)}
+				for c, b in bowls.items()
+			},
+		)
+	needed = BOWLS if args.bowl == "auto" else (args.bowl,)
+	missing = [b for b in needed if b not in bowls]
+	if missing:
+		sys.exit(f"refused: the {' and '.join(missing)} bowl {'is' if len(missing) == 1 else 'are'} not seen")
+	for name in needed:
+		say(f"{name} bowl at ({bowls[name].centre_m[0] * 1000:.0f}, {bowls[name].centre_m[1] * 1000:.0f}) mm")
 
 	held = False
 	if args.from_held:
@@ -709,21 +921,34 @@ def main(argv: list[str] | None = None) -> None:
 			lifts = plan_lifts(here, ranges)
 			after = lifts[-1][-1] if lifts else {j: here[j] for j in BODY_JOINTS}
 			say(f"dry run: {len(lifts)} lift(s), tool then at {_heights(after, cal)[1] * 1000:.0f} mm")
-			paths, why = plan_drop(dict(here) | after, ranges)
-			steps = " + ".join(str(len(p)) for p in paths)
-			say(f"dry run: bowl drop {'ok, ' + steps + ' steps' if paths else 'REFUSED: ' + why}")
+			for name in needed:
+				paths, why = plan_drop(dict(here) | after, ranges, name)
+				steps = " + ".join(str(len(p)) for p in paths)
+				say(f"dry run: {name} bowl drop {'ok, ' + steps + ' steps' if paths else 'REFUSED: ' + why}")
 			return
 		lo, hi = ranges["gripper"]
 		squeeze = present - min(round(0.04 * (hi - lo)), round(0.7 * track))
 		held = True
 	for attempt in range(1, 0 if args.from_held else args.attempts + 1):
 		brick = _measure_brick(
-			(16, 17), None, args.bridge, exclude_xy_m=cal.base_position_m[:2], frame_file=args.frame_file
+			(16, 17),
+			None if args.near is None else np.array(args.near) / 1000,
+			args.bridge,
+			exclude_xy_m=cal.base_position_m[:2],
+			frame_file=args.frame_file,
 		)
 		say(
 			f"attempt {attempt}: brick at ({brick.centre_m[0] * 1000:.0f}, {brick.centre_m[1] * 1000:.0f}) mm, yaw "
 			f"{brick.yaw_deg:+.0f}; hover target moved by ({args.grasp_offset[0]:+.0f}, {args.grasp_offset[1]:+.0f}) mm"
 		)
+		if channel is not None:
+			channel.emit(
+				"brick",
+				attempt=attempt,
+				centre_mm=table_mm(brick.centre_m),
+				yaw_deg=round(brick.yaw_deg, 1),
+				size_mm=[round(brick.length_m * 1000, 1), round(brick.width_m * 1000, 1)],
+			)
 		brick = offset_brick(brick, dx_mm=args.grasp_offset[0], dy_mm=args.grasp_offset[1])
 		with (SO101Driver if args.go else SO101Reader)(args.port) as arm:
 			ranges = arm.ranges()
@@ -734,6 +959,14 @@ def main(argv: list[str] | None = None) -> None:
 				sys.exit(f"refused: hover: {why}")
 			say(
 				f"hover plan ok: {len(plan.path)} steps, approach {choice.tilt_deg:.0f} deg, roll {choice.roll.roll_deg:+.0f}"
+			)
+			mark(
+				"hover",
+				attempt=attempt,
+				steps=len(plan.path),
+				plan_s=round(len(plan.path) * dt, 1),
+				tilt_deg=round(choice.tilt_deg, 1),
+				roll_deg=round(choice.roll.roll_deg, 1),
 			)
 			if not args.go:
 				if args.grasp == "script":
@@ -759,6 +992,7 @@ def main(argv: list[str] | None = None) -> None:
 				say("dry run: nothing moved (add --go)")
 				return
 			run_path(arm, plan.path, ranges, gripper_ticks(HOVER_GRIPPER_OPEN, ranges["gripper"]))
+			mark("grasp", attempt=attempt, mode=args.grasp)
 			if args.grasp == "script":
 				target_m = scripted_grasp_target(choice.grasp_m, tuple(args.grasp_correction))
 				# the descent may bring the tool point (between the jaw tips) down to the brick's mid-height
@@ -787,6 +1021,7 @@ def main(argv: list[str] | None = None) -> None:
 				held_goal = close_on_brick(arm, ranges["gripper"])
 				if held_goal is None:
 					say(f"attempt {attempt}: missed (the jaws closed on nothing); back to rest to look again")
+					mark("missed", attempt=attempt, outcome="missed")
 					rise_and_rest(arm, ranges, None)
 					continue
 				say(f"attempt {attempt}: scripted grasp holds the brick")
@@ -819,10 +1054,12 @@ def main(argv: list[str] | None = None) -> None:
 				held = True
 				break
 			say(f"attempt {attempt}: {outcome.value}; back to rest to look again (the gripper is not opened)")
+			mark("missed", attempt=attempt, outcome=outcome.value)
 			rise_and_rest(arm, ranges, None)
 	if not held:
 		sys.exit(f"gave up after {args.attempts} attempts; the arm is at rest")
 
+	mark("lift")
 	with SO101Driver(args.port) as arm:
 		lifts = plan_lifts(body_now(arm, ranges), ranges)
 		for path in lifts:
@@ -832,6 +1069,7 @@ def main(argv: list[str] | None = None) -> None:
 			say("holding the brick: stopped after the grasp")
 			return
 		if not args.no_show:
+			mark("show", views=[h.name for h in SHOW_ROUTINE if h.hold_s > 0])
 			for hold in SHOW_ROUTINE:
 				move = plan_joint_move(
 					body_now(arm, ranges),
@@ -844,7 +1082,12 @@ def main(argv: list[str] | None = None) -> None:
 					sys.exit(f"refused: show pose {hold.name}: {move.reason}; the arm holds the brick where it is")
 				run_path(arm, move.path, ranges, squeeze)
 				say(f"show: {hold.name}")
-				time.sleep(hold.hold_s)
+				still_since = time.monotonic()
+				# the arm is still in this view now: with --bowl auto the supervisor scores a fresh front-camera frame
+				inspect = args.bowl == "auto" and channel is not None and hold.hold_s > 0
+				if inspect and channel.ask("view", timeout_s=args.view_timeout, name=hold.name) is None:
+					say(f"show: view {hold.name} was not inspected in {args.view_timeout:g} s")
+				time.sleep(max(0.0, hold.hold_s - (time.monotonic() - still_since)))
 		if args.place == "policy" and args.no_show:
 			# the place episodes start level in front of the front camera, where the show ends
 			start_pose = plan_joint_move(
@@ -853,6 +1096,16 @@ def main(argv: list[str] | None = None) -> None:
 			if not start_pose.ok:
 				sys.exit(f"refused: place start pose: {start_pose.reason}; the arm holds the brick where it is")
 			run_path(arm, start_pose.path, ranges, squeeze)
+	if args.bowl == "auto" and channel is not None:
+		# holding still in front of the front camera (the show ends level there) until a bowl is chosen
+		mark("decide")
+		reply = channel.ask("decide", timeout_s=args.decide_timeout)
+		chosen = bowl_from_reply(reply)
+		if chosen is None:
+			sys.exit("held for review: no bowl was chosen; the arm holds the brick in front of the camera")
+		args.bowl = chosen
+		say(f"decision: the {chosen} bowl ({(reply or {}).get('source', 'supervisor')})")
+	mark("place", bowl=args.bowl, mode=args.place)
 	if args.place == "policy":
 		instruction = place_instruction(args.bowl)
 		say(f"place policy: {instruction!r}")
@@ -873,6 +1126,8 @@ def main(argv: list[str] | None = None) -> None:
 			)
 		with SO101Driver(args.port) as arm:
 			say(f"released by the place policy ({args.bowl} bowl requested)")
+			mark("released", bowl=args.bowl)
+			mark("rest")
 			rise_and_rest(arm, ranges, None)
 			say("cycle done: the arm is at rest")
 		return
@@ -894,6 +1149,8 @@ def main(argv: list[str] | None = None) -> None:
 			sys.exit(f"STOPPED while releasing: {result.reason}")
 		time.sleep(0.5)
 		say(f"released over the {args.bowl} bowl")
+		mark("released", bowl=args.bowl)
+		mark("rest")
 		rest = plan_joint_move(
 			body_now(arm, ranges), body_degrees(REST, ranges), calibration=cal, limits=limits, ranges=ranges
 		)

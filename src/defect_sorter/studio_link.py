@@ -956,6 +956,75 @@ class StudioHub:
 			return 409, {"error": f"the newest frame from camera {camera_id} is {age:.1f} s old"}
 		return 200, self._score(frame, camera_id)
 
+	def camera_id(self, name_or_id: str) -> str | None:
+		"""The id of the project camera with this id, or else this name (case does not matter); None if none."""
+		with self._lock:
+			self._refresh()
+		cameras = self._lists.get("cameras") or []
+		for camera in cameras:
+			if str(camera["id"]) == name_or_id:
+				return name_or_id
+		for camera in cameras:
+			if str(camera.get("name", "")).lower() == name_or_id.lower():
+				return str(camera["id"])
+		return None
+
+	def fresh_frames(
+		self,
+		camera_id: str,
+		*,
+		newer_than: float,
+		count: int = 1,
+		timeout_s: float = 4.0,
+		poll_s: float = 0.05,
+		sleep: Callable[[float], None] = time.sleep,
+	) -> list[Frame]:
+		"""Up to ``count`` distinct preview frames of ``camera_id`` received after ``newer_than`` (Unix seconds).
+
+		For a view held still by a scripted move: a frame from before the arm stopped may be blurred or show the
+		previous pose, so it is never returned. Fewer frames (or none) when the time runs out: the camera is held
+		by a session, reconnecting, or gone. Asking keeps the relay connected.
+		"""
+		relay = self.relays.get(camera_id)
+		if relay is None:
+			return []
+		deadline = self._clock() + timeout_s
+		frames: list[Frame] = []
+		while len(frames) < count:
+			frame = relay.latest()
+			newest = frames[-1].sequence if frames else None
+			if frame is not None and frame.received_at > newer_than and frame.sequence != newest:
+				frames.append(frame)
+				continue
+			if self._clock() >= deadline:
+				break
+			sleep(poll_s)
+		return frames
+
+	def inspect_fresh(
+		self,
+		camera_id: str,
+		*,
+		newer_than: float,
+		timeout_s: float = 4.0,
+		poll_s: float = 0.05,
+		sleep: Callable[[float], None] = time.sleep,
+	) -> tuple[int, dict[str, Any]]:
+		"""Score the first frame of ``camera_id`` received after ``newer_than`` (see :meth:`fresh_frames`).
+
+		409 without an inspector or when no such frame arrives in ``timeout_s``.
+		"""
+		if self.inspector is None:
+			return 409, {"error": "no inspector configured; start the dashboard with --anomaly-model or --purity"}
+		frames = self.fresh_frames(camera_id, newer_than=newer_than, timeout_s=timeout_s, poll_s=poll_s, sleep=sleep)
+		if not frames:
+			relay = self.relays.get(camera_id)
+			detail = (
+				"" if relay is None else f" ({relay.status}: {relay.error})" if relay.error else f" ({relay.status})"
+			)
+			return 409, {"error": f"no fresh frame from camera {camera_id} in {timeout_s:g} s{detail}"}
+		return 200, self._score(frames[0], camera_id)
+
 	def _inspect_in_session(self, camera_id: str) -> Callable[[Any], str | None]:
 		"""Hook for :class:`PolicyRun`: score a session frame newer than the loaded model, then choose the task."""
 
@@ -980,6 +1049,10 @@ class StudioHub:
 
 	def _active(self) -> bool:
 		return self.run is not None and getattr(self.run, "phase", "running") in self.ACTIVE_PHASES
+
+	def run_active(self) -> bool:
+		"""Whether a run started here may still move the arm (or is being prepared)."""
+		return self._pending is not None or self._active()
 
 	def start_run(self, request: dict[str, Any]) -> tuple[int, dict[str, Any]]:
 		"""Start one run: a fixed sort, or ``INSPECT_AND_SORT``, which scores a fresh session frame after loading.

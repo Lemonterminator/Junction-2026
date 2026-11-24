@@ -1,13 +1,17 @@
-"""Serve the dashboard, host telemetry and an optional Physical AI Studio link on one origin.
+"""Serve the dashboard, host telemetry, an optional Physical AI Studio link and the cell link on one origin.
 
-Without ``--studio-url`` the server is read-only. With it, camera previews, the inspector and Studio's lists are
-proxied through :class:`~defect_sorter.studio_link.StudioHub`. Runs that move the arm additionally need
-``--studio-control`` on the command line; the browser cannot enable them.
+Without ``--studio-url`` and ``--bridge`` the server is read-only. With ``--studio-url``, camera previews, the
+inspector and Studio's lists are proxied through :class:`~defect_sorter.studio_link.StudioHub`. With ``--bridge`` the
+table is measured from the depth bridge and, with ``--hybrid-command``, the hybrid sort cycle runs under the
+dashboard (:class:`~defect_sorter.cell_link.CellHub`), inspecting each show view on the ``--inspect-camera``.
+Anything that moves the arm additionally needs ``--studio-control`` (Studio runs) or ``--cell-control`` (the cycle)
+on the command line; the browser cannot enable them. ``POST /api/stop`` stops both.
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import logging
 import mimetypes
@@ -22,6 +26,7 @@ from urllib.parse import unquote, urlsplit
 from defect_sorter.system_metrics import SystemMetrics
 
 if TYPE_CHECKING:
+	from defect_sorter.cell_link import CellHub
 	from defect_sorter.studio_link import StudioHub
 
 _LOGGER = logging.getLogger(__name__)
@@ -30,8 +35,25 @@ _LOGGER = logging.getLogger(__name__)
 _MAX_BODY = 16 * 1024
 
 
+class DashboardServer(ThreadingHTTPServer):
+	"""The dashboard's HTTP server: a deep listen backlog and daemon request threads.
+
+	A page load opens one connection per module, poll and image at once (HTTP/1.0, no keep-alive). The standard
+	backlog of 5 makes the operating system refuse some of them, and one refused module fetch leaves a blank page
+	without Live mode or its STOP button.
+	"""
+
+	request_queue_size = 128
+	daemon_threads = True
+
+
 def make_handler(
-	frontend: Path, metrics: SystemMetrics, telemetry_file: Path | None = None, studio: Any = None
+	frontend: Path,
+	metrics: SystemMetrics,
+	telemetry_file: Path | None = None,
+	studio: Any = None,
+	*,
+	cell: Any = None,
 ) -> type[BaseHTTPRequestHandler]:
 	"""Build a read-only handler with a shared one-second resource sample cache.
 
@@ -45,6 +67,8 @@ def make_handler(
 		Optional backend-written snapshot; the browser validates its v1 contract.
 	studio : StudioHub or None
 		Physical AI Studio link; Studio routes answer 204/404 without it.
+	cell : CellHub or None
+		Table measurement and the hybrid cycle; cell routes answer 204/404 without it.
 
 	Returns
 	-------
@@ -88,6 +112,9 @@ def make_handler(
 				return
 			if path.startswith("/api/studio/"):
 				self._studio_get(path)
+				return
+			if path.startswith("/api/cell/"):
+				self._cell_get(path)
 				return
 			if path == "/api/telemetry":
 				if telemetry_file is None or not telemetry_file.exists():
@@ -174,10 +201,34 @@ def make_handler(
 				{"X-Frame-Sequence": str(frame.sequence), "X-Frame-Age-Ms": str(age_ms)},
 			)
 
+		def _cell_get(self, path: str) -> None:
+			if cell is None:
+				self._send(204 if path == "/api/cell/state" else 404)
+				return
+			if path == "/api/cell/state":
+				self._json(200, cell.state())
+				return
+			if path == "/api/cell/table.jpg":
+				jpeg = cell.table_jpeg()
+				self._send(204) if jpeg is None else self._send(200, jpeg, "image/jpeg")
+				return
+			match = re.fullmatch(r"/api/cell/view/(\d{1,2})\.jpg", path)
+			if not match:
+				self._send(404)
+				return
+			crop = cell.view_crop(int(match.group(1)))
+			self._send(204) if crop is None else self._send(200, crop, "image/jpeg")
+
 		def do_POST(self) -> None:
 			path = unquote(urlsplit(self.path).path)
-			routes = {"/api/studio/run", "/api/studio/stop", "/api/studio/inspect"}
-			if studio is None or path not in routes:
+			studio_routes = {"/api/studio/run", "/api/studio/stop", "/api/studio/inspect"}
+			cell_routes = {"/api/cell/cycle", "/api/cell/stop", "/api/cell/review"}
+			known = (
+				path == "/api/stop"
+				or (studio is not None and path in studio_routes)
+				or (cell is not None and path in cell_routes)
+			)
+			if not known:
 				self._send(404)
 				return
 			# Commands need a JSON body and a custom header, which a cross-site page cannot send without a CORS
@@ -201,12 +252,26 @@ def make_handler(
 			except (ValueError, UnicodeError) as error:
 				self._json(400, {"error": str(error)})
 				return
-			if path == "/api/studio/stop":
+			if path == "/api/stop":
+				# STOP reaches everything that may hold the arm, whichever view the page is in
+				stopping = [link.stop_run()["stopping"] for link in (studio,) if link is not None]
+				stopping += [link.stop()["stopping"] for link in (cell,) if link is not None]
+				self._json(200, {"stopping": any(stopping)})
+			elif path == "/api/studio/stop":
 				self._json(200, studio.stop_run())
 			elif path == "/api/studio/inspect":
 				self._json(*studio.inspect(str(body.get("camera_id"))))
+			elif path == "/api/studio/run":
+				if cell is not None and cell.active():
+					self._json(409, {"error": "a hybrid cycle holds the arm; stop it first"})
+				else:
+					self._json(*studio.start_run(body))
+			elif path == "/api/cell/cycle":
+				self._json(*cell.start(body))
+			elif path == "/api/cell/stop":
+				self._json(200, cell.stop())
 			else:
-				self._json(*studio.start_run(body))
+				self._json(*cell.review(body))
 
 		def log_message(self, format: str, *args: object) -> None:
 			_LOGGER.debug(format, *args)
@@ -245,6 +310,104 @@ def _studio_hub(args: argparse.Namespace) -> StudioHub | None:
 	)
 
 
+VIEW_SETTLE_S = 0.5
+"""A show view is scored on a frame received this long after the arm reported it still (camera latency, settling)."""
+
+
+def _cell_hub(args: argparse.Namespace, studio: StudioHub | None) -> CellHub | None:
+	"""Build the table watcher and the hybrid cycle supervisor from the command line."""
+	if not (args.bridge or args.hybrid_command):
+		return None
+	import functools
+	import shlex
+
+	from defect_sorter.cell_link import CellHub, TableWatcher, measure_frame
+
+	table = None
+	if args.bridge:
+		from defect_sorter.depth_bridge import fetch_raw
+
+		base_xy = base_mm = None
+		if args.calibration is not None and args.calibration.is_file():
+			from defect_sorter.robot_pose import load_calibration
+
+			base = load_calibration(args.calibration).base_position_m
+			base_xy, base_mm = base[:2], [round(float(v) * 1000, 1) for v in base]
+		measure = functools.partial(
+			measure_frame, frame_file=args.frame_file, exclude_xy_m=base_xy, robot_base_mm=base_mm
+		)
+		table = TableWatcher(functools.partial(fetch_raw, args.bridge), measure)
+		table.start()
+
+	inspect_view = keepalive = info = None
+	if studio is not None and args.inspect_models:
+		from defect_sorter.live_inspection import CameraModelInspector, load_camera_models
+
+		models = load_camera_models(args.inspect_models, args.inspect_device)
+		names = dict(entry.split("=", 1) for entry in args.camera_map)
+		view_inspector = CameraModelInspector(
+			models, device=args.inspect_device, model=f"{args.inspect_models.parent.name} ({', '.join(models)})"
+		)
+		info = {"model": view_inspector.model, "device": args.inspect_device, "thresholds": view_inspector.thresholds}
+
+		def view_cameras() -> dict[str, str | None]:
+			return {key: studio.camera_id(names.get(key, key)) for key in models}
+
+		def inspect_view(name: str) -> dict[str, Any]:
+			newer = time.time() + VIEW_SETTLE_S
+			frames: dict[str, list[bytes]] = {}
+			for key, camera_id in view_cameras().items():
+				found = (
+					[]
+					if camera_id is None
+					else studio.fresh_frames(camera_id, newer_than=newer, count=args.view_frames, timeout_s=6.0)
+				)
+				frames[key] = [f.jpeg for f in found]
+			return view_inspector.inspect(frames)
+
+		def keepalive() -> None:
+			for camera_id in view_cameras().values():
+				if camera_id is not None:
+					studio.frame(camera_id)
+
+	elif studio is not None and studio.inspector is not None:
+		live = studio.inspector
+		info = {
+			"model": getattr(live, "model", None),
+			"device": getattr(live, "device", None),
+			"thresholds": {"normal_below": live.threshold - live.band, "defective_above": live.threshold + live.band},
+		}
+
+		def camera() -> str:
+			camera_id = studio.camera_id(args.inspect_camera)
+			if camera_id is None:
+				raise OSError(f"Studio has no camera named {args.inspect_camera!r} (set --inspect-camera)")
+			return camera_id
+
+		def inspect_view(name: str) -> dict[str, Any]:
+			status, body = studio.inspect_fresh(camera(), newer_than=time.time() + VIEW_SETTLE_S, timeout_s=6.0)
+			if status != 200:
+				raise OSError(body.get("error", f"inspection refused ({status})"))
+			return body | {"crop_jpeg": studio.crop_jpeg}
+
+		def keepalive() -> None:
+			with contextlib.suppress(OSError):
+				studio.frame(camera())
+
+	if args.cell_control:
+		_LOGGER.warning("Arm control is ON: the dashboard can start hybrid sort cycles (sorter-hybrid --go).")
+	return CellHub(
+		hybrid_command=shlex.split(args.hybrid_command) if args.hybrid_command else None,
+		control_enabled=args.cell_control,
+		table=table,
+		inspect_view=inspect_view,
+		busy=(lambda: studio.run_active()) if studio is not None else (lambda: False),
+		keepalive=keepalive,
+		inspector_info=info,
+		unsure_bowl=None if args.unsure_to == "ask" else args.unsure_to,
+	)
+
+
 def main() -> None:
 	"""Run the local dashboard server without opening cameras or robot devices."""
 	parser = argparse.ArgumentParser(description=__doc__)
@@ -277,12 +440,65 @@ def main() -> None:
 	inspect.add_argument("--purity", action="store_true", help="Use the colour-purity baseline instead of a model")
 	inspect.add_argument("--threshold", type=float, default=0.5, help="Defect threshold of the live inspector")
 	inspect.add_argument("--band", type=float, default=0.0, help="Half-width of the uncertain band")
+	cell = parser.add_argument_group("Cell (depth bridge and hybrid sort cycle)")
+	cell.add_argument("--bridge", metavar="URL", help="running sorter-depth-bridge, http://host:port (read only)")
+	cell.add_argument(
+		"--frame-file", type=Path, default=Path("data/depth/table-frame.json"), help="held table frame (read only)"
+	)
+	cell.add_argument(
+		"--calibration",
+		type=Path,
+		default=Path("data/calibration/robot.json"),
+		help="robot calibration: the base is drawn on the map and never taken for a brick (optional)",
+	)
+	cell.add_argument(
+		"--hybrid-command",
+		help="the sorter-hybrid command without --go/--bowl/--control (quoted), e.g. "
+		"'docker exec -i <studio container> python -m defect_sorter.hybrid --port ... --bridge ... --model ...'",
+	)
+	cell.add_argument(
+		"--cell-control",
+		action="store_true",
+		help="Allow the dashboard to run the hybrid cycle with --go, which MOVES THE ARM (operator present)",
+	)
+	cell.add_argument(
+		"--inspect-models",
+		type=Path,
+		help="per-camera anomaly models for the show views: a training summary.json "
+		'({"cameras": {"front": {"export": ..., "threshold": ...}, ...}}); needs the anomaly extra',
+	)
+	cell.add_argument("--inspect-device", default="CPU", help="OpenVINO device of --inspect-models: CPU, GPU or NPU")
+	cell.add_argument(
+		"--camera-map",
+		nargs="*",
+		default=[],
+		metavar="KEY=NAME",
+		help="Studio camera name for a model's camera key when they differ, e.g. front=Webcam",
+	)
+	cell.add_argument("--view-frames", type=int, default=3, help="frames per camera scored in each show view")
+	cell.add_argument(
+		"--inspect-camera",
+		default="front",
+		help="without --inspect-models: the Studio camera (name or id) the live inspector scores in each show view",
+	)
+	cell.add_argument(
+		"--unsure-to",
+		choices=("ask", "pink"),
+		default="ask",
+		help="an unsure brick waits for a person (ask) or goes to the reject bowl (pink); never to green",
+	)
 	args = parser.parse_args()
 	if not (args.frontend / "index.html").is_file():
 		parser.error("Frontend not found; run from the checkout root or set --frontend.")
+	if args.hybrid_command and " -i " not in f" {args.hybrid_command} " and args.hybrid_command.startswith("docker"):
+		parser.error("--hybrid-command through docker exec needs -i, or STOP cannot reach the cycle")
+	if any("=" not in entry for entry in args.camera_map):
+		parser.error("--camera-map takes KEY=NAME pairs")
 	logging.basicConfig(level=logging.INFO)
-	server = ThreadingHTTPServer(
-		(args.host, args.port), make_handler(args.frontend, SystemMetrics(), args.telemetry_file, _studio_hub(args))
+	studio_hub = _studio_hub(args)
+	server = DashboardServer(
+		(args.host, args.port),
+		make_handler(args.frontend, SystemMetrics(), args.telemetry_file, studio_hub, cell=_cell_hub(args, studio_hub)),
 	)
 	_LOGGER.info("Dashboard: http://%s:%s/", args.host, args.port)
 	try:

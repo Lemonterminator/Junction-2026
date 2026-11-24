@@ -1,5 +1,51 @@
 # Current status
 
+## Update 2026-11-15 — arm test of grasp-mix3-act-e30-aug (user-approved)
+
+- Two single attempts, `sorter-hybrid --grasp policy --model c50b8de3 --attempts 1 --stop-after-grasp --speed 20`,
+  ACT on the CPU, scripted hover passed both times (15 deg approach). Both timed out (12 s, then 25 s) with no grasp;
+  the arm returned to rest cleanly each time. Traces: container `/tmp/data/logs/hybrid/grasp-20261115-0826*` and
+  `-0830*` (container `/tmp` is not durable).
+- From the traces (tool point in the table frame): the hover leaves the jaws ~22 mm from the brick; the policy then
+  moves them 4–6 cm past the brick, down to the table by ~4 s, opens the gripper wide (75–95) and drags the jaws
+  along the paper, never over the brick and never closing (ended 22 mm and 46 mm off). The operator saw it go to the
+  left of the brick. mix2-act-e30-aug (`9663a60d`) grasped first time with the same hover earlier, so mix3 looks
+  worse on the arm; not compared side by side today.
+- Between the attempts one read-only plan check failed with servo 1 (shoulder pan) not answering register 9; after
+  the operator checked the arm all six servos answered again.
+
+## Update 2026-11-15 — dashboard runs the real cell: depth table, hybrid cycle, per-view inspection
+
+- The Armigo page now drives the system as built ([DASHBOARD.md](../docs/infrastructure/DASHBOARD.md#the-real-cell-table-from-depth-and-the-hybrid-sort-cycle)):
+  panel **The real cell** in Live shows the depth bridge's top view with bowls, bricks and objects per bowl measured by
+  the cycle's own functions (`cell_link.measure_frame`), a table map in mm, and runs `sorter-hybrid` under the
+  dashboard: plan check (no motion) or a full cycle (`--cell-control`, operator box), nine timed steps, the cycle log,
+  each show view's crop and score, operator review buttons, and a depth check of the drop. Typed sorting commands go
+  to the cycle; STOP (`/api/stop`) reaches the cycle and Studio runs alike.
+- `hybrid.py`: `--control stdio` (`ControlChannel`, JSON lines) and `--bowl auto` (the supervisor inspects each
+  still show pose and chooses the bowl; the arm holds the brick in front of the camera meanwhile). A stop line or the
+  end of stdin is SIGINT (scripted moves hold, a policy run sets control to None); SIGINT is made to raise even when
+  inherited as ignored, the interrupt is pending before a waiting question can return, further SIGINTs are ignored
+  once stopping. `--near` kept from the earlier uncommitted change. Plain CLI use is unchanged.
+- Inspection of the views uses the team's inspect-v3 per-camera PatchCore exports exactly as `classify_block.py` does
+  (`live_inspection.CameraModelInspector`: front/wrist regions, worst frame per camera, own threshold, ±10 % unsure),
+  with frames from Studio's camera previews taken ≥0.5 s after the arm stopped. Decision (`cell_link.decide_bowl`):
+  any defect → pink, all clear in ≥2 views → green, else a person decides (`--unsure-to pink` matches `~/demo.sh`).
+- Tests written first and seen failing: `tests/test_cell_link.py` (new, incl. real child processes for the protocol,
+  STOP as SIGINT and the ignored-SIGINT case), new cases in `test_hybrid.py`, `test_live_inspection.py`,
+  `test_studio_link.py`, `test_dashboard.py`, and `frontend/tests/cell.test.mjs`.
+- Checked on a Mac only, against a stand-in rig in headless Chromium (fake depth bridge with real ArUco anchors, fake
+  Studio previews, fake cycle on the protocol, a tiny real OpenVINO model as the per-camera export): plan check, cycles
+  decided by inspection, by the operator and by a typed command, STOP mid-grasp, depth verification. Found and fixed on
+  the way: STOP did nothing when the dashboard was started from a background job (SIGINT inherited as ignored); a stop
+  could let a waiting question return before the interrupt; a command that could not start left the cycle "starting"; Python's default listen backlog of 5 refused page-load
+  connections (blank page, no Live/STOP, ~1 load in 5): the server now uses 128.
+  The page now also works without WebGL (3D views replaced by a note).
+- **Not yet run with the real Studio previews, the inspect-v3 exports on the NPU or the arm.** Risks: Studio's preview
+  JPEGs (quality 60 by default) differ from the frames the models were thresholded on (saved at ~95) — check a known
+  good and a known defective brick first; the container needs this revision's code (`--control stdio`); the camera
+  preview path itself is still unverified against the real Studio. Workstation command template in `.local/`.
+
 ## Update 2026-11-15 — async camera-to-policy pipeline & FP16 Intel benchmark (Linan)
 
 Branch `feat/async-inference-pipeline`; full report in [ASYNC_PIPELINE_BENCHMARK.md](../docs/infrastructure/ASYNC_PIPELINE_BENCHMARK.md) (`scripts/hardware_profiling/bench_async_pipeline.py`, raw output in ignored `artifacts/async_pipeline_benchmark.json`). Zero `/dev/ttyACM*` arm motion (`DryRunCell` only) and zero `/dev/video*` camera takeover (reads live `:8092` `depth_bridge` streams + recorded `sort-depth-v2` observations).
