@@ -170,7 +170,7 @@ def main(
 	print(json.dumps(summary, indent=2))  # noqa: T201
 	try:
 		volume.listdir(layout.dataset_path)
-	except FileNotFoundError:
+	except (FileNotFoundError, modal.exception.NotFoundError):
 		raise SystemExit(f"recording not in the Volume; upload first:\n  {summary['upload']}") from None
 	remote_plan = plan.remote(recipe_, asdict(dataset_), dataset_name, run_name)
 	print(json.dumps({k: remote_plan[k] for k in ("dataset_status", "episodes", "output_dir", "run_exists")}, indent=2))  # noqa: T201
