@@ -158,3 +158,48 @@ See [ASYNC_PIPELINE_BENCHMARK.md](ASYNC_PIPELINE_BENCHMARK.md) for the second-ro
 - **SmolVLA `sort-depth-v2` on GPU FP16** ran at **149.43 ms** median (`smolvla_fp32` IR) and **153.86 ms** (`smolvla_fp16` IR, p95 `156.54 ms`), vs **3889.83 ms** on CPU FP32 (~26× speedup), with `cosine_similarity >= 0.99991` and preserved green vs pink task action separation.
 - **PaDiM on 8 real held-brick crops** (`4` normal, `4` defective): `GPU_f16` did not collapse on real crops (`1.776 ms` median, `0.999996` correlation vs CPU FP32, `8/8` accuracy) and `NPU_f16` matched CPU FP32 (`10.923 ms` median, `1.0` correlation, `8/8` accuracy); PatchCore failed NPU compilation (`ZE_RESULT_ERROR_INVALID_ARGUMENT`). Larger held-out validation-set parity for PaDiM `GPU_f16` remains open.
 - **Concurrent GPU + NPU + CPU**: running `smolvla_fp16` (`GPU_f16`) alongside `padim_fp16` (`NPU`) and live `:8092` HTTP capture added only `+2.43 %` inspection overhead and `+3.57 %` VLA overhead vs solo runs; wrapping execution in `AsyncChunkPolicy` + `AsyncInspectionStage` reduced steady-state `policy.act()` latency to **0.0071 ms** median (`p95 = 0.0309 ms`) vs **193.78 ms** (`5.16 Hz`) synchronous serial end-to-end.
+
+## Round 3 (2026-11-15): the models of the running sort cycle, on real observations
+
+Scope: the three models the hybrid cycle (`sorter-hybrid`, `~/demo.sh` on the workstation) actually runs, measured on
+real recorded observations: the held-out grasp-from-standoff episodes and the hand-loaded inspection frames from the
+front and wrist cameras. Inference only, no arm motion. CPU numbers marked "busy" were taken while another benchmark
+shared the CPU; the idle figures come from the earlier runs the same morning.
+
+| Model (export) | Role in the cycle | CPU | GPU (Arc B390) | NPU | Agreement with CPU |
+| --- | --- | ---: | ---: | ---: | --- |
+| SmolVLA `grasp-mix2-smolvla-e15` (Studio OpenVINO export, chunk 50, 3 cameras) | grasp from the scripted hover | 2378 ms | **131 ms** | not tried | same task error (action MAE 4.76 CPU, 4.75 GPU) |
+| ACT `grasp-mix2-act-e30-aug` (chunk 100, 3 cameras) | grasp, alternative | 76–87 ms idle, 143 ms busy | **10–11 ms** | not tried | mean 0.018, max 0.11 normalized units on 8 observations |
+| PatchCore front camera (wide_resnet50, static 2×3×256×256) | inspection | ≈250 ms idle, 518 ms busy | **10.9 ms** | **87–140 ms** | scores within 0.10, correlation 1.0000 |
+| PatchCore wrist camera (same) | inspection | ≈250 ms idle, 509 ms busy | **10.7 ms** | **87–140 ms** | scores within 0.21, correlation 1.0000 |
+
+Grasp-model quality on the four held-out hover episodes (where the policy closes the gripper against where the
+operator did, replaying the recorded observations): SmolVLA 10.8 mm median on CPU and 8.8 mm on GPU (per-clip spread
+within its run-to-run variation), ACT 11.9 mm.
+
+### Findings
+
+1. **SmolVLA on the GPU is usable as exported by Studio.** Round 1 found the GPU plugin's `Bucketize` bug corrupting
+   the vision position embedding; on real observations this model's actions agree between CPU and GPU (same task
+   error), so the bug does not measurably change the grasp. GPU is 18× faster than CPU.
+2. **ACT now compiles and runs on the GPU** (an earlier ACT export failed GPU compilation) with near-identical output,
+   13× faster than CPU.
+3. **PatchCore is correct on all three devices** with a static batch of 2 (the shape the export was traced with). Unlike
+   Padim in round 1, its GPU FP16 scores match CPU; and unlike round 2's PatchCore, it compiles on the NPU (the static
+   2×3×256×256 shape is the difference we know of).
+4. **Allocation used in the running cycle:** SmolVLA grasp on the GPU through a Studio runtime session, PatchCore on the
+   NPU (24 inspection frames scored in 2.2 s including model load), capture, scripted motion and control on the CPU,
+   the split round 2 measured at 2–4 % mutual slowdown when run concurrently.
+5. **Device time is not the bottleneck of a cycle.** A full cycle took 71 s: 18 s of it is Studio loading the
+   environment and the model for each grasp, 27 s the inspection poses, about 5 s the grasp itself.
+
+### Open
+
+- SmolVLA and ACT on the NPU were not tried; INT8 was not tried for any model.
+- The inspection thresholds were calibrated on CPU scores; the NPU and GPU scores agree to within 0.2, far below the
+  12–17 point margin between good and taped bricks, so the same thresholds hold.
+- Keeping one Studio session open across the grasp (instead of loading the environment and model per attempt) would
+  remove most of the per-cycle overhead.
+
+Scripts (workstation, `~/policy-eval/`): `eval_grasp.py` (grasp replay and close-point error), `act_parity.py`,
+`anomaly_parity.py`, `anomaly_inspect.py` (per-camera PatchCore training and export), `classify_block.py` (live decision).

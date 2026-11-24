@@ -297,3 +297,148 @@ class TestScriptedGraspTarget:
 
 		target = scripted_grasp_target(np.array([0.10, -0.05, 0.008]), (-10.0, -17.0, 5.0))
 		np.testing.assert_allclose(target, [0.090, -0.067, 0.013])
+
+
+class TestControlChannel:
+	"""JSON lines to and from the supervising dashboard; a stop or a lost supervisor interrupts like Ctrl+C."""
+
+	def channel(self):
+		import io
+
+		from defect_sorter.hybrid import ControlChannel
+
+		stops: list[int] = []
+		out = io.StringIO()
+		ch = ControlChannel(out, io.StringIO(), on_stop=lambda: stops.append(1), clock=lambda: 12.5)
+		return ch, out, stops
+
+	@staticmethod
+	def lines(out) -> list[dict]:
+		import json
+
+		return [json.loads(line) for line in out.getvalue().splitlines()]
+
+	def test_an_event_is_one_json_line_with_its_time(self):
+		ch, out, _ = self.channel()
+		ch.emit("phase", name="hover", steps=40)
+		assert self.lines(out) == [{"event": "phase", "t": 12.5, "name": "hover", "steps": 40}]
+
+	def test_a_question_returns_the_reply_with_its_id(self):
+		import json
+		import threading
+
+		ch, out, _ = self.channel()
+
+		def answer():
+			while not out.getvalue():
+				pass
+			ask = self.lines(out)[0]
+			ch.handle_line(json.dumps({"reply": ask["id"], "bowl": "pink"}))
+
+		threading.Thread(target=answer, daemon=True).start()
+		reply = ch.ask("decide", timeout_s=5, poll_s=0.01)
+		assert self.lines(out)[0]["event"] == "decide"
+		assert reply is not None
+		assert reply["bowl"] == "pink"
+
+	def test_a_reply_to_another_question_is_ignored_and_the_question_times_out(self):
+		ch, _, _ = self.channel()
+		ch.handle_line('{"reply": "someone-else", "bowl": "pink"}')
+		assert ch.ask("decide", timeout_s=0.05, poll_s=0.01) is None
+
+	def test_stop_interrupts_once_and_cancels_a_pending_question(self):
+		ch, _, stops = self.channel()
+		ch.handle_line('{"command": "stop"}')
+		ch.handle_line('{"command": "stop"}')
+		ch.handle_eof()
+		assert stops == [1]
+		assert ch.stopped
+		assert ch.ask("view", timeout_s=5, poll_s=0.01) is None
+
+	def test_the_interrupt_is_sent_before_a_waiting_question_can_see_the_stop(self):
+		import io
+
+		from defect_sorter.hybrid import ControlChannel
+
+		seen = []
+		ch = ControlChannel(io.StringIO(), io.StringIO(), on_stop=lambda: seen.append(ch.stopped))
+		ch.handle_line('{"command": "stop"}')
+		assert seen == [False], "the main thread must already have the interrupt pending when its wait ends"
+		assert ch.stopped
+
+	def test_a_lost_supervisor_stops_the_cycle_but_not_after_it_ended(self):
+		ch, _, stops = self.channel()
+		ch.handle_eof()
+		assert stops == [1]
+		ch2, _, stops2 = self.channel()
+		ch2.close()
+		ch2.handle_eof()
+		assert stops2 == []
+
+	def test_noise_on_the_input_is_ignored(self):
+		ch, _, stops = self.channel()
+		for line in ["", "not json", "[1, 2]", '{"command": "dance"}']:
+			ch.handle_line(line)
+		assert stops == []
+		assert not ch.stopped
+
+	def test_start_makes_sigint_raise_even_when_it_was_inherited_as_ignored(self):
+		import io
+		import signal
+
+		from defect_sorter.hybrid import ControlChannel
+
+		before = signal.signal(signal.SIGINT, signal.SIG_IGN)
+		try:
+			ch = ControlChannel(io.StringIO(), io.StringIO())
+			ch.close()  # the empty input ends at once; a finished channel does not take that as a stop
+			ch.start().join(timeout=5)
+			assert signal.getsignal(signal.SIGINT) is signal.default_int_handler
+		finally:
+			signal.signal(signal.SIGINT, before)
+
+	def test_the_reader_thread_takes_commands_from_the_input(self):
+		import io
+
+		from defect_sorter.hybrid import ControlChannel
+
+		stops: list[int] = []
+		ch = ControlChannel(io.StringIO(), io.StringIO('{"command": "stop"}\n'), on_stop=lambda: stops.append(1))
+		ch.start().join(timeout=5)
+		assert stops == [1]
+
+	@pytest.mark.parametrize(
+		("reply", "bowl"),
+		[
+			({"bowl": "green"}, "green"),
+			({"bowl": "pink"}, "pink"),
+			({"bowl": "blue"}, None),
+			({"bowl": None}, None),
+			(None, None),
+		],
+	)
+	def test_only_a_known_bowl_is_taken_from_a_reply(self, reply, bowl):
+		from defect_sorter.hybrid import bowl_from_reply
+
+		assert bowl_from_reply(reply) == bowl
+
+
+def test_an_event_to_a_supervisor_that_went_away_does_not_raise():
+	import io
+
+	from defect_sorter.hybrid import ControlChannel
+
+	out = io.StringIO()
+	out.close()
+	ControlChannel(out, io.StringIO(), on_stop=lambda: None).emit("log", text="still holding")
+
+
+class TestCommandLine:
+	def test_auto_bowl_needs_a_supervisor_and_the_show(self):
+		from defect_sorter.hybrid import main
+
+		base = ["--port", "/dev/null", "--bridge", "http://h:1", "--model", "m"]
+		with pytest.raises(SystemExit):
+			main([*base, "--bowl", "auto"])
+		with pytest.raises(SystemExit):
+			main([*base, "--bowl", "auto", "--control", "stdio", "--no-show"])

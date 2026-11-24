@@ -6,10 +6,26 @@ import { InferenceWindow, mountPerformance } from './performance.mjs';
 import { mountIntro } from './intro.mjs';
 import { parseCommand, ACTIONS } from './command.mjs';
 import { studioView, inspectionSnapshot, SessionRecorder, ageText, stopPlan, stopStatus, leavingLiveStops, liveBrickModel } from './studio.mjs';
+import { cycleView, cycleSnapshot, mapLayout, cycleRequest } from './cell.mjs';
 
 const $ = id => document.getElementById(id);
-const cell = new Cell3D($('scene'), $('annotations'));
-const brickViews = new BrickViews($('brick-canvas'));
+/** The 3D cell is illustrative; without WebGL (some laptops, remote desktops) the rest of the page must still work. */
+function makeScene3d() {
+	try { return new Cell3D($('scene'), $('annotations')); }
+	catch (error) {
+		const note = Object.assign(document.createElement('div'), {id: 'scene', className: 'scene-fallback', textContent: `3D view unavailable here (${error.message}). Everything else works.`});
+		$('scene').replaceWith(note);
+		return {setState() {}, focus() {}, annotate() {}, reset() {}};
+	}
+}
+const scene3d = makeScene3d();
+const brickViews = (() => {
+	try { return new BrickViews($('brick-canvas')); }
+	catch (error) {
+		$('brick-canvas').replaceWith(Object.assign(document.createElement('div'), {id: 'brick-canvas', className: 'scene-fallback', textContent: '3D brick views unavailable here.'}));
+		return {show() {}};
+	}
+})();
 const inferenceWindow = new InferenceWindow();
 const recorder = new SessionRecorder({maxSeconds: 90});
 
@@ -24,6 +40,9 @@ let studio = null;            // last /api/studio/state
 let liveSeq = 0;
 let tourIndex = -1;
 let recording = false, recordTimer = null, replayTimer = null, replayStart = 0;
+let cell = null;              // last /api/cell/state (null = no cell link)
+let cellLinked = false;       // the server has a cell link: a cycle may exist
+let lastCycleKey = null;      // what of the cycle the decision panel last showed
 
 // ------------------------------------------------------------------ decision, meter, timings
 const SEGMENTS = 25;
@@ -104,9 +123,9 @@ function render() {
 	if (demo) {
 		const seed = part * 7 + 1;
 		brickViews.show({label: decided ? s.label : 'none', colour: BRICK_COLOURS[part % BRICK_COLOURS.length], defect: decided || s.stage === 'detect' ? demoDefect(s.label, seed) : null});
-		cell.setState(s, {brickColor: BRICK_COLOURS[part % BRICK_COLOURS.length], defect: s.label === 'normal' ? null : (demoDefect(s.label, seed)?.kind ?? null)});
+		scene3d.setState(s, {brickColor: BRICK_COLOURS[part % BRICK_COLOURS.length], defect: s.label === 'normal' ? null : (demoDefect(s.label, seed)?.kind ?? null)});
 	} else {
-		cell.setState(s);
+		scene3d.setState(s);
 	}
 	updatePitch(summary);
 	renderButtons();
@@ -116,7 +135,9 @@ function renderButtons() {
 	const busy = Boolean(timer);
 	const live = source === 'live';
 	$('inspect').disabled = source === 'replay' || busy || (live && !studio?.inspector);
-	$('inspect').firstChild.textContent = live ? 'Inspect live part ' : busy ? 'Inspecting… ' : 'Inspect next part ';
+	$('inspect').firstChild.textContent = live ? 'Inspect live part ' : busy ? 'Playing… ' : 'Play a demo part ';
+	$('inspect').title = live ? (studio?.inspector ? 'Score the newest frame of the chosen camera' : 'Needs the dashboard started with --studio-url and --purity or --anomaly-model')
+		: 'Illustrative animation. Switch to Live to inspect a real part.';
 	$('play').disabled = source !== 'demo';
 	$('scenario').disabled = source !== 'demo';
 	$('play').textContent = busy ? 'Pause demo' : 'Play demo';
@@ -152,7 +173,7 @@ $('inspect').addEventListener('click', () => {
 });
 $('play').addEventListener('click', () => timer ? pause() : runDemo($('scenario').value));
 $('scenario').addEventListener('change', () => { pause(); runDemo($('scenario').value); });
-$('reset-view').addEventListener('click', () => cell.reset());
+$('reset-view').addEventListener('click', () => scene3d.reset());
 document.addEventListener('keydown', e => {
 	if ($('intro-dialog').open || e.code !== 'Space' || e.repeat || /^(INPUT|SELECT|TEXTAREA|BUTTON|A|CANVAS)$/.test(e.target.tagName)) return;
 	e.preventDefault(); if (!$('inspect').disabled) $('inspect').click();
@@ -171,15 +192,15 @@ function setBadge(id, tone, text, blink = false) {
 }
 function setSource(next) {
 	if (next === 'replay' && !recorder.entries.length) { reply('refuse', 'Nothing recorded yet', 'Record something in Live first.'); return; }
-	// Leaving Live hides the cameras, so a run that may still move is stopped first.
-	if (leavingLiveStops(source, next, studio?.run)) stopEverything();
+	// Leaving Live hides the cameras and the cell panel, so a run or cycle that may still move is stopped first.
+	if (leavingLiveStops(source, next, studio?.run) || (source === 'live' && next !== 'live' && cell?.cycle?.active)) stopEverything();
 	source = next;
 	document.querySelectorAll('[data-source]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.source === source)));
 	stopReplay();
 	if (source === 'demo') { $('brick-source').textContent = 'Demo'; $('brick-note').textContent = 'The circle marks where the defect is.'; }
 	if (source === 'live') { pause(); $('brick-source').textContent = 'Live'; $('brick-note').textContent = 'Left: what the model scored.'; }
 	if (source === 'replay') { pause(); startReplay(); }
-	updateBadges(); renderRunConfig(); render();
+	updateBadges(); renderRunConfig(); renderCell(); render();
 }
 document.querySelectorAll('[data-source]').forEach(b => b.addEventListener('click', () => setSource(b.dataset.source)));
 
@@ -192,8 +213,9 @@ function updateBadges() {
 	const ins = studio?.inspector;
 	setBadge('device-badge', ins ? 'ok' : '', ins ? `Inspector on ${ins.device ?? '?'}` : 'No inspector');
 	$('live-headline').textContent = v.status === 'off' ? 'Studio link off. Start the dashboard with --studio-url to see the cell’s cameras.' : v.headline;
-	$('control-lock').textContent = studio?.control_enabled ? 'Arm unlocked' : 'Arm locked';
-	$('control-lock').style.color = studio?.control_enabled ? 'var(--amber)' : '';
+	const unlocked = Boolean(studio?.control_enabled || cell?.control_enabled);
+	$('control-lock').textContent = unlocked ? 'Arm unlocked' : 'Arm locked';
+	$('control-lock').style.color = unlocked ? 'var(--amber)' : '';
 }
 
 // ------------------------------------------------------------------ live: Studio polling and camera tiles
@@ -269,6 +291,8 @@ async function pollStudio() {
 	renderRunConfig();
 	renderRun();
 	const inspection = studio?.inspection;
+	// During a cycle each view is one inspection; the decision panel follows the cycle's decision over all views.
+	if (cell?.cycle?.active && inspection) lastInspectionAt = inspection.timestamp;
 	if (source === 'live' && inspection && inspection.timestamp !== lastInspectionAt) showInspection(inspection, inspection.frame_age_ms ?? 0);
 	const busy = source === 'live' || stopRequested || Boolean(studioView(studio).run?.stoppable);
 	setTimeout(pollStudio, busy ? 700 : 2500);
@@ -380,7 +404,9 @@ async function execute(parsed) {
 		else runDemo(parsed.action === 'SORT_GREEN' ? 'normal' : 'defective');
 		return;
 	}
-	// Live
+	// Live: sorting runs the hybrid cycle when the dashboard has one; inspecting alone stays a Studio inspection.
+	const request = cycleRequest(parsed.action);
+	if (request && cell?.configured) { await startCycle(request); return; }
 	if (!studio?.reachable) { reply('error', 'Studio not connected', studioView(studio).headline); return; }
 	const cameraId = $('run-camera').value;
 	if (parsed.action === 'INSPECT' || (parsed.action === 'INSPECT_AND_SORT' && !studio.control_enabled)) {
@@ -406,14 +432,14 @@ async function execute(parsed) {
 }
 
 async function stopEverything() {
-	const plan = stopPlan({linked: studioLinked, demoRunning: Boolean(timer)});
+	const plan = stopPlan({linked: studioLinked || cellLinked, demoRunning: Boolean(timer)});
 	if (plan.demo) pause();
 	planSteps.forEach(s => { if (s.status === 'active') s.status = 'held'; }); drawPlan();
 	if (!plan.backend) { reply('ok', 'Stopped', 'Demo paused.'); return; }
 	stopRequested = true;
 	renderRun();
 	try {
-		const r = await post('/api/studio/stop', {});
+		const r = await post('/api/stop', {});
 		if (r.status !== 200) throw new Error(r.data?.error ?? `HTTP ${r.status}`);
 		if (r.data?.stopping) reply('ok', 'Stop requested', 'Waiting for Studio to confirm the arm is held.');
 		else { stopRequested = false; reply('ok', 'Nothing was running', 'No run to stop.'); }
@@ -461,10 +487,32 @@ function renderRunConfig() {
 	fill($('run-model'), studio.models, m => `${m.name} (${m.backends.join(', ') || 'no export'})`);
 	fill($('run-camera'), studio.cameras, c => c.name);
 	$('operator-present').disabled = !studio.control_enabled;
+	// With the cell's cycle configured, sorting goes there: only the inspection camera matters here.
+	const cycle = Boolean(cell?.configured);
+	document.querySelectorAll('[data-studio-run]').forEach(el => { el.hidden = cycle; });
+	$('cycle-route').hidden = !cycle;
+	if (!$('run-camera').dataset.picked) {
+		const front = studio.cameras.find(c => /front/i.test(c.name));
+		if (front) $('run-camera').value = front.id;
+	}
 }
+$('run-camera').addEventListener('change', () => { $('run-camera').dataset.picked = '1'; });
 
 /** The run bar shows in every view while a run may exist, so STOP is always one click away. */
 function renderRun() {
+	const cycle = cell?.cycle;
+	if (cycle && (cycle.active || (stopRequested && !studio?.run))) {
+		const view = cycleView(cell);
+		$('run-bar').hidden = false;
+		const done = view.steps.filter(s => ['done', 'skipped'].includes(s.status)).length;
+		let text = `Sort cycle · ${view.headline} · ${Math.round(cycle.seconds)} s`;
+		if (stopRequested && cycle.active) text = `Stop requested · waiting for the cycle to hold the arm. ${text}`;
+		if (stopRequested && !cycle.active) { stopRequested = false; text = `Stopped · ${cycle.end?.reason ?? 'the arm holds still'}`; }
+		$('run-text').textContent = text;
+		$('run-progress').style.width = `${Math.round(100 * done / view.steps.length)}%`;
+		$('stop-run').disabled = !cycle.active;
+		return;
+	}
 	const run = studioView(studio).run;
 	const stop = stopStatus(studio?.run ?? null, stopRequested);
 	$('run-bar').hidden = !run && stop !== 'requested';
@@ -491,7 +539,7 @@ const TOUR = [
 		metric: ['Outcomes per part', '3'],
 		notes: [{anchor: 'spot', title: 'New part'}, {anchor: 'green', title: 'Pass'}, {anchor: 'pink', title: 'Reject', tone: 'red'}, {anchor: 'review', title: 'Review', tone: 'amber'}]},
 	{view: 'camera', title: 'See the part', scenario: 'defective', stage: 'perceive',
-		text: 'The camera takes one picture of the brick.',
+		text: 'A depth camera above the table finds the brick and both bowls in millimetres. After the pick, the front camera sees the brick from every side.',
 		notes: [{anchor: 'camera', title: 'Camera'}, {anchor: 'spot', title: 'Brick'}]},
 	{view: 'laptop', title: 'Score it on the NPU', scenario: 'defective', stage: 'detect',
 		text: 'Anomalib learned what good bricks look like and flags anything unusual. It runs on the laptop’s NPU.',
@@ -506,7 +554,7 @@ const TOUR = [
 		metric: ['Defect score', '0.51'],
 		notes: [{anchor: 'review', title: 'Review', text: '0.51', tone: 'amber'}]},
 	{view: 'arm', title: 'Sort it', scenario: 'normal', stage: 'act',
-		text: 'For a clear result the arm runs one trained task, like “place it in the green plate”.',
+		text: 'A checked, scripted path brings the gripper over the brick, a learned policy grasps it, and the clear result picks the plate. A depth check then confirms the brick landed.',
 		metric: ['Defect score', '0.21'],
 		notes: [{anchor: 'arm', title: 'SO-101'}, {anchor: 'green', title: 'Pass', text: '0.21'}]},
 	{view: 'laptop', title: 'All on one laptop', scenario: null,
@@ -531,8 +579,8 @@ function showTour(i) {
 	$('tour-dots').replaceChildren(...TOUR.map((_, k) => Object.assign(document.createElement('i'), {className: k === tourIndex ? 'on' : ''})));
 	$('tour-prev').disabled = tourIndex === 0;
 	$('tour-next').textContent = tourIndex === TOUR.length - 1 ? 'Finish' : 'Next';
-	cell.focus(step.view);
-	cell.annotate(step.notes);
+	scene3d.focus(step.view);
+	scene3d.annotate(step.notes);
 	if (source === 'demo' && step.scenario) {
 		pause();
 		const target = stateAt(step.scenario, step.stage);
@@ -545,7 +593,7 @@ function showTour(i) {
 	}
 	if (step.scroll) $(step.scroll).scrollIntoView({behavior: 'smooth', block: 'center'});
 }
-function endTour() { tourIndex = -1; $('tour-card').hidden = true; $('scene').parentElement.classList.remove('touring'); cell.annotate([]); cell.reset(); }
+function endTour() { tourIndex = -1; $('tour-card').hidden = true; $('scene').parentElement.classList.remove('touring'); scene3d.annotate([]); scene3d.reset(); }
 $('start-tour').addEventListener('click', () => { if (source === 'replay') setSource('demo'); $('scene').scrollIntoView({behavior: 'smooth', block: 'center'}); showTour(0); });
 $('tour-next').addEventListener('click', () => tourIndex === TOUR.length - 1 ? endTour() : showTour(tourIndex + 1));
 $('tour-prev').addEventListener('click', () => showTour(tourIndex - 1));
@@ -558,9 +606,185 @@ document.addEventListener('keydown', e => {
 });
 $('intro-enter').addEventListener('click', () => { $('start-tour').click(); });
 
+// ------------------------------------------------------------------ the real cell: table from depth and the hybrid cycle
+const tableLoader = new LatestImageLoader($('table-image'), () => { $('table-waiting').hidden = false; });
+const SVG = 'http://www.w3.org/2000/svg';
+function svg(tag, attrs, text) {
+	const el = document.createElementNS(SVG, tag);
+	for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+	if (text !== undefined) el.textContent = text;
+	return el;
+}
+function drawMap(reading, target) {
+	const layout = mapLayout(reading);
+	const [x0, y0, w, h] = layout.viewBox;
+	const map = $('table-map');
+	map.setAttribute('viewBox', layout.viewBox.join(' '));
+	map.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+	const fs = Math.max(w, h) / 26, items = [];
+	for (let x = Math.ceil(x0 / 50) * 50; x <= x0 + w; x += 50) items.push(svg('line', {x1: x, y1: y0, x2: x, y2: y0 + h, class: x === 0 ? 'axis' : 'grid', 'stroke-width': fs / 10}));
+	for (let y = Math.ceil(y0 / 50) * 50; y <= y0 + h; y += 50) items.push(svg('line', {x1: x0, y1: y, x2: x0 + w, y2: y, class: y === 0 ? 'axis' : 'grid', 'stroke-width': fs / 10}));
+	if (layout.base) {
+		items.push(svg('circle', {cx: layout.base.x, cy: layout.base.y, r: 45, class: 'base', 'stroke-width': fs / 6}));
+		items.push(svg('text', {x: layout.base.x, y: layout.base.y + fs / 3, 'text-anchor': 'middle', 'font-size': fs}, 'Robot'));
+	}
+	for (const b of layout.bowls) {
+		items.push(svg('circle', {cx: b.x, cy: b.y, r: b.r, class: `bowl-${b.colour}`, 'stroke-width': fs / 5}));
+		items.push(svg('text', {x: b.x, y: b.y, 'text-anchor': 'middle', 'font-size': fs}, b.colour));
+		items.push(svg('text', {x: b.x, y: b.y + fs * 1.2, 'text-anchor': 'middle', 'font-size': fs * .8}, b.label));
+		if (Number.isFinite(b.inside)) items.push(svg('text', {x: b.x, y: b.y - fs * 1.2, 'text-anchor': 'middle', 'font-size': fs * .8}, `${b.inside} inside`));
+	}
+	for (const b of layout.bricks) {
+		items.push(svg('rect', {x: b.x - b.w / 2, y: b.y - b.h / 2, width: b.w, height: b.h, rx: 2, class: 'brick', 'stroke-width': fs / 8, transform: `rotate(${b.rotate} ${b.x} ${b.y})`}));
+		items.push(svg('text', {x: b.x, y: b.y - b.h / 2 - fs / 2, 'text-anchor': 'middle', 'font-size': fs * .8}, b.label));
+	}
+	if (target) items.push(svg('circle', {cx: target[0], cy: -target[1], r: 26, class: 'target', 'stroke-width': fs / 6}));
+	items.push(svg('rect', {x: -10, y: -10, width: 20, height: 20, class: 'tag', 'stroke-width': fs / 8}));
+	items.push(svg('text', {x: 14, y: fs * 1.2, 'font-size': fs * .8}, 'tag 16'));
+	map.replaceChildren(...items);
+}
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+function renderCell() {
+	$('cell-panel').hidden = !(source === 'live' && cell);
+	if ($('cell-panel').hidden) return;
+	const cycle = cell.cycle;
+	const view = cycleView(cell, {token: cycle?.id ?? ''});
+	const table = cell.table;
+	const reading = table?.reading;
+	const tableOk = table?.status === 'live' && table.age_ms !== null && table.age_ms < 5000;
+	setBadge('table-badge', !table ? '' : tableOk ? (reading?.table ? 'ok' : 'warn') : table.status === 'error' ? 'bad' : '',
+		!table ? 'No depth bridge (--bridge)' : tableOk ? (reading?.table ? `Top camera · ${plural(reading.bowls.length, "bowl")}, ${plural(reading.bricks.length, "brick")} · ${Math.round(reading.measure_ms)} ms` : 'Top camera · no table frame')
+			: table.status === 'error' ? `Depth bridge: ${table.error}` : 'Top camera: waiting');
+	const tone = {running: 'live', review: 'warn', done: 'ok', planned: 'ok', stopped: 'warn', failed: 'bad', held: 'warn'}[view.status] ?? '';
+	setBadge('cycle-badge', tone === 'live' ? '' : tone, cycle ? `${cycle.go ? 'Cycle' : 'Plan check'} · ${view.status}${cycle.active ? ` · ${Math.round(cycle.seconds)} s` : ''}` : 'No cycle yet', tone === 'live');
+	const headline = $('cycle-headline');
+	headline.textContent = view.headline;
+	headline.className = `cycle-headline ${view.status === 'review' || view.status === 'held' ? 'review' : ['failed', 'stopped'].includes(view.status) ? 'fault' : view.status === 'done' ? 'done' : ''}`;
+	$('cycle-steps').replaceChildren(...view.steps.map(s => {
+		const li = document.createElement('li');
+		li.className = s.status;
+		li.innerHTML = '<b><span></span><em></em></b><small></small>';
+		li.querySelector('span').textContent = s.title;
+		li.querySelector('em').textContent = Number.isFinite(s.seconds) ? `${s.seconds.toFixed(1)} s` : '';
+		li.querySelector('small').textContent = s.detail || s.sub;
+		li.title = `${s.title}: ${s.detail || s.sub}`;
+		return li;
+	}));
+	$('cycle-review').hidden = !view.review;
+	const tiles = view.views.map(v => {
+		const el = document.createElement('article');
+		el.className = `view-tile ${v.tone}`;
+		el.innerHTML = '<div class="shot"></div><div class="meta"><span></span><strong></strong></div>';
+		const shot = el.querySelector('.shot');
+		if (v.crop) shot.append(Object.assign(document.createElement('img'), {src: v.crop, alt: `Crop scored for the ${v.name} view`}));
+		else shot.textContent = v.reason ?? 'not scored';
+		el.querySelector('span').textContent = v.name.replace('_', ' ');
+		el.querySelector('strong').textContent = v.scoreText;
+		const cams = Object.entries(v.cameras ?? {}).map(([cam, c]) => `${cam} ${Number.isFinite(c.score) ? c.score.toFixed(1) : '—'} / ${Number.isFinite(c.threshold) ? c.threshold.toFixed(1) : '—'} ${c.verdict}`);
+		el.title = [`${v.label} · score ${v.scoreText}`, ...cams, v.reason].filter(Boolean).join('\n');
+		return el;
+	});
+	const viewsEl = $('cycle-views');
+	if (viewsEl.dataset.key !== `${cycle?.id}:${view.views.length}`) { viewsEl.replaceChildren(...tiles); viewsEl.dataset.key = `${cycle?.id}:${view.views.length}`; }
+	$('cycle-log').replaceChildren(...view.log.slice(-40).map(line => {
+		const li = document.createElement('li');
+		li.innerHTML = '<span></span>';
+		li.querySelector('span').textContent = `${line.t_s.toFixed(1)} s`;
+		li.append(line.text);
+		return li;
+	}));
+	$('cycle-plan').disabled = !view.canPlan;
+	$('cycle-go').disabled = !view.canGo;
+	$('cycle-stop').hidden = !view.canStop;
+	$('cell-operator').disabled = !view.canGo && !view.canStop;
+	$('cycle-lock').textContent = view.lockText || (cell.inspector ? '' : 'No inspector: start the dashboard with --anomaly-model or --purity, or every brick waits for you to choose.');
+	$('table-note').textContent = reading?.table ? `Table frame, mm (${reading.table})` : reading?.reason ? `No table frame: ${reading.reason}` : 'Table frame, mm (tag 16 at the origin)';
+	drawMap(reading?.table ? reading : null, cycle?.active ? cycle.brick?.centre_mm : null);
+}
+
+let reportedCycle = null;
+function showCycle() {
+	const cycle = cell?.cycle;
+	if (source !== 'live' || !cycle) return;
+	if (!cycle.active && cycle.end && reportedCycle !== cycle.id && !(cycle.released_bowl && cell.table && !cycle.verify && cycle.end.ok)) {
+		reportedCycle = cycle.id;
+		const view = cycleView(cell);
+		reply({done: 'ok', planned: 'ok', failed: 'error'}[view.status] ?? 'refuse', view.status === 'planned' ? 'Plan checked' : `Cycle ${view.status}`, view.headline);
+		planSteps.forEach(step => { if (step.status !== 'done') step.status = ['done', 'planned'].includes(view.status) ? 'done' : view.status === 'failed' ? 'failed' : 'held'; });
+		drawPlan();
+	}
+	const key = JSON.stringify([cycle.id, cycle.phase, cycle.steps.length, cycle.views.length, cycle.decision, cycle.verify, cycle.awaiting_review]);
+	if (key === lastCycleKey) return;
+	lastCycleKey = key;
+	const ins = cell.inspector;
+	const t = ins?.thresholds;
+	const thresholds = t && Number.isFinite(t.normal_below) && Number.isFinite(t.defective_above) && t.normal_below <= t.defective_above
+		? {normal_below: Math.max(0, Math.min(1, t.normal_below)), defective_above: Math.max(0, Math.min(1, t.defective_above))} : null;
+	const snapshot = cycleSnapshot(cycle, Math.floor((cycle.id ?? 0) / 1000) % 1e9, {device: ins?.device ?? null, thresholds});
+	if (!snapshot) return;
+	snapshot.episode_id = `Cycle ${new Date(cycle.id).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'})}`;
+	pause();
+	state = snapshot;
+	if (cycle.active) planProgress(snapshot.stage);
+	$('crop-figure').hidden = !cycle.views.some(v => v.crop);
+	const last = cycle.views.map((v, i) => [v, i]).filter(([v]) => v.crop).at(-1);
+	if (last) $('crop-image').src = `/api/cell/view/${last[1]}.jpg?c=${cycle.id}`;
+	render();
+}
+
+async function pollCell() {
+	try {
+		const response = await fetch('/api/cell/state', {cache: 'no-store', signal: AbortSignal.timeout(4000)});
+		cell = response.status === 204 ? null : await response.json();
+		if (cell) cellLinked = true;
+	} catch { /* keep the last state; the run bar keeps STOP available */ }
+	renderCell();
+	showCycle();
+	renderRun();
+	const fast = source === 'live' && (cell?.cycle?.active || stopRequested);
+	setTimeout(pollCell, fast ? 500 : 1500);
+}
+
+let tableTick = 0;
+function pumpTable() {
+	if (source === 'live' && cell?.table && !document.hidden) {
+		tableTick++;
+		tableLoader.setSource(`/api/cell/table.jpg?n=${tableTick}`);
+		$('table-waiting').hidden = Boolean(tableLoader.displayed);
+	}
+	setTimeout(pumpTable, 1000);
+}
+
+async function startCycle(request) {
+	if (request.go && !cell?.control_enabled) { reply('refuse', 'Arm locked', 'Start the dashboard with --cell-control to run the sort cycle. “Check plan” works without it.'); return; }
+	if (request.go && !$('cell-operator').checked) { reply('refuse', 'Confirm someone is at the robot', 'Tick “Someone is at the robot” in the cell panel first.'); $('cell-operator').focus(); return; }
+	const r = await post('/api/cell/cycle', request);
+	if (r.status !== 202) { reply('error', request.go ? 'Cycle refused' : 'Plan check refused', r.data?.error ?? `HTTP ${r.status}`); return; }
+	stopRequested = false;
+	lastCycleKey = null;
+	reply('ok', request.go ? (request.bowl ? `Sorting to the ${request.bowl} bowl` : 'Sort cycle started') : 'Checking the plan',
+		request.go ? (request.bowl ? 'The views are still inspected and shown; the bowl was named in the command.' : 'Measure, pick, show it to the camera from every side, then the result picks the bowl.') : 'Measuring the table and planning the moves. The arm does not move.');
+	cell = {...cell, cycle: {active: true, go: request.go, phase: 'starting', seconds: 0, steps: [], log: [], views: [], decision: null, awaiting_review: false, verify: null, end: null}};
+	renderCell(); renderRun();
+}
+$('cycle-plan').addEventListener('click', () => startCycle({go: false, bowl: null}));
+$('cycle-go').addEventListener('click', () => startCycle({go: true, bowl: null}));
+$('cycle-stop').addEventListener('click', () => stopEverything());
+$('cycle-review').addEventListener('click', async e => {
+	const choice = e.target.closest('[data-review]')?.dataset.review; if (!choice) return;
+	const r = await post('/api/cell/review', {bowl: choice === 'hold' ? null : choice});
+	if (r.status !== 200) reply('error', 'Choice not taken', r.data?.error ?? `HTTP ${r.status}`);
+	else reply('ok', choice === 'hold' ? 'Holding the brick' : `Sending it to the ${choice} bowl`, 'Chosen by you.');
+});
+
 // ------------------------------------------------------------------ start
 render();
 updateBadges();
 mountIntro();
 mountPerformance();
 pollStudio();
+pollCell();
+pumpTable();
+// The operator's screen at the cell opens straight in Live: http://<host>:8080/#live
+if (location.hash === '#live') setSource('live');
