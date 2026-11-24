@@ -442,3 +442,57 @@ class TestCommandLine:
 			main([*base, "--bowl", "auto"])
 		with pytest.raises(SystemExit):
 			main([*base, "--bowl", "auto", "--control", "stdio", "--no-show"])
+
+
+def test_squeeze_goal_clamps_offset_to_tracking_cap():
+	from defect_sorter.hybrid import _squeeze_goal
+
+	# 4% of 2000 is 80, 0.7 * 100 is 70 -> capped at 70 below present
+	assert _squeeze_goal(1500, {"gripper": (1000, 3000)}, track=100) == 1430
+	# 4% of 1000 is 40, 0.7 * 100 is 70 -> uses 40 below present
+	assert _squeeze_goal(1500, {"gripper": (1000, 2000)}, track=100) == 1460
+
+
+def test_plan_scripted_descent_caps_speed_and_height(monkeypatch):
+	import numpy as np
+
+	from defect_sorter import motion
+	from defect_sorter.hybrid import _plan_scripted_descent
+
+	seen: dict[str, object] = {}
+
+	def fake_plan_move(start, target_m, *, roll_deg, calibration, limits, ranges, dt_s, approach_table):
+		from types import SimpleNamespace
+
+		seen["target_m"] = target_m
+		seen["limits"] = limits
+		seen["roll_deg"] = roll_deg
+		seen["dt_s"] = dt_s
+		return SimpleNamespace(ok=True, path=[dict(start)], reason="")
+
+	monkeypatch.setattr(motion, "plan_move", fake_plan_move)
+
+	class FakeRoll:
+		roll_deg = 12.5
+
+	class FakeChoice:
+		grasp_m = np.array([0.2, 0.0, 0.02])
+		approach = np.array([0.0, 0.0, -1.0])
+		roll = FakeRoll()
+
+	res = _plan_scripted_descent(
+		{"shoulder_pan": 0.0},
+		FakeChoice(),
+		correction_mm=(5.0, -2.0, 1.0),
+		speed=25.0,
+		reach_mm=380.0,
+		calibration=object(),
+		ranges={},
+		dt=0.05,
+	)
+	assert res.ok
+	assert seen["roll_deg"] == 12.5
+	assert seen["dt_s"] == 0.05
+	assert seen["limits"].max_speed_deg_s == 10.0
+	assert seen["limits"].min_tool_height_m == 0.004
+	assert np.allclose(seen["target_m"], np.array([0.205, -0.002, 0.021]))

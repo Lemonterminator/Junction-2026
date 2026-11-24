@@ -760,6 +760,44 @@ def main(argv: list[str] | None = None) -> None:
 	channel.emit("end", ok=True, reason=None)
 
 
+def _squeeze_goal(present: int, ranges: Mapping[str, tuple[int, int]], track: int) -> int:
+	"""Gripper goal ticks that keep a held brick pinched without tripping overload."""
+	lo, hi = ranges["gripper"]
+	return present - min(round(0.04 * (hi - lo)), round(0.7 * track))
+
+
+def _plan_scripted_descent(
+	start: Mapping[str, float],
+	choice: Any,
+	*,
+	correction_mm: tuple[float, float, float],
+	speed: float,
+	reach_mm: float,
+	calibration: Any,
+	ranges: Mapping[str, tuple[int, int]],
+	dt: float,
+) -> Any:
+	"""Plan the slow, height-relaxed descent from hover to the brick mid-height."""
+	from defect_sorter.motion import MotionLimits, plan_move
+
+	target_m = scripted_grasp_target(choice.grasp_m, correction_mm)
+	grasp_limits = MotionLimits(
+		max_speed_deg_s=min(speed, 10.0),
+		max_reach_m=reach_mm / 1000,
+		min_tool_height_m=0.004,
+	)
+	return plan_move(
+		start,
+		target_m,
+		roll_deg=choice.roll.roll_deg,
+		calibration=calibration,
+		limits=grasp_limits,
+		ranges=ranges,
+		dt_s=dt,
+		approach_table=choice.approach,
+	)
+
+
 def _cycle(args: argparse.Namespace, channel: ControlChannel | None) -> None:
 	"""The cycle behind :func:`main`; ``channel`` is None without a supervisor."""
 	import numpy as np
@@ -926,8 +964,7 @@ def _cycle(args: argparse.Namespace, channel: ControlChannel | None) -> None:
 				steps = " + ".join(str(len(p)) for p in paths)
 				say(f"dry run: {name} bowl drop {'ok, ' + steps + ' steps' if paths else 'REFUSED: ' + why}")
 			return
-		lo, hi = ranges["gripper"]
-		squeeze = present - min(round(0.04 * (hi - lo)), round(0.7 * track))
+		squeeze = _squeeze_goal(present, ranges, track)
 		held = True
 	for attempt in range(1, 0 if args.from_held else args.attempts + 1):
 		brick = _measure_brick(
@@ -971,19 +1008,16 @@ def _cycle(args: argparse.Namespace, channel: ControlChannel | None) -> None:
 			if not args.go:
 				if args.grasp == "script":
 					target_m = scripted_grasp_target(choice.grasp_m, tuple(args.grasp_correction))
-					dry_limits = MotionLimits(
-						max_speed_deg_s=min(args.speed, 10.0), max_reach_m=args.reach / 1000, min_tool_height_m=0.004
-					)
 					after_hover = body_now(arm, ranges) | plan.path[-1]
-					down = plan_move(
+					down = _plan_scripted_descent(
 						after_hover,
-						target_m,
-						roll_deg=choice.roll.roll_deg,
+						choice,
+						correction_mm=tuple(args.grasp_correction),
+						speed=args.speed,
+						reach_mm=args.reach,
 						calibration=cal,
-						limits=dry_limits,
 						ranges=ranges,
-						dt_s=dt,
-						approach_table=choice.approach,
+						dt=dt,
 					)
 					say(
 						f"scripted descent to ({target_m[0] * 1000:.0f}, {target_m[1] * 1000:.0f}, {target_m[2] * 1000:.0f}) mm: "
@@ -994,20 +1028,16 @@ def _cycle(args: argparse.Namespace, channel: ControlChannel | None) -> None:
 			run_path(arm, plan.path, ranges, gripper_ticks(HOVER_GRIPPER_OPEN, ranges["gripper"]))
 			mark("grasp", attempt=attempt, mode=args.grasp)
 			if args.grasp == "script":
-				target_m = scripted_grasp_target(choice.grasp_m, tuple(args.grasp_correction))
 				# the descent may bring the tool point (between the jaw tips) down to the brick's mid-height
-				grasp_limits = MotionLimits(
-					max_speed_deg_s=min(args.speed, 10.0), max_reach_m=args.reach / 1000, min_tool_height_m=0.004
-				)
-				down = plan_move(
+				down = _plan_scripted_descent(
 					body_now(arm, ranges),
-					target_m,
-					roll_deg=choice.roll.roll_deg,
+					choice,
+					correction_mm=tuple(args.grasp_correction),
+					speed=args.speed,
+					reach_mm=args.reach,
 					calibration=cal,
-					limits=grasp_limits,
 					ranges=ranges,
-					dt_s=dt,
-					approach_table=choice.approach,
+					dt=dt,
 				)
 				if not down.ok:
 					say(f"attempt {attempt}: no checked descent ({down.reason}); back to rest")
@@ -1048,8 +1078,7 @@ def _cycle(args: argparse.Namespace, channel: ControlChannel | None) -> None:
 			sys.exit("STOPPED: Studio still holds the follower's port after the policy; the arm holds where it is.")
 		with SO101Driver(args.port) as arm:
 			present = arm.read_ticks()["gripper"]
-			lo, hi = ranges["gripper"]
-			squeeze = present - min(round(0.04 * (hi - lo)), round(0.7 * track))
+			squeeze = _squeeze_goal(present, ranges, track)
 			if outcome is GraspOutcome.HELD:
 				held = True
 				break
