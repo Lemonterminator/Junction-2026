@@ -33,6 +33,28 @@ Branch `feat/async-inference-pipeline`; full report in [ASYNC_PIPELINE_BENCHMARK
   The sim recipe now runs on 8 x L40S in one Modal container (effective batch 64, 3,750
   steps, lr 2e-4, warm-up 250). A first single-GPU run was stopped after ~600 steps
   without a checkpoint, before this change.
+- Result: run `smolvla-sim-ddp8-01` (8 x H100, 3,750 steps, ~13 min of training, exit 0):
+  validation loss 0.112 after epoch 1 and 0.082 after epoch 2 on held-out simulated
+  episodes; final train loss 0.028. Downloaded to `artifacts/training/smolvla-sim-ddp8-01`
+  (best.ckpt = step 3299) and logged to MLflow `defect-sorter-training` with tag
+  `source = sim` (tracking now tags `sim` datasets instead of `real`). Not comparable with
+  the real sort-depth-v2 validation loss, and not yet evaluated on the arm or the twin.
+- Copied to the Intel workstation `intel:~/models/smolvla/smolvla-sim-ddp8-01/` (OpenVINO IR
+  with `release.json`, status candidate, source sim; plus `checkpoints/best.ckpt`); hashes
+  verified there. Studio settings untouched, no arm motion.
+- `scripts/sim/policy_eval.py` + `scripts/sim/modal_policy_eval.py`: closed-loop policy
+  evaluation in the MuJoCo cell (four rendered cameras, outcome correct / wrong bowl /
+  dropped / never grasped). Written but not yet run: the evaluation was stopped in favour of
+  the sort-depth-v2 fine-tune before its first container started.
+- Fine-tune on real data: `configs/training/smolvla_sort_depth_v2_from_sim.toml` warm-starts
+  from smolvla-sim-ddp8-01 and uses the sort-depth-v2-10k validation episodes, so its
+  validation loss compares with that run (0.292 best).
+- Result: run `smolvla-v2-from-sim-01` (8 x H100, 2,000 steps, exit 0): validation loss
+  0.335 / 0.334 / 0.335 after epochs 1-3 (best.ckpt = step 1029), final train loss 0.043.
+  Worse than sort-depth-v2-10k (0.292) on the same held-out episodes, so the sim detour did
+  not help on this metric; the baseline remains the safer arm candidate. Logged to MLflow
+  (`source = real`, `warm_start = smolvla-sim-ddp8-01`) and copied with OpenVINO IR to
+  `intel:~/models/smolvla/smolvla-v2-from-sim-01/`, hashes verified there.
 - The Modal spend limit is now raised (the sim render ran there). The Volume holds
   `/datasets/sim-batch-v1` and `/warm-start/sort-depth-v2-10k`.
 

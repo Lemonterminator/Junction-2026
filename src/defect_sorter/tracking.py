@@ -2,8 +2,8 @@
 
 Training runs are logged after they finish, from the run directory that ``defect_sorter.training run`` writes
 (``plan.json``, Lightning's ``metrics/version_*/metrics.csv``, ``checkpoints/``), so the trainer's isolated
-environment does not need MLflow. Every run is tagged with its data ``source`` (``twin`` or ``real``) so twin results
-never sit unlabelled next to real ones. Reading run directories needs no MLflow; logging needs the ``tracking`` extra::
+environment does not need MLflow. Every run is tagged with its data ``source`` (``twin``, ``sim`` or ``real``) so twin
+and simulated results never sit unlabelled next to real ones. Reading run directories needs no MLflow; logging needs the ``tracking`` extra::
 
 	uv run --extra tracking mlflow server --host 127.0.0.1 --port 5000 \
 		--backend-store-uri sqlite:///artifacts/mlflow/mlflow.db --artifacts-destination artifacts/mlflow/artifacts
@@ -43,7 +43,9 @@ class RunRecord:
 
 
 def _source(repo_id: str) -> str:
-	return "twin" if "twin" in repo_id else "real"
+	if "twin" in repo_id:
+		return "twin"
+	return "sim" if "sim" in repo_id else "real"
 
 
 def training_record(run_dir: Path) -> RunRecord:
@@ -74,7 +76,10 @@ def training_record(run_dir: Path) -> RunRecord:
 		"camera_keys": ",".join(dataset["camera_keys"]),
 		"train_episodes": len(episodes.get("training", [])),
 		"val_episodes": len(episodes.get("validation", [])),
+		"devices": plan.get("devices", 1),
 	}
+	if plan.get("warm_start"):
+		params["warm_start"] = plan["warm_start"]
 	for key, value in config["model"].get("init_args", {}).items():
 		if isinstance(value, (str, int, float, bool)):
 			params[f"model.{key}"] = value

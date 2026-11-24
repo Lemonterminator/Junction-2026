@@ -1,0 +1,29 @@
+# SmolVLA action-expert fine-tune on the real sort-depth-v2 recording (configs/training/dataset.sort_depth_v2.toml),
+# warm-started from smolvla-sim-ddp8-01 (best.ckpt, step 3300), which itself started from the sort-depth-v2-10k run
+# and trained on the simulated batch dataset. Converted with scripts/training/ckpt_to_warm_start.py into
+# artifacts/warm-start/smolvla-sim-ddp8-01; normalisation statistics come from the real training split.
+# Same held-out episodes as smolvla_sort_depth_v2 (val_split 0.15, split_seed 4: episodes 6, 15, 19, 25, 30), so the
+# validation loss compares directly with sort-depth-v2-10k (val loss 0.292 at step 4119, 0.303 at 8239).
+# 8 GPUs x batch 8 = 64; the ~32k training frames make one epoch about 500 steps, so 2,000 steps run four epochs with
+# validation (and best.ckpt) after each. A fine-tune from a trained expert keeps the base learning rate.
+name = "smolvla-sort-depth-v2-from-sim-ddp8"
+policy = "smolvla"
+experimental = false
+warm_start = "smolvla-sim-ddp8-01"
+devices = 8
+num_workers = 4
+batch_size = 8
+max_steps = 2000
+val_split = 0.15
+split_seed = 4
+precision = "bf16-mixed"
+accumulate_grad_batches = 1
+
+[model]
+pretrained_name_or_path = "lerobot/smolvla_base"
+optimizer_lr = 0.0001
+scheduler_warmup_steps = 100
+freeze_vision_encoder = true
+train_expert_only = true
+train_state_proj = true
+compile_model = false
